@@ -131,6 +131,7 @@ model Customer {
 
 model CustomerPhone {
   id          String   @id @default(cuid())
+  tenantId    String
   customerId  String
   number      String
   normalized  String
@@ -138,9 +139,10 @@ model CustomerPhone {
   isPrimary   Boolean  @default(false)
   smsEnabled  Boolean  @default(true)
   callEnabled Boolean  @default(true)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  @@index([normalized])
-  @@index([customerId])
+  @@unique([tenantId, normalized])
+  @@index([tenantId, customerId])
 }
 
 model Pet {
@@ -253,9 +255,6 @@ model Communication {
   @@index([tenantId, ticketId, createdAt])
 }
 
-// Polymorphic audit rows intentionally use entityType/entityId instead of
-// foreign keys to every possible audited model. This keeps one ledger engine
-// while allowing each item to display its own contextual ledger.
 model AuditEntry {
   id          String          @id @default(cuid())
   tenantId    String
