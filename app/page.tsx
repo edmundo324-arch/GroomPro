@@ -15,6 +15,7 @@ const appointments = [
 ];
 
 type CustomerResult = { id: string; firstName: string; lastName: string; email: string | null; phones: { number: string; isPrimary: boolean }[]; pets: { name: string }[] };
+type Employee = { id: string; firstName: string; lastName: string; role: string };
 
 export default function Home() {
   const [activeModule, setActiveModule] = useState("Calendar");
@@ -27,7 +28,12 @@ export default function Home() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [showSwitch, setShowSwitch] = useState(false);
   const [pin, setPin] = useState("");
-  const [employee, setEmployee] = useState<string | null>(null);
+  const [pinError, setPinError] = useState("");
+  const [employee, setEmployee] = useState<Employee | null>(null);
+
+  useEffect(() => {
+    fetch("/api/employee/session").then(r => r.ok ? r.json() : { employee: null }).then(data => setEmployee(data.employee || null)).catch(() => setEmployee(null));
+  }, []);
 
   useEffect(() => {
     const query = customerQuery.trim();
@@ -49,8 +55,23 @@ export default function Home() {
 
   function closeCustomerSearch() { setShowCustomerSearch(false); setCustomerQuery(""); setCustomerResults([]); }
   function selectCustomer(id: string) { closeCustomerSearch(); setSelectedCustomerId(id); }
-  function enterPin() {
-    if (pin.length >= 4 && pin.length <= 10) { setEmployee("Authenticated Employee"); setPin(""); setShowSwitch(false); }
+  async function enterPin() {
+    if (pin.length < 4 || pin.length > 10) return;
+    setPinError("");
+    try {
+      const response = await fetch("/api/employee/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) });
+      const data = await response.json();
+      if (!response.ok) { setPinError(data.error || "Employee PIN was not recognized."); return; }
+      setEmployee(data.employee);
+      setPin("");
+      setShowSwitch(false);
+    } catch { setPinError("Employee sign-in could not be completed."); }
+  }
+  async function switchEmployee() {
+    await fetch("/api/employee/session", { method: "DELETE" }).catch(() => undefined);
+    setEmployee(null);
+    setPinError("");
+    setShowSwitch(true);
   }
 
   return (
@@ -58,7 +79,7 @@ export default function Home() {
       <header className="gp-topbar">
         <div className="gp-brand">GroomPro Suite</div>
         <nav className="gp-module-nav" aria-label="Main modules">{modules.map((module) => <button key={module} className={`gp-module ${activeModule === module ? "active" : ""}`} onClick={() => setActiveModule(module)}>{module}</button>)}</nav>
-        <div className="gp-employee"><span className="gp-status-dot" /><span>{employee ?? "Ready"}</span><button className="gp-switch" onClick={() => setShowSwitch(true)}>{employee ? "Switch" : "Employee PIN"}</button></div>
+        <div className="gp-employee"><span className="gp-status-dot" /><span>{employee ? `${employee.firstName} ${employee.lastName}` : "Ready"}</span><button className="gp-switch" onClick={() => employee ? switchEmployee() : setShowSwitch(true)}>{employee ? "Switch" : "Employee PIN"}</button></div>
       </header>
 
       <main className="gp-main">
@@ -72,7 +93,7 @@ export default function Home() {
       {showCustomerSearch && <div className="gp-modal-backdrop" role="dialog" aria-modal="true"><div className="gp-search-window"><div className="gp-floating-head"><div><div className="gp-floating-title">Customer Search</div><div className="gp-floating-subtitle">Search by phone, customer name, email, or pet name.</div></div><button className="gp-btn" onClick={closeCustomerSearch}>Close</button></div><input autoFocus value={customerQuery} onChange={e => setCustomerQuery(e.target.value)} placeholder="Phone, name, email, or pet" className="gp-search-input" />{customerQuery.trim().length < 2 ? <div className="gp-search-empty">Start typing to search existing customers.</div> : searching ? <div className="gp-search-empty">Searching customers…</div> : customerResults.length ? <div className="gp-search-results">{customerResults.map(customer => <button className="gp-customer-result" key={customer.id} onClick={() => selectCustomer(customer.id)}><div><strong>{customer.firstName} {customer.lastName}</strong><span>{customer.phones.find(p => p.isPrimary)?.number || customer.phones[0]?.number || customer.email || "Contact not set"}</span></div><div><span>{customer.pets.length ? customer.pets.map(p => p.name).join(", ") : "No pets"}</span><b>Open</b></div></button>)}</div> : <div className="gp-search-empty">No matching customers found.</div>}</div></div>}
       {selectedCustomerId && <CustomerProfile customerId={selectedCustomerId} onClose={() => setSelectedCustomerId(null)} />}
 
-      {showSwitch && <div className="gp-modal-backdrop" role="dialog" aria-modal="true"><div className="gp-pin-window"><h2 style={{ marginTop: 0 }}>Employee Switch</h2><p className="gp-floating-subtitle">Enter the employee PIN for an accountable action.</p><input autoFocus aria-label="Employee PIN" inputMode="numeric" type="password" maxLength={10} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))} onKeyDown={e => e.key === "Enter" && enterPin()} placeholder="4–10 digit PIN" className="gp-search-input" /><div className="gp-modal-actions"><button className="gp-btn" onClick={() => { setShowSwitch(false); setPin(""); }}>Cancel</button><button className="gp-btn primary" disabled={pin.length < 4} onClick={enterPin}>Enter</button></div></div></div>}
+      {showSwitch && <div className="gp-modal-backdrop" role="dialog" aria-modal="true"><div className="gp-pin-window"><h2 style={{ marginTop: 0 }}>Employee Switch</h2><p className="gp-floating-subtitle">Enter the employee PIN for an accountable action.</p><input autoFocus aria-label="Employee PIN" inputMode="numeric" type="password" maxLength={10} value={pin} onChange={e => { setPin(e.target.value.replace(/\D/g, "")); setPinError(""); }} onKeyDown={e => e.key === "Enter" && enterPin()} placeholder="4–10 digit PIN" className="gp-search-input" />{pinError && <div style={{ color: "#a12622", fontSize: 13, marginTop: 8 }}>{pinError}</div>}<div className="gp-modal-actions"><button className="gp-btn" onClick={() => { setShowSwitch(false); setPin(""); setPinError(""); }}>Cancel</button><button className="gp-btn primary" disabled={pin.length < 4} onClick={enterPin}>Enter</button></div></div></div>}
     </div>
   );
 }
