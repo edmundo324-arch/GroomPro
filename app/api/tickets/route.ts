@@ -28,17 +28,14 @@ export async function POST(request: NextRequest) {
   if (!customer || pets.length !== petIds.length) return NextResponse.json({ error: "Customer or pet could not be found." }, { status: 404 });
   const serviceIds = [...new Set(lineInputs.filter(l => l.type === "SERVICE").map(l => l.id))];
   const productIds = [...new Set(lineInputs.filter(l => l.type === "PRODUCT").map(l => l.id))];
-  const [services, products] = await Promise.all([
-    serviceIds.length ? db.service.findMany({ where: { id: { in: serviceIds }, tenantId, active: true } }) : Promise.resolve([]),
-    productIds.length ? db.product.findMany({ where: { id: { in: productIds }, tenantId, active: true } }) : Promise.resolve([]),
-  ]);
+  const [services, products] = await Promise.all([serviceIds.length ? db.service.findMany({ where: { id: { in: serviceIds }, tenantId, active: true } }) : Promise.resolve([]), productIds.length ? db.product.findMany({ where: { id: { in: productIds }, tenantId, active: true } }) : Promise.resolve([])]);
   if (services.length !== serviceIds.length || products.length !== productIds.length) return NextResponse.json({ error: "One or more services or products could not be found." }, { status: 404 });
   const durationMin = Math.max(15, Number(body.durationMin) || services.reduce((sum, s) => sum + s.durationMin, 0) || 30);
   const source = body.bookingSource === "ONLINE" ? "ONLINE" : "STAFF";
   const rules = await checkCustomerBookingRules(tenantId, customer.id, scheduledStart, durationMin);
   if (source === "ONLINE" && rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at this time. Online booking cannot double-book a customer.", conflicts: rules.conflicts }, { status: 409 });
-  const recentWarnings = rules.conflicts.filter(c => c.type === "RECENT");
-  if (source === "STAFF" && recentWarnings.length && !body.confirmRecentWarning) return NextResponse.json({ warning: "This customer has another appointment within two weeks.", conflicts: recentWarnings, requiresConfirmation: true }, { status: 409 });
+  const customerWarnings = rules.conflicts;
+  if (source === "STAFF" && customerWarnings.length && !body.confirmRecentWarning) return NextResponse.json({ warning: customerWarnings.some(c => c.type === "OVERLAP") ? "This customer already has an appointment at this time." : "This customer has another appointment within two weeks.", conflicts: customerWarnings, requiresConfirmation: true }, { status: 409 });
   const orderAggregate = await db.ticket.aggregate({ where: { tenantId }, _max: { orderNumber: true } });
   const orderNumber = (orderAggregate._max.orderNumber || 0) + 1;
   const serviceMap = new Map(services.map(s => [s.id, s]));
@@ -46,5 +43,5 @@ export async function POST(request: NextRequest) {
   const lines = lineInputs.map(line => { const quantity = Math.max(1, Number(line.quantity) || 1); if (line.type === "SERVICE") { const s = serviceMap.get(line.id)!; return { lineType: "SERVICE" as const, serviceId: s.id, petId: line.petId && petIds.includes(line.petId) ? line.petId : petIds[0], description: s.name, quantity, unitPriceCents: s.priceCents, totalCents: s.priceCents * quantity }; } const p = productMap.get(line.id)!; return { lineType: "PRODUCT" as const, productId: p.id, description: p.name, quantity, unitPriceCents: p.priceCents, totalCents: p.priceCents * quantity }; });
   const ticket = await db.ticket.create({ data: { tenantId, locationId, customerId: customer.id, orderNumber, scheduledStart, durationMin, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => ({ petId })) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: { userId: body.groomerId, role: "GROOMER" } } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: true, assignments: { include: { user: true } } } });
   await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? "Received online request" : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.` });
-  return NextResponse.json({ ticket, warnings: recentWarnings });
+  return NextResponse.json({ ticket, warnings: customerWarnings });
 }
