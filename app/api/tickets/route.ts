@@ -41,7 +41,37 @@ export async function POST(request: NextRequest) {
   const serviceMap = new Map(services.map(s => [s.id, s]));
   const productMap = new Map(products.map(p => [p.id, p]));
   const lines = lineInputs.map(line => { const quantity = Math.max(1, Number(line.quantity) || 1); if (line.type === "SERVICE") { const s = serviceMap.get(line.id)!; return { lineType: "SERVICE" as const, serviceId: s.id, petId: line.petId && petIds.includes(line.petId) ? line.petId : petIds[0], description: s.name, quantity, unitPriceCents: s.priceCents, totalCents: s.priceCents * quantity }; } const p = productMap.get(line.id)!; return { lineType: "PRODUCT" as const, productId: p.id, description: p.name, quantity, unitPriceCents: p.priceCents, totalCents: p.priceCents * quantity }; });
-  const ticket = await db.ticket.create({ data: { tenantId, locationId, customerId: customer.id, orderNumber, scheduledStart, durationMin, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => ({ petId })) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: { userId: body.groomerId, role: "GROOMER" } } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: true, assignments: { include: { user: true } } } });
-  await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? "Received online request" : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.` });
+  const ticket = await db.$transaction(async tx => {
+    const created = await tx.ticket.create({ data: { tenantId, locationId, customerId: customer.id, orderNumber, scheduledStart, durationMin, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => ({ petId })) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: { userId: body.groomerId, role: "GROOMER" } } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: true, assignments: { include: { user: true } } } });
+    await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
+    return created;
+  });
+  await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? "Received online request" : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.`, details: { scheduledStart: scheduledStart.toISOString() } });
   return NextResponse.json({ ticket, warnings: customerWarnings });
+}
+
+export async function PATCH(request: NextRequest) {
+  const tenantId = tenantFrom(request);
+  const locationId = request.nextUrl.searchParams.get("locationId") || process.env.GROOMPRO_DEV_LOCATION_ID || "";
+  if (!tenantId || !locationId) return NextResponse.json({ error: "Tenant and location context are required." }, { status: 401 });
+  const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
+  const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
+  if (!session) return NextResponse.json({ error: "Employee PIN is required before changing an appointment." }, { status: 401 });
+  let body: { ticketId?: string; scheduledStart?: string };
+  try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
+  if (!body.ticketId || !body.scheduledStart) return NextResponse.json({ error: "Ticket and new appointment time are required." }, { status: 400 });
+  const newStart = new Date(body.scheduledStart);
+  if (Number.isNaN(newStart.getTime())) return NextResponse.json({ error: "Invalid appointment time." }, { status: 400 });
+  const ticket = await db.ticket.findFirst({ where: { id: body.ticketId, tenantId, locationId }, include: { customer: true, pets: { include: { pet: true } } } });
+  if (!ticket) return NextResponse.json({ error: "Appointment could not be found." }, { status: 404 });
+  if (!ticket.scheduledStart) return NextResponse.json({ error: "This appointment has no scheduled time to move." }, { status: 400 });
+  if (ticket.scheduledStart.getTime() === newStart.getTime()) return NextResponse.json({ ticket, moved: false });
+  const previousStart = ticket.scheduledStart;
+  const updated = await db.$transaction(async tx => {
+    const changed = await tx.ticket.update({ where: { id: ticket.id }, data: { scheduledStart: newStart } });
+    await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "MOVED", previousStart, newStart } });
+    return changed;
+  });
+  await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: ticket.customerId, action: "MOVE", summary: `Moved appointment #${ticket.orderNumber} from ${previousStart.toLocaleString()} to ${newStart.toLocaleString()}.`, details: { previousStart: previousStart.toISOString(), newStart: newStart.toISOString() } });
+  return NextResponse.json({ ticket: updated, moved: true, previousStart, newStart });
 }
