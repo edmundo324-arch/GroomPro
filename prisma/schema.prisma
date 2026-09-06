@@ -14,6 +14,7 @@ enum AuditEntityType { TENANT LOCATION USER CUSTOMER PET VACCINATION TICKET PAYM
 enum CommunicationChannel { SMS EMAIL }
 enum CommunicationDirection { INBOUND OUTBOUND }
 enum PaymentType { CASH VISA MASTERCARD AMEX DISCOVER DEBIT GIFT_CARD OTHER }
+enum TicketLineType { SERVICE PRODUCT }
 
 model Tenant {
   id             String             @id @default(cuid())
@@ -28,6 +29,8 @@ model Tenant {
   tickets        Ticket[]
   payments       Payment[]
   communications Communication[]
+  services       Service[]
+  products       Product[]
   auditEntries   AuditEntry[]
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
@@ -88,6 +91,7 @@ model User {
   location     Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
   auditEntries AuditEntry[]
   sessions     EmployeeSession[]
+  ticketAssignments TicketAssignment[]
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   @@unique([tenantId, email])
@@ -184,24 +188,26 @@ model Vaccination {
 }
 
 model Ticket {
-  id             String          @id @default(cuid())
+  id             String             @id @default(cuid())
   tenantId       String
   locationId     String
   customerId     String
   orderNumber    Int
   scheduledStart DateTime?
-  durationMin    Int             @default(0)
-  status         TicketStatus    @default(OPEN)
-  notes          String?         @db.Text
-  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  location       Location        @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  durationMin    Int                @default(0)
+  status         TicketStatus       @default(OPEN)
+  notes          String?            @db.Text
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  location       Location            @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
   pets           TicketPet[]
+  lines          TicketLine[]
+  assignments    TicketAssignment[]
   payments       Payment[]
   communications Communication[]
   auditEntries   AuditEntry[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
   closedAt       DateTime?
   @@unique([tenantId, orderNumber])
   @@index([tenantId, locationId, scheduledStart])
@@ -216,6 +222,75 @@ model TicketPet {
   pet      Pet    @relation(fields: [petId], references: [id], onDelete: Restrict)
   @@unique([ticketId, petId])
   @@index([petId])
+}
+
+model Service {
+  id            String       @id @default(cuid())
+  tenantId      String
+  name          String
+  category      String?
+  description   String?      @db.Text
+  priceCents    Int          @default(0)
+  durationMin   Int          @default(30)
+  active        Boolean      @default(true)
+  commissionPct Decimal?     @db.Decimal(5, 2)
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ticketLines   TicketLine[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  @@index([tenantId, active, category])
+  @@index([tenantId, name])
+}
+
+model Product {
+  id           String       @id @default(cuid())
+  tenantId     String
+  sku          String?
+  name         String
+  description  String?      @db.Text
+  priceCents   Int          @default(0)
+  costCents    Int          @default(0)
+  quantity     Int          @default(0)
+  active       Boolean      @default(true)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ticketLines  TicketLine[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  @@index([tenantId, active])
+  @@index([tenantId, name])
+  @@unique([tenantId, sku])
+}
+
+model TicketLine {
+  id           String        @id @default(cuid())
+  ticketId     String
+  lineType     TicketLineType
+  serviceId    String?
+  productId    String?
+  petId        String?
+  description  String
+  quantity     Int           @default(1)
+  unitPriceCents Int         @default(0)
+  discountCents Int          @default(0)
+  totalCents   Int           @default(0)
+  ticket       Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  service      Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  @@index([ticketId])
+  @@index([serviceId])
+  @@index([productId])
+}
+
+model TicketAssignment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  userId    String
+  role      String
+  assignedAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@unique([ticketId, userId, role])
+  @@index([userId, assignedAt])
 }
 
 model Payment {
