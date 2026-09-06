@@ -1,0 +1,342 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  FLOOR_MANAGER
+  FRONT
+  BACK
+  MASTER_GROOMER
+  GROOMER
+  SALES
+}
+
+enum TicketStatus {
+  OPEN
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  READY
+  CLOSED
+  CANCELLED
+}
+
+enum AuditActorType {
+  EMPLOYEE
+  SYSTEM
+}
+
+enum AuditEntityType {
+  TENANT
+  LOCATION
+  USER
+  CUSTOMER
+  PET
+  VACCINATION
+  TICKET
+  PAYMENT
+  COMMUNICATION
+  MEMBERSHIP
+  INVENTORY_ITEM
+  SHIPMENT
+  BACKBAR_TICKET
+}
+
+enum CommunicationChannel {
+  SMS
+  EMAIL
+}
+
+enum CommunicationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum PaymentType {
+  CASH
+  VISA
+  MASTERCARD
+  AMEX
+  DISCOVER
+  DEBIT
+  GIFT_CARD
+  OTHER
+}
+
+model Tenant {
+  id            String        @id @default(cuid())
+  name          String
+  subscription  Subscription?
+  locations     Location[]
+  users         User[]
+  customers     Customer[]
+  tickets       Ticket[]
+  auditEntries  AuditEntry[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([name])
+}
+
+model Subscription {
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  plan        String
+  status      String   @default("active")
+  externalId  String?
+  startedAt   DateTime @default(now())
+  renewsAt    DateTime?
+  cancelledAt DateTime?
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model Location {
+  id          String       @id @default(cuid())
+  tenantId    String
+  name        String
+  address1    String?
+  address2    String?
+  city        String?
+  state       String?
+  postalCode  String?
+  timezone    String       @default("America/Chicago")
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users       User[]
+  tickets     Ticket[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([tenantId])
+}
+
+model User {
+  id              String       @id @default(cuid())
+  tenantId        String
+  locationId      String?
+  firstName       String
+  lastName        String
+  email           String?
+  pinHash         String
+  role            UserRole     @default(FRONT)
+  active          Boolean      @default(true)
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  location        Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  auditEntries    AuditEntry[]
+  sessions        EmployeeSession[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([tenantId, email])
+  @@index([tenantId, active])
+  @@index([tenantId, lastName, firstName])
+}
+
+model EmployeeSession {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String
+  deviceId    String
+  startedAt   DateTime  @default(now())
+  lastActiveAt DateTime @default(now())
+  endedAt     DateTime?
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, deviceId, endedAt])
+  @@index([tenantId, userId, endedAt])
+}
+
+model Customer {
+  id                  String             @id @default(cuid())
+  tenantId            String
+  firstName           String
+  lastName            String
+  email               String?
+  notificationPhoneId String?
+  notes               String?            @db.Text
+  active              Boolean            @default(true)
+  tenant              Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phones              CustomerPhone[]
+  pets                Pet[]
+  tickets             Ticket[]
+  communications     Communication[]
+  auditEntries        AuditEntry[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([tenantId, lastName, firstName])
+  @@index([tenantId, email])
+}
+
+model CustomerPhone {
+  id          String   @id @default(cuid())
+  customerId  String
+  number      String
+  normalized  String
+  label       String?
+  isPrimary   Boolean  @default(false)
+  smsEnabled  Boolean  @default(true)
+  callEnabled Boolean  @default(true)
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([normalized])
+  @@index([customerId])
+}
+
+model Pet {
+  id           String        @id @default(cuid())
+  tenantId     String
+  customerId   String
+  name         String
+  breed        String?
+  notes        String?       @db.Text
+  active       Boolean       @default(true)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer     Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vaccinations Vaccination[]
+  ticketPets   TicketPet[]
+  auditEntries AuditEntry[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([tenantId, customerId])
+  @@index([tenantId, name])
+}
+
+model Vaccination {
+  id            String       @id @default(cuid())
+  tenantId      String
+  customerId    String
+  petId         String
+  vaccineName   String
+  administeredAt DateTime
+  expiresAt     DateTime?
+  documentUrl   String?
+  notes         String?      @db.Text
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pet           Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
+  auditEntries  AuditEntry[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([tenantId, customerId])
+  @@index([tenantId, petId])
+  @@index([petId, vaccineName])
+}
+
+model Ticket {
+  id             String          @id @default(cuid())
+  tenantId       String
+  locationId     String
+  customerId     String
+  orderNumber    Int
+  scheduledStart DateTime?
+  durationMin    Int             @default(0)
+  status         TicketStatus    @default(OPEN)
+  notes          String?         @db.Text
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  location       Location        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  pets           TicketPet[]
+  payments       Payment[]
+  communications Communication[]
+  auditEntries   AuditEntry[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  closedAt       DateTime?
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, locationId, scheduledStart])
+  @@index([tenantId, customerId, createdAt])
+}
+
+model TicketPet {
+  id       String @id @default(cuid())
+  ticketId String
+  petId    String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  pet      Pet    @relation(fields: [petId], references: [id], onDelete: Restrict)
+
+  @@unique([ticketId, petId])
+  @@index([petId])
+}
+
+model Payment {
+  id          String      @id @default(cuid())
+  tenantId    String
+  ticketId    String
+  amount      Decimal     @db.Decimal(10, 2)
+  paymentType PaymentType
+  externalId  String?
+  paidAt      DateTime    @default(now())
+  ticket      Ticket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  auditEntries AuditEntry[]
+
+  @@index([tenantId, ticketId, paidAt])
+}
+
+model Communication {
+  id          String                @id @default(cuid())
+  tenantId    String
+  customerId  String
+  ticketId    String?
+  channel     CommunicationChannel
+  direction   CommunicationDirection
+  fromAddress String?
+  toAddress   String?
+  subject     String?
+  body        String                @db.Text
+  sentAt      DateTime?
+  receivedAt  DateTime?
+  externalId  String?
+  customer    Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  ticket      Ticket?               @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  auditEntries AuditEntry[]
+
+  @@index([tenantId, customerId, createdAt])
+  @@index([tenantId, ticketId, createdAt])
+  createdAt DateTime @default(now())
+}
+
+model AuditEntry {
+  id             String          @id @default(cuid())
+  tenantId       String
+  actorType      AuditActorType
+  actorUserId    String?
+  entityType     AuditEntityType
+  entityId       String
+  customerId     String?
+  action         String
+  summary        String
+  details        Json?
+  occurredAt     DateTime        @default(now())
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorUser      User?           @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  ticket         Ticket?         @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "audit_ticket_relation")
+  payment        Payment?        @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "audit_payment_relation")
+  communication Communication?   @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "audit_communication_relation")
+  pet            Pet?            @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "audit_pet_relation")
+  vaccination    Vaccination?   @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "audit_vaccination_relation")
+
+  @@index([tenantId, entityType, entityId, occurredAt])
+  @@index([tenantId, customerId, occurredAt])
+  @@index([tenantId, actorUserId, occurredAt])
+}
+
+model SubscriptionPlan {
+  id          String @id @default(cuid())
+  code        String @unique
+  name        String
+  monthlyCents Int
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
