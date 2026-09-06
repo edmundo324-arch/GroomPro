@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AppointmentWindow } from "@/src/components/appointment-window";
+import { CustomerCreateWindow } from "@/src/components/customer-create-window";
 import { CustomerProfile } from "@/src/components/customer-profile";
 
 const modules = ["Calendar", "Customers", "Pets", "Tickets", "Whiteboard", "Messaging", "Inventory", "Reports"];
 const times = Array.from({ length: 9 }, (_, i) => `${i + 8}:00`);
-type Employee = { id: string; firstName: string; lastName: string; role: string };
+type Employee = { id: string; firstName: string; lastName: string; role: string; active?: boolean };
 type Ticket = { id: string; orderNumber: number; scheduledStart: string | null; durationMin: number; status: string; customer: { firstName: string; lastName: string }; pets: { pet: { name: string; breed: string | null } }[]; lines: { description: string; totalCents: number }[]; assignments: { user: { id: string; firstName: string; lastName: string; role: string }; role: string }[] };
 type CustomerResult = { id: string; firstName: string; lastName: string; email: string | null; phones: { number: string; isPrimary: boolean }[]; pets: { name: string }[] };
 
-function dayKey(date: Date) { return date.toISOString().slice(0, 10); }
 function dateLabel(date: Date) { return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" }); }
 
 export default function Home() {
@@ -23,6 +23,7 @@ export default function Home() {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarError, setCalendarError] = useState("");
   const [showAppointment, setShowAppointment] = useState(false);
+  const [showCustomerCreate, setShowCustomerCreate] = useState(false);
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerResults, setCustomerResults] = useState<CustomerResult[]>([]);
@@ -57,6 +58,7 @@ export default function Home() {
   const visibleEmployees = useMemo(() => workingOnly ? employees.filter(e => e.active !== false) : employees, [employees, workingOnly]);
   function moveDay(amount: number) { const next = new Date(date); next.setDate(next.getDate() + amount); setDate(next); }
   function closeSearch() { setShowCustomerSearch(false); setCustomerQuery(""); setCustomerResults([]); }
+  function openCustomer(customerId: string) { setSelectedCustomerId(customerId); setShowCustomerCreate(false); }
   async function enterPin() { if (pin.length < 4 || pin.length > 10) return; setPinError(""); try { const r = await fetch("/api/employee/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }) }); const d = await r.json(); if (!r.ok) { setPinError(d.error || "Employee PIN was not recognized."); return; } setEmployee(d.employee); setPin(""); setShowSwitch(false); } catch { setPinError("Employee sign-in could not be completed."); } }
   async function switchEmployee() { await fetch("/api/employee/session", { method: "DELETE" }).catch(() => undefined); setEmployee(null); setShowSwitch(true); }
 
@@ -64,7 +66,7 @@ export default function Home() {
     <header className="gp-topbar"><div className="gp-brand">GroomPro Suite</div><nav className="gp-module-nav" aria-label="Main modules">{modules.map(m => <button key={m} className={`gp-module ${activeModule === m ? "active" : ""}`} onClick={() => setActiveModule(m)}>{m}</button>)}</nav><div className="gp-employee"><span className="gp-status-dot"/><span>{employee ? `${employee.firstName} ${employee.lastName}` : "Ready"}</span><button className="gp-switch" onClick={() => employee ? switchEmployee() : setShowSwitch(true)}>{employee ? "Switch" : "Employee PIN"}</button></div></header>
     <main className="gp-main">
       {activeModule === "Calendar" ? <>
-        <div className="gp-calendar-head"><div><h1 className="gp-title">Calendar</h1><p className="gp-subtitle">Primary workspace · {dateLabel(date)}</p></div><div className="gp-actions"><button className="gp-btn" onClick={() => setWorkingOnly(!workingOnly)}>{workingOnly ? "Working Employees" : "All Employees"}</button><button className="gp-btn" onClick={() => setShowCustomerSearch(true)}>Find Customer</button><button className="gp-btn primary" onClick={() => setShowAppointment(true)}>+ New Appointment</button></div></div>
+        <div className="gp-calendar-head"><div><h1 className="gp-title">Calendar</h1><p className="gp-subtitle">Primary workspace · {dateLabel(date)}</p></div><div className="gp-actions"><button className="gp-btn" onClick={() => setWorkingOnly(!workingOnly)}>{workingOnly ? "Working Employees" : "All Employees"}</button><button className="gp-btn" onClick={() => setShowCustomerSearch(true)}>Find Customer</button><button className="gp-btn" onClick={() => setShowCustomerCreate(true)}>+ New Customer</button><button className="gp-btn primary" onClick={() => setShowAppointment(true)}>+ New Appointment</button></div></div>
         <section className="gp-calendar"><div className="gp-calendar-toolbar"><button className="gp-btn" onClick={() => moveDay(-1)}>‹</button><button className="gp-btn" onClick={() => setDate(new Date())}>Today</button><button className="gp-btn" onClick={() => moveDay(1)}>›</button><span className="gp-date">{dateLabel(date)}</span><div className="gp-view-toggle">{["Day", "Week"].map(v => <button key={v} className={view === v ? "selected" : ""} onClick={() => setView(v)}>{v}</button>)}</div></div>
           {calendarLoading && <div className="gp-search-empty">Loading appointments…</div>}
           {calendarError && <div className="gp-form-error">{calendarError}</div>}
@@ -76,6 +78,7 @@ export default function Home() {
     </main>
 
     {showAppointment && <AppointmentWindow date={date} onClose={() => setShowAppointment(false)} onSaved={() => { setShowAppointment(false); loadCalendar(); }} />}
+    {showCustomerCreate && <CustomerCreateWindow onClose={() => setShowCustomerCreate(false)} onCreated={openCustomer} onOpenExisting={openCustomer} />}
     {showCustomerSearch && <div className="gp-modal-backdrop" role="dialog" aria-modal="true"><div className="gp-search-window"><div className="gp-floating-head"><div><div className="gp-floating-title">Customer Search</div><div className="gp-floating-subtitle">Search by phone, customer name, email, or pet name.</div></div><button className="gp-btn" onClick={closeSearch}>Close</button></div><input autoFocus value={customerQuery} onChange={e => { setCustomerQuery(e.target.value); setSelectedCustomerId(null); }} placeholder="Phone, name, email, or pet" className="gp-search-input" />{customerQuery.trim().length < 2 ? <div className="gp-search-empty">Start typing to search existing customers.</div> : searching ? <div className="gp-search-empty">Searching customers…</div> : customerResults.length ? <div className="gp-search-results">{customerResults.map(c => <button className="gp-customer-result" key={c.id} onClick={() => { closeSearch(); setSelectedCustomerId(c.id); }}><div><strong>{c.firstName} {c.lastName}</strong><span>{c.phones.find(p => p.isPrimary)?.number || c.email || "Contact not set"}</span></div><div><span>{c.pets.map(p => p.name).join(", ") || "No pets"}</span><b>Open</b></div></button>)}</div> : <div className="gp-search-empty">No matching customers found.</div>}</div></div>}
     {selectedCustomerId && <CustomerProfile customerId={selectedCustomerId} onClose={() => setSelectedCustomerId(null)} />}
     {showSwitch && <div className="gp-modal-backdrop" role="dialog" aria-modal="true"><div className="gp-pin-window"><h2 style={{ marginTop: 0 }}>Employee Switch</h2><p className="gp-floating-subtitle">Enter the employee PIN for an accountable action.</p><input autoFocus inputMode="numeric" type="password" maxLength={10} value={pin} onChange={e => { setPin(e.target.value.replace(/\D/g, "")); setPinError(""); }} onKeyDown={e => e.key === "Enter" && enterPin()} placeholder="4–10 digit PIN" className="gp-search-input" />{pinError && <div className="gp-form-error">{pinError}</div>}<div className="gp-modal-actions"><button className="gp-btn" onClick={() => setShowSwitch(false)}>Cancel</button><button className="gp-btn primary" disabled={pin.length < 4} onClick={enterPin}>Enter</button></div></div></div>}
