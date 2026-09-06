@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
   ]);
   if (services.length !== serviceIds.length || products.length !== productIds.length) return NextResponse.json({ error: "One or more services or products could not be found." }, { status: 404 });
   const durationMin = Math.max(15, Number(body.durationMin) || services.reduce((sum, s) => sum + s.durationMin, 0) || 30);
-  const end = new Date(scheduledStart.getTime() + durationMin * 60000);
   const source = body.bookingSource === "ONLINE" ? "ONLINE" : "STAFF";
   const rules = await checkCustomerBookingRules(tenantId, customer.id, scheduledStart, durationMin);
   if (source === "ONLINE" && rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at this time. Online booking cannot double-book a customer.", conflicts: rules.conflicts }, { status: 409 });
