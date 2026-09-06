@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 import { writeAudit } from "@/src/lib/audit";
 import { getActiveEmployeeSession } from "@/src/lib/employee-session";
+import { checkCustomerBookingRules } from "@/src/lib/booking-rules";
 
 const SESSION_COOKIE = "groompro_session";
 function tenantFrom(request: NextRequest) { return request.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID || ""; }
-
 type LineInput = { type: "SERVICE" | "PRODUCT"; id: string; petId?: string; quantity?: number };
 
 export async function POST(request: NextRequest) {
@@ -15,21 +15,17 @@ export async function POST(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return NextResponse.json({ error: "Employee PIN is required before creating a ticket." }, { status: 401 });
-
-  let body: { customerId?: string; petId?: string; petIds?: string[]; serviceId?: string; serviceIds?: string[]; lines?: LineInput[]; scheduledStart?: string; durationMin?: number; notes?: string; groomerId?: string };
+  let body: { customerId?: string; petId?: string; petIds?: string[]; serviceId?: string; serviceIds?: string[]; lines?: LineInput[]; scheduledStart?: string; durationMin?: number; notes?: string; groomerId?: string; bookingSource?: "STAFF"|"ONLINE"; onlineCategory?: "GROOMING"|"FULL_WASH"|"NAIL_GRINDING"|"SELFSERVICE"|"DAYCARE"|"BOARDING"; confirmRecentWarning?: boolean };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if (!body.customerId || !body.scheduledStart) return NextResponse.json({ error: "Customer and appointment time are required." }, { status: 400 });
   const scheduledStart = new Date(body.scheduledStart);
   if (Number.isNaN(scheduledStart.getTime())) return NextResponse.json({ error: "Invalid appointment time." }, { status: 400 });
-
   const petIds = [...new Set([...(body.petIds || []), ...(body.petId ? [body.petId] : [])])];
-  const lineInputs = body.lines?.length ? body.lines : (body.serviceId ? [{ type: "SERVICE", id: body.serviceId, petId: body.petId }] : (body.serviceIds || []).map(id => ({ type: "SERVICE" as const, id, petId: body.petId })));
+  const lineInputs = body.lines?.length ? body.lines : (body.serviceId ? [{ type: "SERVICE" as const, id: body.serviceId, petId: body.petId }] : (body.serviceIds || []).map(id => ({ type: "SERVICE" as const, id, petId: body.petId })));
   if (!petIds.length || !lineInputs.length) return NextResponse.json({ error: "At least one pet and one service or product are required." }, { status: 400 });
-
   const customer = await db.customer.findFirst({ where: { id: body.customerId, tenantId, active: true } });
   const pets = await db.pet.findMany({ where: { id: { in: petIds }, tenantId, customerId: body.customerId, active: true } });
   if (!customer || pets.length !== petIds.length) return NextResponse.json({ error: "Customer or pet could not be found." }, { status: 404 });
-
   const serviceIds = [...new Set(lineInputs.filter(l => l.type === "SERVICE").map(l => l.id))];
   const productIds = [...new Set(lineInputs.filter(l => l.type === "PRODUCT").map(l => l.id))];
   const [services, products] = await Promise.all([
@@ -37,30 +33,19 @@ export async function POST(request: NextRequest) {
     productIds.length ? db.product.findMany({ where: { id: { in: productIds }, tenantId, active: true } }) : Promise.resolve([]),
   ]);
   if (services.length !== serviceIds.length || products.length !== productIds.length) return NextResponse.json({ error: "One or more services or products could not be found." }, { status: 404 });
-
   const durationMin = Math.max(15, Number(body.durationMin) || services.reduce((sum, s) => sum + s.durationMin, 0) || 30);
   const end = new Date(scheduledStart.getTime() + durationMin * 60000);
-  const groomerId = body.groomerId || undefined;
-  if (groomerId) {
-    const groomer = await db.user.findFirst({ where: { id: groomerId, tenantId, active: true, role: { in: ["GROOMER", "MASTER_GROOMER"] } } });
-    if (!groomer) return NextResponse.json({ error: "Selected groomer is not available." }, { status: 400 });
-    const conflicts = await db.ticket.findMany({ where: { tenantId, locationId, status: { notIn: ["CANCELLED", "CLOSED"] }, scheduledStart: { lt: end }, assignments: { some: { userId: groomerId, role: "GROOMER" } } }, select: { id: true, orderNumber: true, scheduledStart: true, durationMin: true } });
-    const conflict = conflicts.find(t => t.scheduledStart && t.scheduledStart.getTime() + t.durationMin * 60000 > scheduledStart.getTime());
-    if (conflict) return NextResponse.json({ error: `Groomer is already booked for appointment #${conflict.orderNumber} during that time.` }, { status: 409 });
-  }
-  const customerConflict = await db.ticket.findFirst({ where: { tenantId, locationId, customerId: customer.id, status: { notIn: ["CANCELLED", "CLOSED"] }, scheduledStart: { lt: end } }, select: { orderNumber: true, scheduledStart: true, durationMin: true } });
-  if (customerConflict?.scheduledStart && customerConflict.scheduledStart.getTime() + customerConflict.durationMin * 60000 > scheduledStart.getTime()) return NextResponse.json({ error: `Customer already has appointment #${customerConflict.orderNumber} during that time.` }, { status: 409 });
-
+  const source = body.bookingSource === "ONLINE" ? "ONLINE" : "STAFF";
+  const rules = await checkCustomerBookingRules(tenantId, customer.id, scheduledStart, durationMin);
+  if (source === "ONLINE" && rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at this time. Online booking cannot double-book a customer.", conflicts: rules.conflicts }, { status: 409 });
+  const recentWarnings = rules.conflicts.filter(c => c.type === "RECENT");
+  if (source === "STAFF" && recentWarnings.length && !body.confirmRecentWarning) return NextResponse.json({ warning: "This customer has another appointment within two weeks.", conflicts: recentWarnings, requiresConfirmation: true }, { status: 409 });
   const orderAggregate = await db.ticket.aggregate({ where: { tenantId }, _max: { orderNumber: true } });
   const orderNumber = (orderAggregate._max.orderNumber || 0) + 1;
   const serviceMap = new Map(services.map(s => [s.id, s]));
   const productMap = new Map(products.map(p => [p.id, p]));
-  const lines = lineInputs.map(line => {
-    const quantity = Math.max(1, Number(line.quantity) || 1);
-    if (line.type === "SERVICE") { const s = serviceMap.get(line.id)!; return { lineType: "SERVICE" as const, serviceId: s.id, petId: line.petId && petIds.includes(line.petId) ? line.petId : petIds[0], description: s.name, quantity, unitPriceCents: s.priceCents, totalCents: s.priceCents * quantity }; }
-    const p = productMap.get(line.id)!; return { lineType: "PRODUCT" as const, productId: p.id, description: p.name, quantity, unitPriceCents: p.priceCents, totalCents: p.priceCents * quantity };
-  });
-  const ticket = await db.ticket.create({ data: { tenantId, locationId, customerId: customer.id, orderNumber, scheduledStart, durationMin, status: "OPEN", notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => ({ petId })) }, lines: { create: lines }, ...(groomerId ? { assignments: { create: { userId: groomerId, role: "GROOMER" } } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: true, assignments: { include: { user: true } } } });
-  await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `Created ticket #${orderNumber} for ${pets.map(p => p.name).join(", ")}.` });
-  return NextResponse.json({ ticket }, { status: 201 });
+  const lines = lineInputs.map(line => { const quantity = Math.max(1, Number(line.quantity) || 1); if (line.type === "SERVICE") { const s = serviceMap.get(line.id)!; return { lineType: "SERVICE" as const, serviceId: s.id, petId: line.petId && petIds.includes(line.petId) ? line.petId : petIds[0], description: s.name, quantity, unitPriceCents: s.priceCents, totalCents: s.priceCents * quantity }; } const p = productMap.get(line.id)!; return { lineType: "PRODUCT" as const, productId: p.id, description: p.name, quantity, unitPriceCents: p.priceCents, totalCents: p.priceCents * quantity }; });
+  const ticket = await db.ticket.create({ data: { tenantId, locationId, customerId: customer.id, orderNumber, scheduledStart, durationMin, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => ({ petId })) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: { userId: body.groomerId, role: "GROOMER" } } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: true, assignments: { include: { user: true } } } });
+  await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? "Received online request" : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.` });
+  return NextResponse.json({ ticket, warnings: recentWarnings });
 }
