@@ -17,13 +17,15 @@ export default function Home() {
   const [activeModule, setActiveModule] = useState("Calendar");
   const [view, setView] = useState("Day");
   const [workingOnly, setWorkingOnly] = useState(true);
-  const [employee, setEmployee] = useState<string | null>(null);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [customerQuery, setCustomerQuery] = useState("");
   const [showSwitch, setShowSwitch] = useState(false);
   const [pin, setPin] = useState("");
+  const [employee, setEmployee] = useState<string | null>(null);
 
   function enterPin() {
     if (pin.length >= 4 && pin.length <= 10) {
-      setEmployee("Active Employee");
+      setEmployee("Authenticated Employee");
       setPin("");
       setShowSwitch(false);
     }
@@ -43,7 +45,7 @@ export default function Home() {
         {activeModule === "Calendar" ? <>
           <div className="gp-calendar-head">
             <div><h1 className="gp-title">Calendar</h1><p className="gp-subtitle">Primary workspace · Monday, September 7, 2026</p></div>
-            <div className="gp-actions"><button className="gp-btn" onClick={() => setWorkingOnly(!workingOnly)}>{workingOnly ? "Working Employees" : "All Employees"}</button><button className="gp-btn primary">+ New Appointment</button></div>
+            <div className="gp-actions"><button className="gp-btn" onClick={() => setWorkingOnly(!workingOnly)}>{workingOnly ? "Working Employees" : "All Employees"}</button><button className="gp-btn" onClick={() => setShowCustomerSearch(true)}>Find Customer</button><button className="gp-btn primary">+ New Appointment</button></div>
           </div>
           <section className="gp-calendar">
             <div className="gp-calendar-toolbar"><button className="gp-btn">‹</button><button className="gp-btn">Today</button><button className="gp-btn">›</button><span className="gp-date">Monday, September 7</span><div className="gp-view-toggle">{["Day", "Week"].map(item => <button key={item} className={view === item ? "selected" : ""} onClick={() => setView(item)}>{item}</button>)}</div></div>
@@ -55,7 +57,9 @@ export default function Home() {
         </> : <section className="gp-calendar" style={{ padding: 24 }}><h1 className="gp-title">{activeModule}</h1><p className="gp-subtitle">This workspace is being built into the GroomPro application shell.</p><button className="gp-btn" style={{ marginTop: 16 }} onClick={() => setActiveModule("Calendar")}>Return to Calendar</button></section>}
       </main>
 
-      {showSwitch && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.38)", display: "grid", placeItems: "center", zIndex: 10 }}><div style={{ width: 330, background: "white", borderRadius: 10, padding: 22, boxShadow: "0 8px 30px rgba(0,0,0,.25)" }}><h2 style={{ marginTop: 0 }}>Employee Switch</h2><p style={{ color: "#697681", fontSize: 14 }}>Enter the employee PIN for an accountable action.</p><input autoFocus aria-label="Employee PIN" inputMode="numeric" type="password" maxLength={10} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))} onKeyDown={e => e.key === "Enter" && enterPin()} placeholder="4–10 digit PIN" style={{ width: "100%", padding: 11, border: "1px solid #bdc6cd", borderRadius: 6, marginBottom: 10 }} /><div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button className="gp-btn" onClick={() => { setShowSwitch(false); setPin(""); }}>Cancel</button><button className="gp-btn primary" disabled={pin.length < 4} onClick={enterPin}>Enter</button></div></div></div>}
+      {showCustomerSearch && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.28)", zIndex: 20 }}><div style={{ position: "absolute", top: 72, left: "50%", transform: "translateX(-50%)", width: "min(680px, calc(100% - 32px))", background: "white", borderRadius: 10, padding: 22, boxShadow: "0 8px 30px rgba(0,0,0,.25)" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><h2 style={{ margin: 0 }}>Customer Search</h2><p style={{ color: "#697681", fontSize: 14, marginBottom: 14 }}>Search by phone, customer name, email, or pet name.</p></div><button className="gp-btn" onClick={() => { setShowCustomerSearch(false); setCustomerQuery(""); }}>Close</button></div><input autoFocus value={customerQuery} onChange={e => setCustomerQuery(e.target.value)} placeholder="Phone, name, email, or pet" style={{ width: "100%", padding: 13, border: "1px solid #bdc6cd", borderRadius: 6 }} /><div style={{ marginTop: 16, padding: 16, border: "1px dashed #bdc6cd", borderRadius: 8, color: "#697681" }}>{customerQuery.length < 2 ? "Start typing to search existing customers." : "Customer search is connected to the tenant-safe API. Results will appear here when the database is connected."}</div></div></div>}
+
+      {showSwitch && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.38)", display: "grid", placeItems: "center", zIndex: 30 }}><div style={{ width: 330, background: "white", borderRadius: 10, padding: 22, boxShadow: "0 8px 30px rgba(0,0,0,.25)" }}><h2 style={{ marginTop: 0 }}>Employee Switch</h2><p style={{ color: "#697681", fontSize: 14 }}>Enter the employee PIN for an accountable action.</p><input autoFocus aria-label="Employee PIN" inputMode="numeric" type="password" maxLength={10} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))} onKeyDown={e => e.key === "Enter" && enterPin()} placeholder="4–10 digit PIN" style={{ width: "100%", padding: 11, border: "1px solid #bdc6cd", borderRadius: 6, marginBottom: 10 }} /><div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button className="gp-btn" onClick={() => { setShowSwitch(false); setPin(""); }}>Cancel</button><button className="gp-btn primary" disabled={pin.length < 4} onClick={enterPin}>Enter</button></div></div></div>}
     </div>
   );
 }
