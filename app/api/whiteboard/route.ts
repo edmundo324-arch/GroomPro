@@ -34,17 +34,32 @@ export async function PATCH(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return NextResponse.json({ error: "Employee PIN is required before changing the whiteboard." }, { status: 401 });
-  let body: { ticketId?: string; action?: "PRIORITY" | "VIP" | "ANAL"; value?: number | string | null; petId?: string };
+
+  let body: { ticketId?: string; action?: "PRIORITY" | "VIP" | "ANAL" | "ASSIGN"; value?: number | string | null; petId?: string; lineRole?: "PREP" | "BATH" | "GROOM"; userId?: string | null };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if (!body.ticketId || !body.action) return NextResponse.json({ error: "Ticket and whiteboard action are required." }, { status: 400 });
   const ticket = await db.ticket.findFirst({ where: { id: body.ticketId, tenantId, locationId }, include: { pets: true } });
   if (!ticket) return NextResponse.json({ error: "Ticket could not be found." }, { status: 404 });
 
   if (body.action === "PRIORITY") {
-    if (body.value !== null && (!Number.isInteger(Number(body.value)) || Number(body.value) < 1)) return NextResponse.json({ error: "Priority must be a touch-selected positive number." }, { status: 400 });
-    const updated = await db.ticket.update({ where: { id: ticket.id }, data: { arrivalPriority: body.value === null ? null : Number(body.value) } });
-    await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: ticket.customerId, action: "WHITEBOARD_PRIORITY", summary: `Changed whiteboard priority for order #${ticket.orderNumber}.`, details: { previous: ticket.arrivalPriority, next: updated.arrivalPriority } });
+    if (body.value !== null && body.value !== undefined && (!/^\d+$/.test(String(body.value)) || Number(body.value) < 1)) return NextResponse.json({ error: "Priority must be a positive whole number." }, { status: 400 });
+    const updated = await db.ticket.update({ where: { id: ticket.id }, data: { arrivalPriority: body.value === null || body.value === undefined ? null : Number(body.value) } });
+    await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: ticket.customerId, action: "WHITEBOARD_PRIORITY", summary: `Changed whiteboard priority for order #${ticket.orderNumber}.`, details: { previous: ticket.arrivalPriority, next: updated.arrivalPriority, entryMethod: "EMPLOYEE_OR_FRONT_DESK" } });
     return NextResponse.json({ ticket: updated });
+  }
+
+  if (body.action === "ASSIGN") {
+    if (!body.petId || !ticket.pets.some(p => p.petId === body.petId)) return NextResponse.json({ error: "A dog on this ticket must be selected." }, { status: 400 });
+    if (!body.lineRole) return NextResponse.json({ error: "Workflow assignment role is required." }, { status: 400 });
+    if (body.userId) {
+      const employee = await db.user.findFirst({ where: { id: body.userId, tenantId, active: true, OR: [{ locationId }, { locationId: null }] }, select: { id: true } });
+      if (!employee) return NextResponse.json({ error: "Employee could not be found." }, { status: 404 });
+    }
+    const line = await db.ticketLine.findFirst({ where: { ticketId: ticket.id, petId: body.petId, role: body.lineRole } });
+    if (!line) return NextResponse.json({ error: "Workflow service line could not be found for this dog." }, { status: 404 });
+    const updated = await db.ticketLine.update({ where: { id: line.id }, data: { assignedUserId: body.userId || null, assignedAt: body.userId ? new Date() : null } });
+    await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: ticket.customerId, action: "WHITEBOARD_ASSIGN", summary: `Changed ${body.lineRole} assignment for ${body.petId} on order #${ticket.orderNumber}.`, details: { petId: body.petId, role: body.lineRole, previousUserId: line.assignedUserId, nextUserId: body.userId || null } });
+    return NextResponse.json({ line: updated });
   }
 
   if (!body.petId || !ticket.pets.some(p => p.petId === body.petId)) return NextResponse.json({ error: "A dog on this ticket must be selected." }, { status: 400 });
