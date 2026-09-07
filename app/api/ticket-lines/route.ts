@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const tenantId = tenantFrom(request);
   const ticketId = request.nextUrl.searchParams.get("ticketId") || "";
   if (!tenantId || !ticketId) return NextResponse.json({ error: "Tenant and ticket are required." }, { status: 400 });
-  const lines = await db.ticketLine.findMany({ where: { ticketId, ticket: { tenantId } }, orderBy: [{ petId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }], include: { pet: true, service: true, product: true, assignedUser: true } });
+  const lines = await db.ticketLine.findMany({ where: { ticketId, ticket: { tenantId } }, orderBy: [{ petId: "asc" }, { sortOrder: "asc" }], include: { pet: true, service: true, product: true, assignedUser: true } });
   return NextResponse.json({ lines });
 }
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   if (!item) return NextResponse.json({ error: "Service or product could not be found." }, { status: 404 });
   const unitPriceCents = item.priceCents;
   const totalCents = unitPriceCents * quantity;
-  const commissionPct = body.type === "SERVICE" && "commissionPct" in item && item.commissionPct != null ? Number(item.commissionPct) : null;
+  const commissionPct = body.type === "SERVICE" ? (item as { commissionPct?: unknown }).commissionPct == null ? null : Number((item as { commissionPct: unknown }).commissionPct) : null;
   const commissionCents = commissionPct == null ? 0 : Math.round(totalCents * commissionPct / 100);
   const line = await db.ticketLine.create({ data: { ticketId: ticket.id, lineType: body.type, role: role as any, serviceId: body.type === "SERVICE" ? body.id : null, productId: body.type === "PRODUCT" ? body.id : null, petId: body.petId || null, description: item.name, quantity, unitPriceCents, totalCents, commissionPct, commissionCents, sortOrder: Number(body.sortOrder) || 0, assignedUserId: assignedUser?.id || null, assignedAt: assignedUser ? new Date() : null }, include: { pet: true, service: true, product: true, assignedUser: true } });
   await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: ticket.customerId, action: "ADD_LINE", summary: `Added ${item.name} to ticket #${ticket.orderNumber}.`, details: { lineId: line.id, petId: line.petId, role: line.role } });
