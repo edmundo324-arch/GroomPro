@@ -13,7 +13,6 @@ export async function PATCH(request: NextRequest) {
   let body:{ticketId?:string;staying?:boolean};try{body=await request.json()}catch{return NextResponse.json({error:"Invalid request."},{status:400})}
   if(!body.ticketId||typeof body.staying!=="boolean")return NextResponse.json({error:"Ticket and daycare selection are required."},{status:400});
   const ticket=await db.ticket.findFirst({where:{id:body.ticketId,tenantId,locationId},include:{customer:true,pets:{include:{pet:true}}}});if(!ticket)return NextResponse.json({error:"Ticket could not be found."},{status:404});
-  if(ticket.status!=="READY")return NextResponse.json({error:"Daycare is offered and assigned while the ticket is ready for pickup, before checkout is closed."},{status:409});
   const daycareService=await db.service.findFirst({where:{tenantId,active:true,OR:[{category:"DAYCARE"},{name:"Daycare"}]},orderBy:[{category:"asc"},{name:"asc"}]});
   if(!daycareService)return NextResponse.json({error:"A Daycare service must be configured in Services before Daycare can be added to a ticket."},{status:409});
   const existingLine=await db.ticketLine.findFirst({where:{ticketId:ticket.id,serviceId:daycareService.id,role:"ADD_ON",petId:null}});
