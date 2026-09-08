@@ -1,0 +1,210 @@
+// GroomPro modular SaaS foundation.
+// These models intentionally keep tenant/location IDs explicit so the platform
+// can evolve without coupling business-specific behavior into the core models.
+
+enum FeatureScope { PLATFORM BUSINESS LOCATION ROLE }
+enum FeatureConfigType { TOGGLE CONFIGURABLE }
+enum CustomerLocationMode { ALL_LOCATIONS SELECTED_LOCATIONS }
+enum LocationPriceMode { FOLLOW_BASE PERCENT_ADJUSTMENT FIXED }
+enum PricingEntityType { SERVICE PACKAGE }
+enum PricingScope { BUSINESS LOCATION }
+
+enum FeatureKey {
+  CALENDAR
+  CUSTOMERS
+  PETS
+  TICKETS
+  WHITEBOARD
+  MESSAGING
+  INVENTORY
+  REPORTS
+  ONLINE_BOOKING
+  DAYCARE
+  BOARDING
+  VIP
+  MEMBERSHIPS
+  PAYMENTS
+  BACKBAR
+  AI_FRONT_DESK
+  CUSTOMER_PORTAL
+}
+
+// Developer/platform catalog. A business can only activate features that exist here.
+model FeatureDefinition {
+  id String @id @default(cuid())
+  key FeatureKey @unique
+  name String
+  description String? @db.Text
+  scope FeatureScope @default(BUSINESS)
+  configType FeatureConfigType @default(TOGGLE)
+  enabledByDefault Boolean @default(false)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([active])
+}
+
+// Business-level entitlement/activation. Turning a feature off hides/deactivates it
+// without deleting the underlying business data.
+model TenantFeature {
+  id String @id @default(cuid())
+  tenantId String
+  featureKey FeatureKey
+  enabled Boolean @default(false)
+  configuration Json?
+  enabledAt DateTime?
+  disabledAt DateTime?
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId,featureKey])
+  @@index([tenantId,enabled])
+}
+
+// Role/job-title access inside a business. This is separate from feature activation.
+model RoleFeaturePermission {
+  id String @id @default(cuid())
+  tenantId String
+  role UserRole
+  featureKey FeatureKey
+  canView Boolean @default(true)
+  canCreate Boolean @default(false)
+  canEdit Boolean @default(false)
+  canDelete Boolean @default(false)
+  canConfigure Boolean @default(false)
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId,role,featureKey])
+  @@index([tenantId,role])
+}
+
+// Business-wide personalization: colors, emoji meanings, terminology, reminders,
+// workflow preferences, etc. JSON keeps this extensible as new modules are added.
+model TenantSetting {
+  id String @id @default(cuid())
+  tenantId String
+  key String
+  value Json
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId,key])
+  @@index([tenantId])
+}
+
+// Location-specific personalization/operational settings.
+model LocationSetting {
+  id String @id @default(cuid())
+  tenantId String
+  locationId String
+  key String
+  value Json
+  updatedAt DateTime @updatedAt
+  @@unique([locationId,key])
+  @@index([tenantId,locationId])
+}
+
+// Controls whether a customer belongs to one location's customer pool or is shared
+// across the entire business. The customer record itself remains tenant-wide.
+model CustomerLocationPolicy {
+  id String @id @default(cuid())
+  tenantId String
+  customerId String
+  mode CustomerLocationMode @default(SELECTED_LOCATIONS)
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId,customerId])
+  @@index([tenantId,mode])
+}
+
+// Used when mode = SELECTED_LOCATIONS. Multiple locations can share the same customer.
+model CustomerLocationAccess {
+  id String @id @default(cuid())
+  tenantId String
+  customerId String
+  locationId String
+  active Boolean @default(true)
+  grantedAt DateTime @default(now())
+  revokedAt DateTime?
+  @@unique([customerId,locationId])
+  @@index([tenantId,customerId,active])
+  @@index([tenantId,locationId,active])
+}
+
+// A service is defined once for the business (the existing Service model is the
+// business-level catalog). This table stores only the location-specific price/rule.
+// FOLLOW_BASE inherits the business price; PERCENT_ADJUSTMENT follows future base
+// price changes automatically; FIXED is independent and stays put until changed.
+model ServiceLocationPrice {
+  id String @id @default(cuid())
+  tenantId String
+  serviceId String
+  locationId String
+  mode LocationPriceMode @default(FOLLOW_BASE)
+  adjustmentPct Decimal? @db.Decimal(7,3)
+  priceCents Int?
+  active Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  @@unique([serviceId,locationId])
+  @@index([tenantId,locationId,active])
+  @@index([tenantId,serviceId])
+}
+
+// Business-level package catalog. Example: Yorkie Small, Yorkie Medium, Yorkie Large.
+model Package {
+  id String @id @default(cuid())
+  tenantId String
+  name String
+  code String?
+  description String? @db.Text
+  basePriceCents Int @default(0)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId,code])
+  @@index([tenantId,active])
+  @@index([tenantId,name])
+}
+
+// Package composition. A package can contain any number of the business's services.
+model PackageItem {
+  id String @id @default(cuid())
+  tenantId String
+  packageId String
+  serviceId String
+  quantity Int @default(1)
+  sortOrder Int @default(0)
+  @@unique([packageId,serviceId])
+  @@index([tenantId,packageId,sortOrder])
+  @@index([tenantId,serviceId])
+}
+
+// Location pricing for packages follows the same rules as services.
+// Example: Ohio can be -10%, another location +15%, while Texas follows the base.
+model PackageLocationPrice {
+  id String @id @default(cuid())
+  tenantId String
+  packageId String
+  locationId String
+  mode LocationPriceMode @default(FOLLOW_BASE)
+  adjustmentPct Decimal? @db.Decimal(7,3)
+  priceCents Int?
+  active Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  @@unique([packageId,locationId])
+  @@index([tenantId,locationId,active])
+  @@index([tenantId,packageId])
+}
+
+// Price-change history. Bulk and individual changes are both recorded so businesses
+// can see how a price got to its current value.
+model PricingAdjustmentLog {
+  id String @id @default(cuid())
+  tenantId String
+  entityType PricingEntityType
+  entityId String
+  locationId String?
+  scope PricingScope
+  percentChange Decimal? @db.Decimal(7,3)
+  oldPriceCents Int
+  newPriceCents Int
+  reason String?
+  changedByUserId String?
+  changedAt DateTime @default(now())
+  @@index([tenantId,entityType,entityId,changedAt])
+  @@index([tenantId,locationId,changedAt])
+}
