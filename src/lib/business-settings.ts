@@ -1,23 +1,4 @@
-export const BUSINESS_SETTING_KEYS = {
-  primaryColor: "primaryColor",
-  secondaryColor: "secondaryColor",
-  readyColor: "readyColor",
-  vipAvailableEmoji: "vipAvailableEmoji",
-  vipNotAvailableEmoji: "vipNotAvailableEmoji",
-  readyMessageVipGrooming: "readyMessageVipGrooming",
-  readyMessageVipFullWash: "readyMessageVipFullWash",
-  readyMessageNonVip: "readyMessageNonVip",
-} as const;
-
-export type BusinessSettingKey = keyof typeof BUSINESS_SETTING_KEYS;
-
-export const DEFAULT_BUSINESS_SETTINGS = {
-  primaryColor: "#17324D",
-  secondaryColor: "#DFF2F4",
-  readyColor: "#DDEEFF",
-  vipAvailableEmoji: "💙",
-  vipNotAvailableEmoji: "❌",
-  readyMessageVipGrooming: "VIP Grooming is ready for pickup.",
-  readyMessageVipFullWash: "VIP Full Wash is ready for pickup.",
-  readyMessageNonVip: "Your pet is ready for pickup.",
-} as const;
+export const BUSINESS_SETTING_KEYS={primaryColor:"primaryColor",secondaryColor:"secondaryColor",readyColor:"readyColor",vipAvailableEmoji:"vipAvailableEmoji",vipNotAvailableEmoji:"vipNotAvailableEmoji",readyMessageVipGrooming:"readyMessageVipGrooming",readyMessageVipFullWash:"readyMessageVipFullWash",readyMessageNonVip:"readyMessageNonVip"} as const;
+export type BusinessSettingKey=keyof typeof BUSINESS_SETTING_KEYS;
+export const DEFAULT_BUSINESS_SETTINGS={primaryColor:"#17324D",secondaryColor:"#DFF2F4",readyColor:"#DDEEFF",vipAvailableEmoji:"💙",vipNotAvailableEmoji:"❌",readyMessageVipGrooming:"VIP Grooming is ready for pickup.",readyMessageVipFullWash:"VIP Full Wash is ready for pickup.",readyMessageNonVip:"Your pet is ready for pickup."} as const;
+export function parseBusinessSettings(input:Record<string,unknown>){return {...DEFAULT_BUSINESS_SETTINGS,...input};}
