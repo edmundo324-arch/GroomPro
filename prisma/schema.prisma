@@ -182,7 +182,8 @@ model Tenant {
   customerLocationAccess CustomerLocationAccess[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  @@index([name])  tenantFeatures TenantFeature[]
+  @@index([name])
+  tenantFeatures TenantFeature[]
 }
 
 model Subscription {
