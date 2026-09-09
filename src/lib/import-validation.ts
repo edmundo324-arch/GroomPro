@@ -17,3 +17,11 @@ export function validateImportMapping(mapping: Record<string, string>) {
   if (!keys.includes("phone") && !keys.includes("email")) errors.push("A Phone or Email field is required.");
   return errors;
 }
+
+export function getUnmappedHeaders(headers: string[], mapping: Record<string, string>) {
+  return headers.filter(header => !mapping[header]);
+}
+
+export function isSourceHeaderUnknown(header: string, mapping: Record<string, string>) {
+  return !mapping[header];
+}
