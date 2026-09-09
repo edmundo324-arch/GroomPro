@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (!session) return NextResponse.json({ error: "Employee session required" }, { status: 401 });
   const catalog = await db.featureModule.findMany({ where: { active: true }, orderBy: { name: "asc" } });
   const enabled = await db.tenantFeature.findMany({ where: { tenantId: session.tenantId } });
-  return NextResponse.json({ features: catalog.map(f => ({ ...f, enabled: enabled.find(e => e.featureCode === f.code)?.enabled ?? false })) });
+  return NextResponse.json({ features: catalog.map(f => ({ ...f, enabled: enabled.find(e => e.featureCode === f.code)?.enabled ?? true })) });
 }
 
 export async function PUT(request: NextRequest) {
