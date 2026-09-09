@@ -29,7 +29,7 @@ export async function PUT(request: NextRequest) {
     if (!Number.isFinite(adjustmentPct) || adjustmentPct <= -100) {
       return NextResponse.json({ error: "A valid adjustment percentage greater than -100 is required." }, { status: 400 });
     }
-    if (mode === "FIXED" && (!Number.isInteger(priceOverrideCents) || priceOverrideCents < 0)) {
+    if (mode === "FIXED" && (priceOverrideCents === null || !Number.isInteger(priceOverrideCents) || priceOverrideCents < 0)) {
       return NextResponse.json({ error: "A non-negative fixed price in cents is required." }, { status: 400 });
     }
 
