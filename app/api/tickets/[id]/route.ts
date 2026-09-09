@@ -3,9 +3,12 @@ import { db } from "@/src/lib/db";
 
 const tenantFrom=(r:NextRequest)=>r.headers.get("x-tenant-id")||process.env.GROOMPRO_DEV_TENANT_ID||"";
 export async function GET(request:NextRequest,{params}:{params:Promise<{id:string}>}){
- const tenantId=tenantFrom(request);const {id}=await params;
+ const tenantId=tenantFrom(request); const {id}=await params;
  if(!tenantId)return NextResponse.json({error:"Tenant context is required."},{status:401});
  const ticket=await db.ticket.findFirst({where:{id,tenantId},include:{customer:{include:{phones:true}},location:true,pets:{include:{pet:true}},lines:{include:{pet:true,service:true,product:true,assignedUser:true}},assignments:{include:{user:true}},payments:true,scheduleHistory:{include:{actor:true},orderBy:{changedAt:"asc"}}}});
  if(!ticket)return NextResponse.json({error:"Ticket could not be found."},{status:404});
- return NextResponse.json({ticket});
+ const accountRows=await db.$queryRaw<any[]>`SELECT balanceCents,creditCents,loyaltyPoints FROM Customer WHERE id=${ticket.customerId} AND tenantId=${tenantId} LIMIT 1`;
+ const methods=await db.$queryRaw<any[]>`SELECT id,provider,brand,last4,expMonth,expYear,isDefault,active FROM CustomerPaymentMethod WHERE customerId=${ticket.customerId} AND tenantId=${tenantId} AND active=true ORDER BY isDefault DESC,createdAt DESC`;
+ const rewards=await db.$queryRaw<any[]>`SELECT id,name,description,rewardType,pointsCost,discountCents,secret FROM RewardCatalogItem WHERE tenantId=${tenantId} AND active=true ORDER BY pointsCost ASC,name ASC`;
+ return NextResponse.json({ticket,account:accountRows[0]||{balanceCents:0,creditCents:0,loyaltyPoints:0},paymentMethods:methods,rewards});
 }
