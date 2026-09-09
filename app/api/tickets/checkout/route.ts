@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/src/lib/db";
+import { writeAudit } from "@/src/lib/audit";
+import { getActiveEmployeeSession } from "@/src/lib/employee-session";
+
+const COOKIE = "groompro_session";
+const PAYMENT_TYPES = ["CASH", "VISA", "MASTERCARD", "AMEX", "DISCOVER", "DEBIT", "GIFT_CARD", "OTHER"] as const;
+function tenantFrom(r: NextRequest) { return r.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID || ""; }
+function totals(lines: { quantity: number; unitPriceCents: number; discountCents: number }[], tipCents: number, salesTaxCents: number) {
+  const subtotalCents = lines.reduce((sum, l) => sum + Math.max(0, l.unitPriceCents * l.quantity - l.discountCents), 0);
+  return { subtotalCents, tipCents, salesTaxCents, totalCents: subtotalCents + tipCents + salesTaxCents };
+}
+
+export async function GET(request: NextRequest) {
+  const tenantId = tenantFrom(request);
+  const locationId = request.nextUrl.searchParams.get("locationId") || process.env.GROOMPRO_DEV_LOCATION_ID || "";
+  const ticketId = request.nextUrl.searchParams.get("ticketId") || "";
+  if (!tenantId || !locationId || !ticketId) return NextResponse.json({ error: "Tenant, location, and ticket are required." }, { status: 400 });
+  const ticket = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { lines: true, payments: true, customer: true } });
+  if (!ticket) return NextResponse.json({ error: "Ticket could not be found." }, { status: 404 });
+  const t = totals(ticket.lines, ticket.tipCents, ticket.salesTaxCents);
+  const paidCents = ticket.payments.reduce((sum, p) => sum + Math.round(Number(p.amount) * 100), 0);
+  return NextResponse.json({ ticket, ...t, paidCents, dueCents: Math.max(0, t.totalCents - paidCents) });
+}
+
+export async function POST(request: NextRequest) {
+  const tenantId = tenantFrom(request);
+  const locationId = request.nextUrl.searchParams.get("locationId") || process.env.GROOMPRO_DEV_LOCATION_ID || "";
+  const sid = request.cookies.get(COOKIE)?.value || "";
+  const session = tenantId && sid ? await getActiveEmployeeSession(tenantId, sid) : null;
+  if (!tenantId || !locationId) return NextResponse.json({ error: "Tenant and location context are required." }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Employee PIN is required before checkout." }, { status: 401 });
+  try {
+    const body = await request.json();
+    const ticketId = String(body.ticketId || "");
+    const action = String(body.action || "PAYMENT");
+    const ticket = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { lines: true, payments: true } });
+    if (!ticket) return NextResponse.json({ error: "Ticket could not be found." }, { status: 404 });
+    if (ticket.status === "CANCELLED") return NextResponse.json({ error: "A cancelled ticket cannot be checked out." }, { status: 409 });
+    if (ticket.status === "CLOSED") return NextResponse.json({ error: "This ticket is already closed." }, { status: 409 });
+
+    const tipCents = body.tipCents == null ? ticket.tipCents : Math.max(0, Math.round(Number(body.tipCents)));
+    const salesTaxCents = body.salesTaxCents == null ? ticket.salesTaxCents : Math.max(0, Math.round(Number(body.salesTaxCents)));
+    if (!Number.isFinite(tipCents) || !Number.isFinite(salesTaxCents)) return NextResponse.json({ error: "Tip and sales tax must be valid amounts." }, { status: 400 });
+    const t = totals(ticket.lines, tipCents, salesTaxCents);
+    const paidCents = ticket.payments.reduce((sum, p) => sum + Math.round(Number(p.amount) * 100), 0);
+    const dueBefore = Math.max(0, t.totalCents - paidCents);
+
+    if (action === "PAYMENT") {
+      const paymentType = String(body.paymentType || "");
+      const amountCents = Math.round(Number(body.amountCents));
+      if (!PAYMENT_TYPES.includes(paymentType as typeof PAYMENT_TYPES[number])) return NextResponse.json({ error: "Valid payment type is required." }, { status: 400 });
+      if (!Number.isInteger(amountCents) || amountCents <= 0) return NextResponse.json({ error: "Payment amount must be a positive whole number of cents." }, { status: 400 });
+      if (amountCents > dueBefore) return NextResponse.json({ error: "Payment cannot exceed the ticket balance. Closed tickets cannot carry a credit." }, { status: 409 });
+      const result = await db.$transaction(async tx => {
+        const updated = await tx.ticket.update({ where: { id: ticket.id }, data: { tipCents, salesTaxCents, totalCents: t.totalCents } });
+        const payment = await tx.payment.create({ data: { tenantId, ticketId: ticket.id, amount: (amountCents / 100).toFixed(2), paymentType: paymentType as typeof PAYMENT_TYPES[number] } });
+        return { updated, payment };
+      });
+      const newPaid = paidCents + amountCents;
+      await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "PAYMENT", entityId: result.payment.id, customerId: undefined, action: "PAYMENT", summary: `Recorded $${(amountCents / 100).toFixed(2)} payment on ticket #${ticket.orderNumber}.`, details: { ticketId: ticket.id, paymentType, amountCents, dueAfterCents: Math.max(0, t.totalCents - newPaid) } });
+      return NextResponse.json({ ticket: result.updated, payment: result.payment, subtotalCents: t.subtotalCents, tipCents, salesTaxCents, totalCents: t.totalCents, paidCents: newPaid, dueCents: Math.max(0, t.totalCents - newPaid) });
+    }
+
+    if (action === "CLOSE") {
+      if (dueBefore !== 0) return NextResponse.json({ error: `Ticket still has a $${(dueBefore / 100).toFixed(2)} balance. A closed ticket cannot have a balance.` }, { status: 409 });
+      const closed = await db.ticket.update({ where: { id: ticket.id }, data: { status: "CLOSED", tipCents, salesTaxCents, totalCents: t.totalCents, pickupCompletedAt: ticket.pickupCompletedAt || new Date(), closedAt: ticket.closedAt || new Date() } });
+      await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: undefined, action: "CLOSE", summary: `Closed paid ticket #${ticket.orderNumber}.`, details: { totalCents: t.totalCents } });
+      return NextResponse.json({ ticket: closed, subtotalCents: t.subtotalCents, tipCents, salesTaxCents, totalCents: t.totalCents, paidCents, dueCents: 0 });
+    }
+    return NextResponse.json({ error: "Unknown checkout action." }, { status: 400 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to process checkout." }, { status: 400 });
+  }
+}
