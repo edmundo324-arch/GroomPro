@@ -18,28 +18,140 @@ enum UserRole {
   SALES
 }
 
-enum TicketStatus { OPEN CONFIRMED CHECKED_IN IN_PROGRESS READY CLOSED CANCELLED }
-enum AuditActorType { EMPLOYEE SYSTEM }
-enum AuditEntityType { TENANT LOCATION USER CUSTOMER PET VACCINATION TICKET PAYMENT COMMUNICATION MEMBERSHIP INVENTORY_ITEM SHIPMENT BACKBAR_TICKET }
-enum CommunicationChannel { SMS EMAIL }
-enum CommunicationDirection { INBOUND OUTBOUND }
-enum PaymentType { CASH VISA MASTERCARD AMEX DISCOVER DEBIT GIFT_CARD OTHER }
-enum TicketLineType { SERVICE PRODUCT }
-enum TicketLineRole { PREP BATH GROOM ADD_ON PRODUCT }
-enum BookingSource { STAFF ONLINE }
-enum OnlineBookingCategory { GROOMING FULL_WASH NAIL_GRINDING SELFSERVICE DAYCARE BOARDING }
-enum TicketScheduleChangeType { CREATED MOVED }
-enum AnalSituationStatus { DONE_REQUESTED DONE_NOT_REQUESTED NOT_NEEDED }
-enum VipAvailability { AVAILABLE NOT_AVAILABLE NEEDS_MORE_SESSIONS }
-enum DaycareStatus { NONE STAYING }
+enum TicketStatus {
+  OPEN
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  READY
+  CLOSED
+  CANCELLED
+}
+enum AuditActorType {
+  EMPLOYEE
+  SYSTEM
+}
+enum AuditEntityType {
+  TENANT
+  LOCATION
+  USER
+  CUSTOMER
+  PET
+  VACCINATION
+  TICKET
+  PAYMENT
+  COMMUNICATION
+  MEMBERSHIP
+  INVENTORY_ITEM
+  SHIPMENT
+  BACKBAR_TICKET
+}
+enum CommunicationChannel {
+  SMS
+  EMAIL
+}
+enum CommunicationDirection {
+  INBOUND
+  OUTBOUND
+}
+enum PaymentType {
+  CASH
+  VISA
+  MASTERCARD
+  AMEX
+  DISCOVER
+  DEBIT
+  GIFT_CARD
+  OTHER
+}
+enum TicketLineType {
+  SERVICE
+  PRODUCT
+}
+enum TicketLineRole {
+  PREP
+  BATH
+  GROOM
+  ADD_ON
+  PRODUCT
+}
+enum BookingSource {
+  STAFF
+  ONLINE
+}
+enum OnlineBookingCategory {
+  GROOMING
+  FULL_WASH
+  NAIL_GRINDING
+  SELFSERVICE
+  DAYCARE
+  BOARDING
+}
+enum TicketScheduleChangeType {
+  CREATED
+  MOVED
+}
+enum AnalSituationStatus {
+  DONE_REQUESTED
+  DONE_NOT_REQUESTED
+  NOT_NEEDED
+}
+enum VipAvailability {
+  AVAILABLE
+  NOT_AVAILABLE
+  NEEDS_MORE_SESSIONS
+}
+enum DaycareStatus {
+  NONE
+  STAYING
+}
 
-enum FeatureScope { PLATFORM BUSINESS LOCATION ROLE }
-enum FeatureConfigType { TOGGLE CONFIGURABLE }
-enum FeatureKey { CALENDAR CUSTOMERS PETS TICKETS WHITEBOARD MESSAGING INVENTORY REPORTS ONLINE_BOOKING DAYCARE BOARDING VIP MEMBERSHIPS PAYMENTS BACKBAR AI_FRONT_DESK CUSTOMER_PORTAL }
-enum CustomerLocationMode { ALL_LOCATIONS SELECTED_LOCATIONS }
-enum LocationPriceMode { FOLLOW_BASE PERCENT_ADJUSTMENT FIXED }
-enum PricingEntityType { SERVICE PACKAGE }
-enum PricingScope { BUSINESS LOCATION }
+enum FeatureScope {
+  PLATFORM
+  BUSINESS
+  LOCATION
+  ROLE
+}
+enum FeatureConfigType {
+  TOGGLE
+  CONFIGURABLE
+}
+enum FeatureKey {
+  CALENDAR
+  CUSTOMERS
+  PETS
+  TICKETS
+  WHITEBOARD
+  MESSAGING
+  INVENTORY
+  REPORTS
+  ONLINE_BOOKING
+  DAYCARE
+  BOARDING
+  VIP
+  MEMBERSHIPS
+  PAYMENTS
+  BACKBAR
+  AI_FRONT_DESK
+  CUSTOMER_PORTAL
+}
+enum CustomerLocationMode {
+  ALL_LOCATIONS
+  SELECTED_LOCATIONS
+}
+enum LocationPriceMode {
+  FOLLOW_BASE
+  PERCENT_ADJUSTMENT
+  FIXED
+}
+enum PricingEntityType {
+  SERVICE
+  PACKAGE
+}
+enum PricingScope {
+  BUSINESS
+  LOCATION
+}
 
 model Tenant {
   id String @id @default(cuid())
