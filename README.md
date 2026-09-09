@@ -24,6 +24,7 @@ GroomPro Suite is a multi-tenant grooming salon management platform designed for
 - Client imports use a human-readable field dictionary and manual mapping for unfamiliar source headers such as Ab2 or ID311.
 - Customer addresses are first-class data fields rather than being hidden in notes.
 - Imported customers are matched by phone/email before a new customer record is created.
+- Verification build target: Prisma generation, schema validation, and application build must all pass before UI testing begins.
 
 ## Development
 
