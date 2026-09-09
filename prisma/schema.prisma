@@ -173,7 +173,6 @@ model Tenant {
   onlineBookingRules OnlineBookingRule[]
   ticketScheduleHistory TicketScheduleHistory[]
   whiteboardSnapshots WhiteboardSnapshot[]
-  tenantFeatures TenantFeature[]
   rolePermissions RolePermission[]
   settings TenantSetting[]
   servicePricing LocationServicePricing[]
