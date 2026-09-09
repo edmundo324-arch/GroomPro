@@ -2,8 +2,69 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 import { writeAudit } from "@/src/lib/audit";
 import { getActiveEmployeeSession } from "@/src/lib/employee-session";
-const COOKIE="groompro_session";
-const ALLOWED=["OPEN","CONFIRMED","CHECKED_IN","IN_PROGRESS","READY","CLOSED","CANCELLED"] as const;
-type Status=typeof ALLOWED[number];
-function tenantFrom(r:NextRequest){return r.headers.get("x-tenant-id")||process.env.GROOMPRO_DEV_TENANT_ID||"";}
-export async function PATCH(request:NextRequest){const tenantId=tenantFrom(request);const sid=request.cookies.get(COOKIE)?.value||"";const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;if(!session)return NextResponse.json({error:"Employee PIN is required before changing ticket status."},{status:401});try{const body=await request.json();const ticketId=String(body.ticketId||"");const status=String(body.status||"") as Status;if(!ticketId||!ALLOWED.includes(status))return NextResponse.json({error:"Ticket and valid status are required."},{status:400});const ticket=await db.ticket.findFirst({where:{id:ticketId,tenantId},select:{id:true,customerId:true,status:true,orderNumber:true,checkedInAt:true,pickupAt:true,pickupCompletedAt:true,closedAt:true}});if(!ticket)return NextResponse.json({error:"Ticket could not be found."},{status:404});if(ticket.status==="CLOSED"&&status!=="CLOSED")return NextResponse.json({error:"A closed ticket cannot be reopened."},{status:409});if(ticket.status==="CANCELLED"&&status!=="CANCELLED")return NextResponse.json({error:"A cancelled ticket cannot be reopened."},{status:409});const now=new Date();const data:{status:Status;checkedInAt?:Date|null;pickupAt?:Date|null;pickupCompletedAt?:Date|null;closedAt?:Date|null}={status};if(status==="CHECKED_IN"&&!ticket.checkedInAt)data.checkedInAt=now;if(status==="READY"&&!ticket.pickupAt)data.pickupAt=now;if(status==="CLOSED"){data.pickupCompletedAt=ticket.pickupCompletedAt||now;data.closedAt=ticket.closedAt||now;}const updated=await db.ticket.update({where:{id:ticket.id},data});await writeAudit({tenantId,actorUserId:session.user.id,entityType:"TICKET",entityId:ticket.id,customerId:ticket.customerId,action:"STATUS_CHANGE",summary:`Changed ticket #${ticket.orderNumber} from ${ticket.status} to ${status}.`,details:{previousStatus:ticket.status,newStatus:status}});return NextResponse.json({ticket:updated});}catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Unable to change ticket status."},{status:400});}}
+
+const COOKIE = "groompro_session";
+const ALLOWED = ["OPEN", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "READY", "CLOSED", "CANCELLED"] as const;
+type Status = typeof ALLOWED[number];
+function tenantFrom(r: NextRequest) { return r.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID || ""; }
+
+export async function PATCH(request: NextRequest) {
+  const tenantId = tenantFrom(request);
+  const sid = request.cookies.get(COOKIE)?.value || "";
+  const session = tenantId && sid ? await getActiveEmployeeSession(tenantId, sid) : null;
+  if (!session) return NextResponse.json({ error: "Employee PIN is required before changing ticket status." }, { status: 401 });
+  try {
+    const body = await request.json();
+    const ticketId = String(body.ticketId || "");
+    const status = String(body.status || "") as Status;
+    if (!ticketId || !ALLOWED.includes(status)) return NextResponse.json({ error: "Ticket and valid status are required." }, { status: 400 });
+
+    const ticket = await db.ticket.findFirst({
+      where: { id: ticketId, tenantId },
+      select: { id: true, tenantId: true, locationId: true, customerId: true, status: true, orderNumber: true, scheduledStart: true, checkedInAt: true, arrivalPriority: true, pickupAt: true, pickupCompletedAt: true, closedAt: true }
+    });
+    if (!ticket) return NextResponse.json({ error: "Ticket could not be found." }, { status: 404 });
+    if (ticket.status === "CLOSED" && status !== "CLOSED") return NextResponse.json({ error: "A closed ticket cannot be reopened." }, { status: 409 });
+    if (ticket.status === "CANCELLED" && status !== "CANCELLED") return NextResponse.json({ error: "A cancelled ticket cannot be reopened." }, { status: 409 });
+
+    const now = new Date();
+    let updated;
+    let assignedArrivalPriority: number | null = ticket.arrivalPriority;
+
+    if (status === "CHECKED_IN" && !ticket.checkedInAt) {
+      updated = await db.$transaction(async tx => {
+        const sameDay = ticket.scheduledStart || now;
+        const start = new Date(sameDay);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 1);
+        const max = await tx.ticket.aggregate({
+          where: { tenantId, locationId: ticket.locationId, scheduledStart: { gte: start, lt: end }, arrivalPriority: { not: null }, id: { not: ticket.id } },
+          _max: { arrivalPriority: true }
+        });
+        assignedArrivalPriority = (max._max.arrivalPriority || 0) + 1;
+        return tx.ticket.update({ where: { id: ticket.id }, data: { status, checkedInAt: now, arrivalPriority: assignedArrivalPriority } });
+      });
+    } else {
+      const data: { status: Status; checkedInAt?: Date | null; pickupAt?: Date | null; pickupCompletedAt?: Date | null; closedAt?: Date | null } = { status };
+      if (status === "CHECKED_IN" && !ticket.checkedInAt) data.checkedInAt = now;
+      if (status === "READY" && !ticket.pickupAt) data.pickupAt = now;
+      if (status === "CLOSED") { data.pickupCompletedAt = ticket.pickupCompletedAt || now; data.closedAt = ticket.closedAt || now; }
+      updated = await db.ticket.update({ where: { id: ticket.id }, data });
+    }
+
+    await writeAudit({
+      tenantId,
+      actorUserId: session.user.id,
+      entityType: "TICKET",
+      entityId: ticket.id,
+      customerId: ticket.customerId,
+      action: "STATUS_CHANGE",
+      summary: `Changed ticket #${ticket.orderNumber} from ${ticket.status} to ${status}.`,
+      details: { previousStatus: ticket.status, newStatus: status, arrivalPriority: assignedArrivalPriority, autoAssignedArrivalPriority: status === "CHECKED_IN" && !ticket.checkedInAt }
+    });
+    return NextResponse.json({ ticket: updated, arrivalPriority: assignedArrivalPriority });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to change ticket status." }, { status: 400 });
+  }
+}
