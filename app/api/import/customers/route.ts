@@ -3,6 +3,7 @@ import { db } from "@/src/lib/db";
 import { getActiveEmployeeSession } from "@/src/lib/employee-session";
 import { writeAudit } from "@/src/lib/audit";
 const SESSION_COOKIE="groompro_session";
+const ALLOWED_FIELDS=new Set(["firstName","lastName","email","phone","address","address2","city","state","postalCode",...Array.from({length:5},(_,i)=>`dog${i+1}Name`),...Array.from({length:5},(_,i)=>`dog${i+1}Breed`)]);
 function tenantFrom(request:NextRequest){return request.headers.get("x-tenant-id")||process.env.GROOMPRO_DEV_TENANT_ID||""}
 type Mapping=Record<string,string>;type ImportRow=Record<string,string>;
 function clean(v:unknown){return String(v??"").trim()} function normalizePhone(v:string){return v.replace(/\D/g,"")}
@@ -10,6 +11,7 @@ export async function POST(request:NextRequest){
  const tenantId=tenantFrom(request);const sessionId=request.cookies.get(SESSION_COOKIE)?.value||"";const session=sessionId?await getActiveEmployeeSession(tenantId,sessionId):null;if(!tenantId||!session)return NextResponse.json({error:"Employee PIN is required before importing customer data."},{status:401});
  let body:{rows?:ImportRow[];mapping?:Mapping;locationId?:string;dryRun?:boolean};try{body=await request.json()}catch{return NextResponse.json({error:"Invalid import request."},{status:400})}
  const rows=Array.isArray(body.rows)?body.rows.slice(0,10000):[];const mapping=body.mapping||{};if(!rows.length)return NextResponse.json({error:"The import contains no rows."},{status:400});
+ const mappedValues=Object.values(mapping);const unknown=mappedValues.filter(v=>!ALLOWED_FIELDS.has(v));const duplicates=mappedValues.filter((v,i,a)=>a.indexOf(v)!==i);if(unknown.length)return NextResponse.json({error:`Unknown GroomPro field mapping: ${unknown[0]}.`},{status:400});if(duplicates.length)return NextResponse.json({error:`The GroomPro field ${duplicates[0]} is mapped more than once.`},{status:400});if(!mappedValues.includes("firstName")&&!mappedValues.includes("lastName"))return NextResponse.json({error:"A First Name or Last Name field is required."},{status:400});if(!mappedValues.includes("phone")&&!mappedValues.includes("email"))return NextResponse.json({error:"A Phone or Email field is required."},{status:400});
  const field=(row:ImportRow,name:string)=>{const header=Object.keys(mapping).find(h=>mapping[h]===name);return header?clean(row[header]):""};
  const errors:{row:number;message:string}[]=[];let customersCreated=0,customersMatched=0,petsCreated=0;const preview:{row:number;action:string;customer:string;pets:string[]}[]=[];
  for(let i=0;i<rows.length;i++){const row=rows[i],firstName=field(row,"firstName"),lastName=field(row,"lastName"),email=field(row,"email").toLowerCase(),phone=field(row,"phone"),normalized=normalizePhone(phone);if(!firstName&&!lastName){errors.push({row:i+2,message:"Customer first or last name is required."});continue}if(!normalized&&!email){errors.push({row:i+2,message:"A phone number or email is required to safely match/create a customer."});continue}
