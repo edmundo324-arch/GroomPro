@@ -1,0 +1,57 @@
+name: Repair Prisma relations
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, 'Repair Prisma relations') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Repair audit and feature relations
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('prisma/schema.prisma')
+          text = path.read_text()
+          removals = [
+              '  auditEntries AuditEntry[]\n',
+              '  tenantFeatures TenantFeature[]\n',
+          ]
+          updated = text
+          # Remove only the relation fields that have no corresponding foreign-key relation.
+          # Tenant, User, and Customer audit relations remain defined elsewhere.
+          for model in ['Pet', 'Vaccination', 'Ticket', 'Payment']:
+              start = updated.find(f'model {model} {{')
+              end = updated.find('\n}', start)
+              block = updated[start:end]
+              block = block.replace('  auditEntries AuditEntry[]\n', '')
+              updated = updated[:start] + block + updated[end:]
+          start = updated.find('model FeatureModule {')
+          end = updated.find('\n}', start)
+          block = updated[start:end]
+          block = block.replace('  tenantFeatures TenantFeature[]\n', '')
+          updated = updated[:start] + block + updated[end:]
+          if updated == text:
+              print('No relation changes needed.')
+          else:
+              path.write_text(updated)
+              print('Removed invalid AuditEntry and FeatureModule relation fields.')
+          PY
+      - name: Commit repair
+        run: |
+          if git diff --quiet -- prisma/schema.prisma; then
+            echo "No schema changes needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/schema.prisma
+          git commit -m "Repair Prisma relations"
+          git push
