@@ -329,7 +329,6 @@ model Pet {
   vaccinations Vaccination[]
   ticketPets TicketPet[]
   ticketLines TicketLine[]
-  auditEntries AuditEntry[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([tenantId, customerId])
@@ -348,7 +347,6 @@ model Vaccination {
   notes String? @db.Text
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
-  auditEntries AuditEntry[]
   createdAt DateTime @default(now())
   @@index([tenantId, customerId])
   @@index([tenantId, petId])
@@ -384,7 +382,6 @@ model Ticket {
   assignments TicketAssignment[]
   payments Payment[]
   communications Communication[]
-  auditEntries AuditEntry[]
   scheduleHistory TicketScheduleHistory[]
   whiteboardSnapshotItems WhiteboardSnapshotItem[]
   createdAt DateTime @default(now())
@@ -450,7 +447,6 @@ model Payment {
   paidAt DateTime @default(now())
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  auditEntries AuditEntry[]
   @@index([tenantId, ticketId, paidAt])
 }
 
