@@ -1,9 +1,5 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
+generator client { provider = "prisma-client-js" }
 datasource db { provider = "mysql" url = env("DATABASE_URL") }
-
 enum UserRole { ADMIN MANAGER FLOOR_MANAGER FRONT BACK MASTER_GROOMER GROOMER SALES }
 enum TicketStatus { OPEN CONFIRMED CHECKED_IN IN_PROGRESS READY CLOSED CANCELLED }
 enum AuditActorType { EMPLOYEE SYSTEM }
@@ -19,66 +15,17 @@ enum TicketScheduleChangeType { CREATED MOVED }
 enum AnalSituationStatus { DONE_REQUESTED DONE_NOT_REQUESTED NOT_NEEDED }
 enum VipAvailability { AVAILABLE NOT_AVAILABLE NEEDS_MORE_SESSIONS }
 enum DaycareStatus { NONE STAYING }
-
-model Tenant {
- id String @id @default(cuid())
- name String
- subscription Subscription?
- locations Location[]
- users User[]
- sessions EmployeeSession[]
- customers Customer[]
- customerPhones CustomerPhone[]
- pets Pet[]
- vaccinations Vaccination[]
- tickets Ticket[]
- payments Payment[]
- communications Communication[]
- services Service[]
- products Product[]
- auditEntries AuditEntry[]
- onlineBookingRules OnlineBookingRule[]
- ticketScheduleHistory TicketScheduleHistory[]
- whiteboardSnapshots WhiteboardSnapshot[]
- featureModules FeatureModule[]
- tenantFeatures TenantFeature[]
- rolePermissions RolePermission[]
- settings TenantSetting[]
- servicePricing LocationServicePricing[]
- packages Package[]
- packageItems PackageItem[]
- packagePricing LocationPackagePricing[]
- customerLocationAccess CustomerLocationAccess[]
- createdAt DateTime @default(now())
- updatedAt DateTime @updatedAt
- @@index([name])
-}
+model Tenant { id String @id @default(cuid()) name String subscription Subscription? locations Location[] users User[] sessions EmployeeSession[] customers Customer[] customerPhones CustomerPhone[] pets Pet[] vaccinations Vaccination[] tickets Ticket[] payments Payment[] communications Communication[] services Service[] products Product[] auditEntries AuditEntry[] onlineBookingRules OnlineBookingRule[] ticketScheduleHistory TicketScheduleHistory[] whiteboardSnapshots WhiteboardSnapshot[] tenantFeatures TenantFeature[] rolePermissions RolePermission[] settings TenantSetting[] servicePricing LocationServicePricing[] packages Package[] packageItems PackageItem[] packagePricing LocationPackagePricing[] customerLocationAccess CustomerLocationAccess[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@index([name]) }
 model Subscription { id String @id @default(cuid()) tenantId String @unique plan String status String @default("active") externalId String? startedAt DateTime @default(now()) renewsAt DateTime? cancelledAt DateTime? tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) }
 model SubscriptionPlan { id String @id @default(cuid()) code String @unique name String monthlyCents Int active Boolean @default(true) createdAt DateTime @default(now()) updatedAt DateTime @updatedAt }
-model Location {
- id String @id @default(cuid()) tenantId String name String address1 String? address2 String? city String? state String? postalCode String? timezone String @default("America/Chicago")
- tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) users User[] tickets Ticket[] onlineBookingRules OnlineBookingRule[] whiteboardSnapshots WhiteboardSnapshot[] servicePricing LocationServicePricing[] packagePricing LocationPackagePricing[] customerAccess CustomerLocationAccess[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt
- @@index([tenantId])
-}
-model User {
- id String @id @default(cuid()) tenantId String locationId String? firstName String lastName String email String? pinHash String role UserRole @default(FRONT) active Boolean @default(true)
- tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) location Location? @relation(fields:[locationId],references:[id],onDelete:SetNull) auditEntries AuditEntry[] sessions EmployeeSession[] ticketAssignments TicketAssignment[] lineAssignments TicketLine[] scheduleChanges TicketScheduleHistory[] daycareAddedTickets Ticket[] @relation("DaycareAddedBy") whiteboardSnapshotsCreated WhiteboardSnapshot[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt
- @@unique([tenantId,email]) @@index([tenantId,active]) @@index([tenantId,lastName,firstName])
-}
+model Location { id String @id @default(cuid()) tenantId String name String address1 String? address2 String? city String? state String? postalCode String? timezone String @default("America/Chicago") tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) users User[] tickets Ticket[] onlineBookingRules OnlineBookingRule[] whiteboardSnapshots WhiteboardSnapshot[] servicePricing LocationServicePricing[] packagePricing LocationPackagePricing[] customerAccess CustomerLocationAccess[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@index([tenantId]) }
+model User { id String @id @default(cuid()) tenantId String locationId String? firstName String lastName String email String? pinHash String role UserRole @default(FRONT) active Boolean @default(true) tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) location Location? @relation(fields:[locationId],references:[id],onDelete:SetNull) auditEntries AuditEntry[] sessions EmployeeSession[] ticketAssignments TicketAssignment[] lineAssignments TicketLine[] scheduleChanges TicketScheduleHistory[] daycareAddedTickets Ticket[] @relation("DaycareAddedBy") whiteboardSnapshotsCreated WhiteboardSnapshot[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@unique([tenantId,email]) @@index([tenantId,active]) @@index([tenantId,lastName,firstName]) }
 model EmployeeSession { id String @id @default(cuid()) tenantId String userId String deviceId String startedAt DateTime @default(now()) lastActiveAt DateTime @default(now()) endedAt DateTime? tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) user User @relation(fields:[userId],references:[id],onDelete:Cascade) @@index([tenantId,deviceId,endedAt]) @@index([tenantId,userId,endedAt]) }
-model Customer {
- id String @id @default(cuid()) tenantId String firstName String lastName String email String? address1 String? address2 String? city String? state String? postalCode String? notes String? @db.Text active Boolean @default(true) vipStatus String? loyaltyPoints Int @default(0) balanceCents Int @default(0)
- tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) phones CustomerPhone[] pets Pet[] tickets Ticket[] communications Communication[] auditEntries AuditEntry[] locationAccess CustomerLocationAccess[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt
- @@index([tenantId,lastName,firstName]) @@index([tenantId,email])
-}
+model Customer { id String @id @default(cuid()) tenantId String firstName String lastName String email String? address1 String? address2 String? city String? state String? postalCode String? notes String? @db.Text active Boolean @default(true) vipStatus String? loyaltyPoints Int @default(0) balanceCents Int @default(0) tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) phones CustomerPhone[] pets Pet[] tickets Ticket[] communications Communication[] auditEntries AuditEntry[] locationAccess CustomerLocationAccess[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@index([tenantId,lastName,firstName]) @@index([tenantId,email]) }
 model CustomerPhone { id String @id @default(cuid()) tenantId String customerId String number String normalized String label String? isPrimary Boolean @default(false) smsEnabled Boolean @default(true) callEnabled Boolean @default(true) tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) customer Customer @relation(fields:[customerId],references:[id],onDelete:Cascade) @@unique([tenantId,normalized]) @@index([tenantId,customerId]) }
 model Pet { id String @id @default(cuid()) tenantId String customerId String name String breed String? notes String? @db.Text active Boolean @default(true) tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) customer Customer @relation(fields:[customerId],references:[id],onDelete:Cascade) vaccinations Vaccination[] ticketPets TicketPet[] ticketLines TicketLine[] auditEntries AuditEntry[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@index([tenantId,customerId]) @@index([tenantId,name]) }
 model Vaccination { id String @id @default(cuid()) tenantId String customerId String petId String vaccineName String administeredAt DateTime expiresAt DateTime? documentUrl String? notes String? @db.Text tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) pet Pet @relation(fields:[petId],references:[id],onDelete:Cascade) auditEntries AuditEntry[] createdAt DateTime @default(now()) @@index([tenantId,customerId]) @@index([tenantId,petId]) }
-model Ticket {
- id String @id @default(cuid()) tenantId String locationId String customerId String orderNumber Int scheduledStart DateTime? durationMin Int @default(0) status TicketStatus @default(OPEN) bookingSource BookingSource @default(STAFF) onlineCategory OnlineBookingCategory? bookingDecision String @default("INTERNAL") requestedAt DateTime? checkedInAt DateTime? pickupAt DateTime? pickupCompletedAt DateTime? arrivalPriority Int? daycareStatus DaycareStatus @default(NONE) daycareAddedAt DateTime? daycareAddedByUserId String? notes String? @db.Text
- tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) location Location @relation(fields:[locationId],references:[id],onDelete:Restrict) customer Customer @relation(fields:[customerId],references:[id],onDelete:Restrict) daycareAddedByUser User? @relation("DaycareAddedBy",fields:[daycareAddedByUserId],references:[id],onDelete:SetNull) pets TicketPet[] lines TicketLine[] assignments TicketAssignment[] payments Payment[] communications Communication[] auditEntries AuditEntry[] scheduleHistory TicketScheduleHistory[] whiteboardSnapshotItems WhiteboardSnapshotItem[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt closedAt DateTime?
- @@unique([tenantId,orderNumber]) @@index([tenantId,locationId,scheduledStart]) @@index([tenantId,customerId,createdAt]) @@index([tenantId,customerId,scheduledStart]) @@index([tenantId,bookingSource,bookingDecision]) @@index([tenantId,locationId,arrivalPriority]) @@index([tenantId,locationId,daycareStatus])
-}
+model Ticket { id String @id @default(cuid()) tenantId String locationId String customerId String orderNumber Int scheduledStart DateTime? durationMin Int @default(0) status TicketStatus @default(OPEN) bookingSource BookingSource @default(STAFF) onlineCategory OnlineBookingCategory? bookingDecision String @default("INTERNAL") requestedAt DateTime? checkedInAt DateTime? pickupAt DateTime? pickupCompletedAt DateTime? arrivalPriority Int? daycareStatus DaycareStatus @default(NONE) daycareAddedAt DateTime? daycareAddedByUserId String? notes String? @db.Text tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) location Location @relation(fields:[locationId],references:[id],onDelete:Restrict) customer Customer @relation(fields:[customerId],references:[id],onDelete:Restrict) daycareAddedByUser User? @relation("DaycareAddedBy",fields:[daycareAddedByUserId],references:[id],onDelete:SetNull) pets TicketPet[] lines TicketLine[] assignments TicketAssignment[] payments Payment[] communications Communication[] auditEntries AuditEntry[] scheduleHistory TicketScheduleHistory[] whiteboardSnapshotItems WhiteboardSnapshotItem[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt closedAt DateTime? @@unique([tenantId,orderNumber]) @@index([tenantId,locationId,scheduledStart]) @@index([tenantId,customerId,createdAt]) @@index([tenantId,customerId,scheduledStart]) @@index([tenantId,bookingSource,bookingDecision]) @@index([tenantId,locationId,arrivalPriority]) @@index([tenantId,locationId,daycareStatus]) }
 model TicketScheduleHistory { id String @id @default(cuid()) tenantId String ticketId String actorUserId String? changeType TicketScheduleChangeType previousStart DateTime? newStart DateTime changedAt DateTime @default(now()) tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) ticket Ticket @relation(fields:[ticketId],references:[id],onDelete:Cascade) actor User? @relation(fields:[actorUserId],references:[id],onDelete:SetNull) @@index([tenantId,ticketId,changedAt]) @@index([tenantId,actorUserId,changedAt]) }
 model TicketPet { id String @id @default(cuid()) ticketId String petId String weightLbs Decimal? @db.Decimal(6,2) analSituation AnalSituationStatus? vipAvailability VipAvailability? ticket Ticket @relation(fields:[ticketId],references:[id],onDelete:Cascade) pet Pet @relation(fields:[petId],references:[id],onDelete:Restrict) @@unique([ticketId,petId]) @@index([petId]) }
 model TicketAssignment { id String @id @default(cuid()) ticketId String userId String role String assignedAt DateTime @default(now()) ticket Ticket @relation(fields:[ticketId],references:[id],onDelete:Cascade) user User @relation(fields:[userId],references:[id],onDelete:Restrict) @@unique([ticketId,userId,role]) @@index([userId,assignedAt]) }
