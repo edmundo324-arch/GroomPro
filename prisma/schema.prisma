@@ -182,7 +182,7 @@ model Tenant {
   customerLocationAccess CustomerLocationAccess[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  @@index([name])
+  @@index([name])  tenantFeatures TenantFeature[]
 }
 
 model Subscription {
@@ -610,7 +610,6 @@ model FeatureModule {
   active Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  tenantFeatures TenantFeature[]
 }
 
 model TenantFeature {
