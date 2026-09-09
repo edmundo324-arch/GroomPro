@@ -6,13 +6,13 @@ export function validateImportMapping(mapping: Record<string, string>) {
   const errors: string[] = [];
 
   for (const [sourceHeader, destination] of Object.entries(mapping)) {
-    if (!sourceHeader.trim()) continue;
+    if (!sourceHeader.trim() || !destination) continue;
     if (!allowed.has(destination)) errors.push(`"${sourceHeader}" maps to an unknown GroomPro field.`);
     if (used.has(destination)) errors.push(`The GroomPro field "${destination}" is mapped more than once.`);
     used.add(destination);
   }
 
-  const keys = Object.values(mapping) as ImportFieldKey[];
+  const keys = Object.values(mapping).filter(Boolean) as ImportFieldKey[];
   if (!keys.includes("firstName") && !keys.includes("lastName")) errors.push("A First Name or Last Name field is required.");
   if (!keys.includes("phone") && !keys.includes("email")) errors.push("A Phone or Email field is required.");
   return errors;
