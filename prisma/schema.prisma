@@ -1,20 +1,102 @@
 generator client { provider = "prisma-client-js" }
 datasource db { provider = "mysql" url = env("DATABASE_URL") }
-enum UserRole { ADMIN MANAGER FLOOR_MANAGER FRONT BACK MASTER_GROOMER GROOMER SALES }
-enum TicketStatus { OPEN CONFIRMED CHECKED_IN IN_PROGRESS READY CLOSED CANCELLED }
-enum AuditActorType { EMPLOYEE SYSTEM }
-enum AuditEntityType { TENANT LOCATION USER CUSTOMER PET VACCINATION TICKET PAYMENT COMMUNICATION MEMBERSHIP INVENTORY_ITEM SHIPMENT BACKBAR_TICKET }
-enum CommunicationChannel { SMS EMAIL }
-enum CommunicationDirection { INBOUND OUTBOUND }
-enum PaymentType { CASH VISA MASTERCARD AMEX DISCOVER DEBIT GIFT_CARD OTHER }
-enum TicketLineType { SERVICE PRODUCT }
-enum TicketLineRole { PREP BATH GROOM ADD_ON PRODUCT }
-enum BookingSource { STAFF ONLINE }
-enum OnlineBookingCategory { GROOMING FULL_WASH NAIL_GRINDING SELFSERVICE DAYCARE BOARDING }
-enum TicketScheduleChangeType { CREATED MOVED }
-enum AnalSituationStatus { DONE_REQUESTED DONE_NOT_REQUESTED NOT_NEEDED }
-enum VipAvailability { AVAILABLE NOT_AVAILABLE NEEDS_MORE_SESSIONS }
-enum DaycareStatus { NONE STAYING }
+enum UserRole {
+ ADMIN
+ MANAGER
+ FLOOR_MANAGER
+ FRONT
+ BACK
+ MASTER_GROOMER
+ GROOMER
+ SALES
+}
+enum TicketStatus {
+ OPEN
+ CONFIRMED
+ CHECKED_IN
+ IN_PROGRESS
+ READY
+ CLOSED
+ CANCELLED
+}
+enum AuditActorType {
+ EMPLOYEE
+ SYSTEM
+}
+enum AuditEntityType {
+ TENANT
+ LOCATION
+ USER
+ CUSTOMER
+ PET
+ VACCINATION
+ TICKET
+ PAYMENT
+ COMMUNICATION
+ MEMBERSHIP
+ INVENTORY_ITEM
+ SHIPMENT
+ BACKBAR_TICKET
+}
+enum CommunicationChannel {
+ SMS
+ EMAIL
+}
+enum CommunicationDirection {
+ INBOUND
+ OUTBOUND
+}
+enum PaymentType {
+ CASH
+ VISA
+ MASTERCARD
+ AMEX
+ DISCOVER
+ DEBIT
+ GIFT_CARD
+ OTHER
+}
+enum TicketLineType {
+ SERVICE
+ PRODUCT
+}
+enum TicketLineRole {
+ PREP
+ BATH
+ GROOM
+ ADD_ON
+ PRODUCT
+}
+enum BookingSource {
+ STAFF
+ ONLINE
+}
+enum OnlineBookingCategory {
+ GROOMING
+ FULL_WASH
+ NAIL_GRINDING
+ SELFSERVICE
+ DAYCARE
+ BOARDING
+}
+enum TicketScheduleChangeType {
+ CREATED
+ MOVED
+}
+enum AnalSituationStatus {
+ DONE_REQUESTED
+ DONE_NOT_REQUESTED
+ NOT_NEEDED
+}
+enum VipAvailability {
+ AVAILABLE
+ NOT_AVAILABLE
+ NEEDS_MORE_SESSIONS
+}
+enum DaycareStatus {
+ NONE
+ STAYING
+}
 model Tenant { id String @id @default(cuid()) name String subscription Subscription? locations Location[] users User[] sessions EmployeeSession[] customers Customer[] customerPhones CustomerPhone[] pets Pet[] vaccinations Vaccination[] tickets Ticket[] payments Payment[] communications Communication[] services Service[] products Product[] auditEntries AuditEntry[] onlineBookingRules OnlineBookingRule[] ticketScheduleHistory TicketScheduleHistory[] whiteboardSnapshots WhiteboardSnapshot[] tenantFeatures TenantFeature[] rolePermissions RolePermission[] settings TenantSetting[] servicePricing LocationServicePricing[] packages Package[] packageItems PackageItem[] packagePricing LocationPackagePricing[] customerLocationAccess CustomerLocationAccess[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@index([name]) }
 model Subscription { id String @id @default(cuid()) tenantId String @unique plan String status String @default("active") externalId String? startedAt DateTime @default(now()) renewsAt DateTime? cancelledAt DateTime? tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Cascade) }
 model SubscriptionPlan { id String @id @default(cuid()) code String @unique name String monthlyCents Int active Boolean @default(true) createdAt DateTime @default(now()) updatedAt DateTime @updatedAt }
