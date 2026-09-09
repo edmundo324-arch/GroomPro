@@ -35,7 +35,7 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const customerId = String(body.customerId || "");
-    const locationIds = Array.isArray(body.locationIds) ? body.locationIds.map(String) : [];
+    const locationIds: string[] = Array.isArray(body.locationIds) ? body.locationIds.map((value: unknown) => String(value)) : [];
     if (!customerId) return NextResponse.json({ error: "Customer is required." }, { status: 400 });
     const customer = await db.customer.findFirst({ where: { id: customerId, tenantId }, select: { id: true } });
     if (!customer) return NextResponse.json({ error: "Customer was not found." }, { status: 404 });
@@ -43,7 +43,7 @@ export async function PUT(request: NextRequest) {
     if (validLocations.length !== new Set(locationIds).size) return NextResponse.json({ error: "One or more locations are invalid for this business." }, { status: 400 });
     await db.$transaction(async tx => {
       await tx.customerLocationAccess.deleteMany({ where: { tenantId, customerId } });
-      if (locationIds.length) await tx.customerLocationAccess.createMany({ data: locationIds.map(locationId => ({ tenantId, customerId, locationId })) });
+      if (locationIds.length) await tx.customerLocationAccess.createMany({ data: locationIds.map((locationId: string) => ({ tenantId, customerId, locationId })) });
     });
     return NextResponse.json({ ok: true, customerId, locationIds, changedBy: actor.id });
   } catch (error) {
