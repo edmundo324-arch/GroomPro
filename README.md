@@ -21,6 +21,9 @@ GroomPro Suite is a multi-tenant grooming salon management platform designed for
 - Floating working windows are preferred so the calendar remains visible and the user can arrange windows with minimal navigation.
 - When an appointment date changes in a ticket, the background calendar follows the selected date.
 - Zero-duration appointments are hidden from the calendar.
+- Client imports use a human-readable field dictionary and manual mapping for unfamiliar source headers such as Ab2 or ID311.
+- Customer addresses are first-class data fields rather than being hidden in notes.
+- Imported customers are matched by phone/email before a new customer record is created.
 
 ## Development
 
