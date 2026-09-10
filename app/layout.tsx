@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./calendar-search.css";
 
 export const metadata: Metadata = {
   title: "GroomPro Suite",
