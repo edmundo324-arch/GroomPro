@@ -2,6 +2,7 @@
   "name": "groompro",
   "version": "0.1.0",
   "private": true,
+  "main": "scripts/godaddy-start.cjs",
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
