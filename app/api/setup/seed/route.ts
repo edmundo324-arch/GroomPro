@@ -16,6 +16,20 @@ const employees = [
   { firstName: "Anton", lastName: "Johnson", title: "Bather", role: "BACK", pin: "7777" },
 ] as const;
 
+const employeeWorkDays: Record<string, number[]> = {
+  "Edmundo Saenz": [1, 2, 3, 4, 5],
+  "Zagla Saenz": [1, 2, 3, 5, 6],
+  "Abby Ensing": [1, 2, 3, 5, 6],
+  "Zagla Paz": [1, 2, 4, 5, 6],
+  "Ruby Paz": [1, 2, 3, 4, 6],
+  "Arianna Petro": [1, 3, 4, 5, 6],
+  "Lisa Allen": [2, 3, 4, 5, 6],
+  "Kandance Krueger": [1, 3, 4, 5, 6],
+  "Hailey Puly": [1, 2, 3, 4, 5],
+  "Lyndsey Culwell": [1, 2, 3, 5, 6],
+  "Anton Johnson": [1, 2, 4, 5, 6],
+};
+
 const dogBreeds = [
   "Golden Retriever", "Yorkshire Terrier", "Shih Tzu", "Poodle", "Labrador Retriever",
   "Australian Shepherd", "Doodle", "Cocker Spaniel", "German Shepherd", "Maltese",
@@ -28,16 +42,18 @@ const lastNames = [
   "Thomas", "Jackson", "White", "Harris", "Martin", "Thompson", "Garcia", "Martinez", "Robinson", "Clark",
 ];
 
-const assetCategories = [
-  "Grooming",
-  "Full Wash",
-  "Self Service",
-  "Nail Grinding",
-  "VIP Grooming",
-  "VIP Full Wash",
-  "VIP Brush-out-Session",
-  "VIP Self Service",
-] as const;
+const assetSchedules: Record<string, { start: string; end: string }> = {
+  "Grooming": { start: "08:30", end: "14:00" },
+  "Full Wash": { start: "09:30", end: "15:00" },
+  "Self Service": { start: "11:30", end: "16:30" },
+  "Nail Grinding": { start: "13:30", end: "16:30" },
+  "VIP Grooming": { start: "08:30", end: "14:00" },
+  "VIP Full Wash": { start: "08:30", end: "15:00" },
+  "VIP Brush-out-Session": { start: "09:30", end: "15:00" },
+  "VIP Self Service": { start: "11:30", end: "16:30" },
+};
+
+const assetCategories = Object.keys(assetSchedules);
 
 function hashPin(pin: string) {
   const salt = randomBytes(16).toString("hex");
@@ -51,60 +67,31 @@ export async function POST(request: NextRequest) {
     if (!expectedSecret || expectedSecret === "replace-with-a-long-random-secret") {
       return NextResponse.json({ error: "GROOMPRO_SETUP_SECRET is not configured." }, { status: 503 });
     }
-
     const body = await request.json().catch(() => ({}));
-    if (body.secret !== expectedSecret) {
-      return NextResponse.json({ error: "Invalid setup secret." }, { status: 401 });
-    }
+    if (body.secret !== expectedSecret) return NextResponse.json({ error: "Invalid setup secret." }, { status: 401 });
 
     const result = await db.$transaction(async (tx) => {
       let tenantId = process.env.GROOMPRO_DEV_TENANT_ID || null;
       let tenant = tenantId ? await tx.tenant.findUnique({ where: { id: tenantId } }) : null;
-      if (!tenant) {
-        tenant = await tx.tenant.findFirst({ orderBy: { createdAt: "asc" } });
-      }
-      if (!tenant) {
-        tenant = await tx.tenant.create({ data: { name: "Rubber Doggies Grooming" } });
-      }
+      if (!tenant) tenant = await tx.tenant.findFirst({ orderBy: { createdAt: "asc" } });
+      if (!tenant) tenant = await tx.tenant.create({ data: { name: "Rubber Doggies Grooming" } });
       tenantId = tenant.id;
 
       let location = await tx.location.findFirst({ where: { tenantId }, orderBy: { createdAt: "asc" } });
-      if (!location) {
-        location = await tx.location.create({
-          data: {
-            tenantId,
-            name: "Main Location",
-            city: "Cibolo",
-            state: "TX",
-            timezone: "America/Chicago",
-          },
-        });
-      }
+      if (!location) location = await tx.location.create({ data: { tenantId, name: "Main Location", city: "Cibolo", state: "TX", timezone: "America/Chicago" } });
 
       const employeeIds: string[] = [];
       for (const employee of employees) {
-        const existing = await tx.user.findFirst({
-          where: { tenantId, firstName: employee.firstName, lastName: employee.lastName },
-        });
+        const existing = await tx.user.findFirst({ where: { tenantId, firstName: employee.firstName, lastName: employee.lastName } });
         const pinHash = hashPin(employee.pin);
         const user = existing
-          ? await tx.user.update({
-              where: { id: existing.id },
-              data: { role: employee.role as any, active: true, locationId: location.id, pinHash },
-            })
-          : await tx.user.create({
-              data: {
-                tenantId,
-                locationId: location.id,
-                firstName: employee.firstName,
-                lastName: employee.lastName,
-                role: employee.role as any,
-                active: true,
-                pinHash,
-              },
-            });
+          ? await tx.user.update({ where: { id: existing.id }, data: { role: employee.role as any, active: true, locationId: location.id, pinHash } })
+          : await tx.user.create({ data: { tenantId, locationId: location.id, firstName: employee.firstName, lastName: employee.lastName, role: employee.role as any, active: true, pinHash } });
         await tx.$executeRaw`UPDATE User SET jobTitle = ${employee.title} WHERE id = ${user.id}`;
         employeeIds.push(user.id);
+        for (const day of employeeWorkDays[`${employee.firstName} ${employee.lastName}`] || []) {
+          await tx.$executeRaw`INSERT INTO EmployeeSchedule (id,tenantId,userId,dayOfWeek,startTime,endTime,active) VALUES (${randomUUID()},${tenantId},${user.id},${day},'08:30','17:00',1) ON DUPLICATE KEY UPDATE startTime='08:30',endTime='17:00',active=1`;
+        }
       }
 
       let customerCount = 0;
@@ -113,58 +100,29 @@ export async function POST(request: NextRequest) {
         const lastName = lastNames[i - 1];
         const phone = `21012345${String(i).padStart(2, "0")}`;
         const existingPhone = await tx.customerPhone.findFirst({ where: { tenantId, normalized: phone } });
-        let customer = existingPhone
-          ? await tx.customer.findUnique({ where: { id: existingPhone.customerId } })
-          : await tx.customer.findFirst({ where: { tenantId, firstName, lastName } });
-
-        if (!customer) {
-          customer = await tx.customer.create({
-            data: { tenantId, firstName, lastName, city: "Cibolo", state: "TX" },
-          });
-        }
-
-        await tx.customerPhone.upsert({
-          where: { tenantId_normalized: { tenantId, normalized: phone } },
-          update: { customerId: customer.id, number: `210-123-${phone.slice(-4)}`, isPrimary: true },
-          create: {
-            tenantId,
-            customerId: customer.id,
-            number: `210-123-${phone.slice(-4)}`,
-            normalized: phone,
-            label: "Mobile",
-            isPrimary: true,
-          },
-        });
-
+        let customer = existingPhone ? await tx.customer.findUnique({ where: { id: existingPhone.customerId } }) : await tx.customer.findFirst({ where: { tenantId, firstName, lastName } });
+        if (!customer) customer = await tx.customer.create({ data: { tenantId, firstName, lastName, city: "Cibolo", state: "TX" } });
+        await tx.customerPhone.upsert({ where: { tenantId_normalized: { tenantId, normalized: phone } }, update: { customerId: customer.id, number: `210-123-${phone.slice(-4)}`, isPrimary: true }, create: { tenantId, customerId: customer.id, number: `210-123-${phone.slice(-4)}`, normalized: phone, label: "Mobile", isPrimary: true } });
         const existingDog = await tx.pet.findFirst({ where: { tenantId, customerId: customer.id, name: `Fluffy ${i}` } });
-        if (!existingDog) {
-          await tx.pet.create({
-            data: {
-              tenantId,
-              customerId: customer.id,
-              name: `Fluffy ${i}`,
-              breed: dogBreeds[i - 1],
-            },
-          });
-        }
+        if (!existingDog) await tx.pet.create({ data: { tenantId, customerId: customer.id, name: `Fluffy ${i}`, breed: dogBreeds[i - 1] } });
         customerCount++;
       }
 
+      let assetCount = 0;
+      let assetScheduleCount = 0;
       for (const category of assetCategories) {
-        const existing = await tx.$queryRaw<Array<{ id: string }>>`
-          SELECT id FROM BookingAsset WHERE tenantId = ${tenantId} AND locationId = ${location.id} AND category = ${category} LIMIT 1
-        `;
-        if (existing.length === 0) {
-          await tx.$executeRaw`
-            INSERT INTO BookingAsset (id, tenantId, locationId, name, category, onlineBookingRecipient, active)
-            VALUES (${randomUUID()}, ${tenantId}, ${location.id}, ${category}, ${category}, true, true)
-          `;
+        const existing = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM BookingAsset WHERE tenantId=${tenantId} AND locationId=${location.id} AND category=${category} LIMIT 1`;
+        const assetId = existing[0]?.id || randomUUID();
+        if (!existing.length) await tx.$executeRaw`INSERT INTO BookingAsset (id,tenantId,locationId,name,category,onlineBookingRecipient,active) VALUES (${assetId},${tenantId},${location.id},${category},${category},1,1)`;
+        const schedule = assetSchedules[category];
+        for (let day = 1; day <= 6; day++) {
+          await tx.$executeRaw`INSERT INTO BookingAssetSchedule (id,assetId,dayOfWeek,startTime,endTime,active) VALUES (${randomUUID()},${assetId},${day},${schedule.start},${schedule.end},1) ON DUPLICATE KEY UPDATE startTime=${schedule.start},endTime=${schedule.end},active=1`;
+          assetScheduleCount++;
         }
+        assetCount++;
       }
-
-      return { tenantId, locationId: location.id, employeeCount: employeeIds.length, customerCount, assetCount: assetCategories.length };
+      return { tenantId, locationId: location.id, employeeCount: employeeIds.length, customerCount, assetCount, assetScheduleCount };
     });
-
     return NextResponse.json({ ok: true, seeded: result });
   } catch (error) {
     console.error("Seed failed", error);
