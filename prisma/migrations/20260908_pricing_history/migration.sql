@@ -1,7 +1,7 @@
 -- Auditable pricing changes for the modular multi-location pricing engine.
 -- Historical TicketLine.unitPriceCents remains the source of truth for past sales.
 
-CREATE TABLE `PricingChangeBatch` (
+CREATE TABLE IF NOT EXISTS `PricingChangeBatch` (
   `id` VARCHAR(191) NOT NULL,
   `tenantId` VARCHAR(191) NOT NULL,
   `actorUserId` VARCHAR(191) NULL,
@@ -14,7 +14,7 @@ CREATE TABLE `PricingChangeBatch` (
   INDEX `PricingChangeBatch_tenantId_actorUserId_idx` (`tenantId`, `actorUserId`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-CREATE TABLE `PricingChangeItem` (
+CREATE TABLE IF NOT EXISTS `PricingChangeItem` (
   `id` VARCHAR(191) NOT NULL,
   `batchId` VARCHAR(191) NOT NULL,
   `entityType` VARCHAR(30) NOT NULL,
