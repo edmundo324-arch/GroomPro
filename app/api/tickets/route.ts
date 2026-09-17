@@ -1,3 +1,4 @@
+import { requestLocation } from "@/src/lib/request-location";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 import { writeAudit } from "@/src/lib/audit";
@@ -12,7 +13,7 @@ type PetDetailInput = { petId: string; weightLbs?: number | null; analSituation?
 
 export async function POST(request: NextRequest) {
   const tenantId = tenantFrom(request);
-  const locationId = request.nextUrl.searchParams.get("locationId") || process.env.GROOMPRO_DEV_LOCATION_ID || "";
+  const locationId = await requestLocation(request, tenantId);
   if (!tenantId || !locationId) return NextResponse.json({ error: "Tenant and location context are required." }, { status: 401 });
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const tenantId = tenantFrom(request);
-  const locationId = request.nextUrl.searchParams.get("locationId") || process.env.GROOMPRO_DEV_LOCATION_ID || "";
+  const locationId = await requestLocation(request, tenantId);
   if (!tenantId || !locationId) return NextResponse.json({ error: "Tenant and location context are required." }, { status: 401 });
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
@@ -102,3 +103,4 @@ export async function PATCH(request: NextRequest) {
   await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: ticket.customerId, action: "MOVE", summary: `Moved appointment #${ticket.orderNumber} from ${previousStart.toLocaleString()} to ${newStart.toLocaleString()}.`, details: { previousStart: previousStart.toISOString(), newStart: newStart.toISOString() } });
   return NextResponse.json({ ticket: updated, moved: true, previousStart, newStart });
 }
+
