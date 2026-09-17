@@ -77,7 +77,9 @@ async function main() {
     assert.equal((await api('/api/products')).products.length,1);
     await api('/api/employee-schedules','PUT',{userId:user.id,dayOfWeek:1,startTime:'08:30',endTime:'17:00'});
     assert.equal((await api('/api/employee-schedules')).schedules.length,1);
-    await api(`/api/customers/account?customerId=${customer.id}`);
+    assert.equal((await api(`/api/customers/account?customerId=${customer.id}`)).customer.paymentMethodCount, 0);
+    await api('/api/customers/account','POST',{customerId:customer.id,entryType:'CREDIT',amountCents:-234,reason:'Integration verification'});
+    assert.equal((await db.customer.findUnique({where:{id:customer.id}})).creditCents,1000);
     console.log(`PASS: ${plan.tables.length} tables; SQL import; repeat and partial bootstrap; preserved data; production startup; API writes and database reads.`);
   } finally {
     if(server) server.kill('SIGTERM');

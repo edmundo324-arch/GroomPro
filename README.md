@@ -33,3 +33,5 @@ The application is being built in phases with development, preview/test, and pro
 ## Hosting target
 
 GoDaddy Node.js Hosting is the intended production hosting environment, with GoDaddy-managed MySQL as the initial database target.
+
+Deployment, database bootstrap, SQL imports, and verification: [GoDaddy deployment guide](docs/godaddy-deployment.md).

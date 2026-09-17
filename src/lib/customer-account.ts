@@ -12,7 +12,7 @@ export async function getCustomerAccount(tenantId: string, customerId: string) {
   const ledger = await db.$queryRaw<any[]>`SELECT id, entryType, amountCents, reason, ticketId, actorUserId, createdAt FROM CustomerAccountLedger WHERE tenantId=${tenantId} AND customerId=${customerId} ORDER BY createdAt DESC LIMIT 50`;
   const rewards = await db.$queryRaw<any[]>`SELECT id, points, reason, ticketId, rewardId, actorUserId, createdAt FROM CustomerRewardLedger WHERE tenantId=${tenantId} AND customerId=${customerId} ORDER BY createdAt DESC LIMIT 50`;
   const methods = await db.$queryRaw<any[]>`SELECT id, provider, brand, last4, expMonth, expYear, isDefault, active, createdAt FROM CustomerPaymentMethod WHERE tenantId=${tenantId} AND customerId=${customerId} AND active=true ORDER BY isDefault DESC, createdAt DESC`;
-  return { customer: rows[0], ledger, rewards, paymentMethods: methods };
+  return { customer: { ...rows[0], paymentMethodCount: Number(rows[0].paymentMethodCount) }, ledger, rewards, paymentMethods: methods };
 }
 
 export async function addAccountEntry(params: {tenantId:string;customerId:string;ticketId?:string|null;actorUserId?:string|null;entryType:AccountEntryType;amountCents:number;reason:string;referenceId?:string|null}) {
@@ -30,7 +30,9 @@ export async function adjustAccountEntry(params:{tenantId:string;customerId:stri
   if(!Number.isInteger(params.amountCents)||params.amountCents===0) throw new Error("Adjustment must be a non-zero whole number of cents.");
   return db.$transaction(async tx=>{
     const field=params.entryType==="OWED"?"balanceCents":"creditCents";
-    const rows=await tx.$queryRaw<any[]>`SELECT ${field} AS currentAmount FROM Customer WHERE id=${params.customerId} AND tenantId=${params.tenantId} FOR UPDATE`;
+    // SQL parameters represent values, not identifiers. The column comes only
+    // from the fixed enum mapping above; customer and tenant remain parameters.
+    const rows=await tx.$queryRawUnsafe<any[]>(`SELECT ${field} AS currentAmount FROM Customer WHERE id=? AND tenantId=? FOR UPDATE`,params.customerId,params.tenantId);
     if(!rows.length) throw new Error("Customer could not be found.");
     const current=Number(rows[0].currentAmount||0); const next=current+params.amountCents;
     if(next<0) throw new Error(params.entryType==="OWED"?"The owed balance cannot become negative.":"Customer credit cannot become negative.");
