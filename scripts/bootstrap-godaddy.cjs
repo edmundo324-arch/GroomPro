@@ -48,6 +48,12 @@ async function bootstrap(db, plan) {
         if (!existing.length) await tx.$executeRawUnsafe(statement);
       }
       for (const statement of plan.all.filter(s => /^INSERT IGNORE INTO FeatureModule/i.test(s))) await tx.$executeRawUnsafe(statement);
+      // The previous bootstrap created this exact enum before failing on jobTitle.
+      // Append the new value without changing any existing value or ordinal.
+      const status = await tx.$queryRaw`SELECT COLUMN_TYPE AS columnType FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='Ticket' AND COLUMN_NAME='status'`;
+      if (status[0]?.columnType === "enum('OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED','CANCELLED')") {
+        await tx.$executeRawUnsafe("ALTER TABLE `Ticket` MODIFY COLUMN `status` ENUM('OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED','CANCELLED','NO_SHOW') NOT NULL DEFAULT 'OPEN'");
+      }
       return await verify(tx, plan);
     } finally {
       await tx.$queryRaw`SELECT RELEASE_LOCK(CONCAT('groompro:', LEFT(SHA2(DATABASE(), 256), 48))) AS released`;
@@ -56,6 +62,7 @@ async function bootstrap(db, plan) {
 }
 async function main() {
   loadEnvironment();
+  console.log('GroomPro: starting schema bootstrap v2 (47-table recovery).');
   process.env.DATABASE_URL = databaseUrl();
   const filename = path.join(ROOT, 'godaddy-groompro-schema.sql');
   const sql = fs.existsSync(filename) ? fs.readFileSync(filename, 'utf8') : require('./build-godaddy-schema-sql.cjs').buildSchema();
