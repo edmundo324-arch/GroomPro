@@ -32,8 +32,12 @@ async function main() {
     // Simulate interrupted/older setup in this disposable test database.
     await db.$executeRawUnsafe('DROP TABLE EmployeeSchedule');
     await db.$executeRawUnsafe('ALTER TABLE User DROP COLUMN jobTitle');
+    await db.ticket.updateMany({data:{status:'CONFIRMED'}});
+    await db.$executeRawUnsafe("ALTER TABLE `Ticket` MODIFY COLUMN `status` ENUM('OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED','CANCELLED') NOT NULL DEFAULT 'OPEN'");
     await bootstrap(db, plan);
     await verify(db, plan);
+    assert.equal((await db.ticket.findFirst()).status, 'CONFIRMED');
+    await db.ticket.updateMany({data:{status:'NO_SHOW'}});
     // Exercise the actual exported import artifact independently of bootstrap.
     const connection = await mysql.createConnection({host:url.hostname,port:Number(url.port||3306),user:decodeURIComponent(url.username),password:decodeURIComponent(url.password)});
     const importName = url.pathname.slice(1).replace(/_test$/, '_import_test');
