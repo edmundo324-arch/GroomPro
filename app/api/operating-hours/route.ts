@@ -1,0 +1,10 @@
+import {NextRequest,NextResponse} from "next/server";
+import {db} from "@/src/lib/db";
+import {requestLocation} from "@/src/lib/request-location";
+import {locationHours} from "@/src/lib/location-hours";
+import {parseHours,validTimezone} from "@/src/lib/operating-hours";
+import {getActiveEmployeeSession} from "@/src/lib/employee-session";
+const tenant=(r:NextRequest)=>r.headers.get("x-tenant-id")||r.cookies.get("groompro_tenant")?.value||process.env.GROOMPRO_DEV_TENANT_ID||"";
+export async function GET(r:NextRequest){const t=tenant(r);if(!t)return NextResponse.json({error:"Business context is required."},{status:401});try{const id=await requestLocation(r,t);if(!id)throw new Error("Select a location.");return NextResponse.json(await locationHours(t,id),{headers:{"Cache-Control":"no-store"}})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Hours could not load."},{status:400})}}
+export async function PUT(r:NextRequest){const t=tenant(r),sid=r.cookies.get("groompro_session")?.value;const session=t&&sid?await getActiveEmployeeSession(t,sid):null;if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});if(!["ADMIN","MANAGER"].includes(session.user.role))return NextResponse.json({error:"Manager access required."},{status:403});try{const b=await r.json(),id=String(b.locationId||""),hours=parseHours(b.hours),timezone=String(b.timezone||"");if(!validTimezone(timezone))throw new Error("Choose a valid time zone.");if(!await db.location.findFirst({where:{id,tenantId:t}}))throw new Error("Location not found.");await db.$transaction(async tx=>{await tx.location.update({where:{id},data:{timezone}});await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId:t,settingKey:`OPERATING_HOURS:${id}`}},create:{tenantId:t,settingKey:`OPERATING_HOURS:${id}`,value:hours},update:{value:hours}})});return NextResponse.json({ok:true})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Unable to save hours."},{status:400})}}
+

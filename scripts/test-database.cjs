@@ -101,8 +101,18 @@ async function main() {
     await api('/api/catalog','PATCH',{kind:'plans',id:vip.id,name:'VIP Grooming',priceCents:4000,active:true});
     const cat=await api('/api/catalog');assert.equal(cat.plans.find(p=>p.id===vip.id).priceCents,4000);
     const pet=await db.pet.create({data:{tenantId:tenant.id,customerId:created.customer.id,name:'Catalog Dog'}});
-    const booking=await api('/api/tickets','POST',{customerId:created.customer.id,petIds:[pet.id],lines:[{type:'SERVICE',id:svc.id,petId:pet.id,quantity:1}],scheduledStart:new Date(Date.now()+86400000).toISOString(),durationMin:60});
+    const booking=await api('/api/tickets','POST',{customerId:created.customer.id,petIds:[pet.id],lines:[{type:'SERVICE',id:svc.id,petId:pet.id,quantity:1}],scheduledStart:new Date().toISOString().slice(0,10)+"T15:00:00.000Z",durationMin:60});
     assert.equal(booking.ticket.lines[0].unitPriceCents,7000);assert.equal((await db.ticket.findUnique({where:{id:booking.ticket.id}})).durationMin,60);
+    const hours=await api('/api/operating-hours');assert.equal(hours.hours[1].open,'08:30');assert.equal(hours.hours[1].close,'17:00');
+    async function rejectedTime(route,method,body){const r=await fetch(base+route,{method,headers:{'x-tenant-id':tenant.id,'Content-Type':'application/json',cookie},body:JSON.stringify(body)});assert.equal(r.status,400);assert.match((await r.json()).error,/08:30|closed|within/)}
+    const bookingDate=booking.ticket.scheduledStart.slice(0,10);
+    await rejectedTime('/api/tickets','PATCH',{ticketId:booking.ticket.id,scheduledStart:bookingDate+'T08:00:00.000Z'});
+    await rejectedTime('/api/tickets','PATCH',{ticketId:booking.ticket.id,scheduledStart:bookingDate+'T22:30:00.000Z'});
+    await rejectedTime('/api/tickets/rebook','POST',{ticketId:booking.ticket.id,scheduledStart:bookingDate+'T08:00:00.000Z'});
+    await rejectedTime('/api/tickets','POST',{customerId:created.customer.id,petIds:[pet.id],lines:[{type:'SERVICE',id:svc.id,quantity:1}],scheduledStart:bookingDate+'T08:00:00.000Z',durationMin:60});
+    const modified=hours.hours.map(h=>({...h,open:'09:00',close:'16:00'}));await api('/api/operating-hours','PUT',{locationId:location.id,timezone:'America/Chicago',hours:modified});assert.equal((await api('/api/operating-hours')).hours[1].close,'16:00');
+    await api('/api/operating-hours','PUT',{locationId:location.id,timezone:'America/Chicago',hours:hours.hours});
+    console.log('PASS: operating hours persist; early and late creation, moving and rebooking rejected.');
     const membership=await api('/api/memberships','POST',{customerId:created.customer.id,petId:pet.id,planId:vip.id,recurringPriceCents:1});
     assert.equal((await api('/api/memberships?customerId='+created.customer.id)).memberships[0].recurringPriceCents,4000);
     const noPin=await fetch(base+'/api/catalog',{method:'POST',headers:{'x-tenant-id':tenant.id,'Content-Type':'application/json'},body:JSON.stringify(catalogService)});assert.equal(noPin.status,401);
@@ -165,6 +175,11 @@ async function main() {
     console.log('PASS: calendar employees/assets/schedules and clickable ticket data; cookie-only PIN and appointment move persist to MySQL.');
     await seedDb.tenant.create({data:{name:'Second business'}});
     const ambiguous=await fetch(seedBase+'/api/setup/context');assert.equal(ambiguous.status,409);
+    const demo=await seedDb.ticket.findFirst({where:{lines:{some:{description:'Demo Full Groom'}},scheduleHistory:{none:{changeType:'MOVED'}}},include:{scheduleHistory:true}});
+    const wrong=new Date(demo.scheduledStart);wrong.setUTCHours(8,0,0,0);await seedDb.ticket.update({where:{id:demo.id},data:{scheduledStart:wrong}});await seedDb.ticketScheduleHistory.update({where:{id:demo.scheduleHistory[0].id},data:{newStart:wrong}});
+    const {repairDemoHours}=require('./repair-demo-hours.cjs');assert.equal(await repairDemoHours(seedDb),1);const recovered=await seedDb.ticket.findUnique({where:{id:demo.id}});assert.equal(new Intl.DateTimeFormat('en-GB',{timeZone:'America/Chicago',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(recovered.scheduledStart),'08:30');assert.equal(await repairDemoHours(seedDb),0);
+    assert.equal((await seedDb.ticket.findUnique({where:{id:sample.id}})).scheduledStart.toISOString(),moved);
+    console.log('PASS: untouched legacy demo appointment repaired to 08:30 Chicago; repeat repair no-op; manually moved appointment preserved.');
     console.log('PASS: complete seed; cookie-only employee creation; restored business context; 100 customers; 11 seeded employees; 55 employee schedules; 48 asset schedules; repeat seed preserves PINs and appointments.');
     console.log(`PASS: ${plan.tables.length} tables; SQL import; repeat and partial bootstrap; preserved data; production startup; API writes and database reads.`);
   } finally {
