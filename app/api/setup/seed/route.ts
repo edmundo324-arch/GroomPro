@@ -33,19 +33,24 @@ export async function POST(request:NextRequest){
   if(!expectedSecret||expectedSecret==="replace-with-a-long-random-secret")return NextResponse.json({error:"GROOMPRO_SETUP_SECRET is not configured."},{status:503});
   const body=await request.json().catch(()=>({}));
   if(body.secret!==expectedSecret)return NextResponse.json({error:"Invalid setup secret."},{status:401});
+  const preparedEmployees=employees.map(e=>({...e,pinHash:hashPin(e.pin)}));
   const result=await db.$transaction(async tx=>{
-   let tenantId=process.env.GROOMPRO_DEV_TENANT_ID||null;
+   const lock=await tx.$queryRaw<Array<{acquired:bigint|number}>>`SELECT GET_LOCK(CONCAT('groompro-seed:', LEFT(SHA2(DATABASE(),256),40)),10) AS acquired`;
+   if(Number(lock[0]?.acquired)!==1)throw new Error("Setup is already running. Please wait for it to finish.");
+   try {
+   let tenantId=request.headers.get("x-tenant-id")||request.cookies.get("groompro_tenant")?.value||process.env.GROOMPRO_DEV_TENANT_ID||null;
    let tenant=tenantId?await tx.tenant.findUnique({where:{id:tenantId}}):null;
-   if(!tenant)tenant=await tx.tenant.findFirst({orderBy:{createdAt:"asc"}});
+   if(tenantId&&!tenant)throw new Error("The selected business no longer exists. Open setup in a fresh browser session.");
+   if(!tenant){const candidates=await tx.tenant.findMany({take:2});if(candidates.length>1)throw new Error("Select a business before loading preview data.");tenant=candidates[0]||null;}
    if(!tenant)tenant=await tx.tenant.create({data:{name:"Rubber Doggies Grooming"}});
    tenantId=tenant.id;
    let location=await tx.location.findFirst({where:{tenantId},orderBy:{createdAt:"asc"}});
    if(!location)location=await tx.location.create({data:{tenantId,name:"Main Location",city:"Cibolo",state:"TX",timezone:"America/Chicago"}});
    const employeeIds:string[]=[];
-   for(const e of employees){
+   for(const e of preparedEmployees){
     const existing=await tx.user.findFirst({where:{tenantId,firstName:e.firstName,lastName:e.lastName}});
-    const data={role:e.role as any,active:true,locationId:location.id,pinHash:hashPin(e.pin)};
-    const user=existing?await tx.user.update({where:{id:existing.id},data}):await tx.user.create({data:{...data,tenantId,firstName:e.firstName,lastName:e.lastName}});
+    const data={role:e.role as any,active:true,locationId:location.id,pinHash:e.pinHash};
+    const user=existing||await tx.user.create({data:{...data,tenantId,firstName:e.firstName,lastName:e.lastName}});
     await tx.$executeRaw`UPDATE User SET jobTitle=${e.title} WHERE id=${user.id}`;employeeIds.push(user.id);
     for(const day of employeeWorkDays[`${e.firstName} ${e.lastName}`]||[])await tx.$executeRaw`INSERT INTO EmployeeSchedule (id,tenantId,userId,dayOfWeek,startTime,endTime,active) VALUES (${randomUUID()},${tenantId},${user.id},${day},'08:30','17:00',1) ON DUPLICATE KEY UPDATE startTime='08:30',endTime='17:00',active=1`;
    }
@@ -73,7 +78,8 @@ export async function POST(request:NextRequest){
     }
    }
    return {tenantId,locationId:location.id,employeeCount:employeeIds.length,customerCount:customerIds.length,assetCount,assetScheduleCount,demoAppointmentCount};
-  });
+   } finally { await tx.$queryRaw`SELECT RELEASE_LOCK(CONCAT('groompro-seed:', LEFT(SHA2(DATABASE(),256),40))) AS released`; }
+  },{maxWait:15000,timeout:120000});
   const response=NextResponse.json({ok:true,seeded:result});response.cookies.set("groompro_tenant",result.tenantId,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",path:"/",maxAge:60*60*24*30});return response;
  }catch(error){console.error("Seed failed",error);return NextResponse.json({error:error instanceof Error?error.message:"Seed failed."},{status:500});}
 }
