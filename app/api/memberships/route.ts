@@ -21,14 +21,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const tenantId=tenantFrom(request); const session=await sessionFor(request,tenantId); if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});
   try{
-    const b=await request.json(); const customerId=String(b.customerId||""); const petId=String(b.petId||""); const name=String(b.name||"Fur EverVIP"); const recurringPriceCents=Number(b.recurringPriceCents);
+    const b=await request.json(); const customerId=String(b.customerId||""); const petId=String(b.petId||""); let name=String(b.name||"Fur EverVIP"); let recurringPriceCents=Number(b.recurringPriceCents);
+    if(b.planId){const plan=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:"VIP_PLAN:"+String(b.planId)}}});const value=plan?.value as any;if(!value?.active)return NextResponse.json({error:"Select an active VIP plan."},{status:400});name=value.name;recurringPriceCents=value.priceCents;}
     if(!customerId||!petId||!Number.isInteger(recurringPriceCents)||recurringPriceCents<0)return NextResponse.json({error:"Customer, dog, and recurring price are required."},{status:400});
     const customer=await db.customer.findFirst({where:{id:customerId,tenantId},select:{id:true}}); const pet=await db.pet.findFirst({where:{id:petId,customerId,tenantId},select:{id:true,name:true}}); if(!customer||!pet)return NextResponse.json({error:"Customer or dog could not be found."},{status:404});
     const setting=await db.$queryRaw<any[]>`SELECT value FROM TenantSetting WHERE tenantId=${tenantId} AND settingKey='VIP_BILLING_DAYS' LIMIT 1`;
     const billingDays=String(setting[0]?.value||"1,15").split(",").map(Number).filter(n=>n>=1&&n<=28); const firstBilling=nextBillingDate(new Date(),billingDays.length?billingDays:[1,15]); const id=randomUUID();
-    await db.$executeRaw`INSERT INTO Membership (id,tenantId,customerId,petId,name,status,startFeeCents,recurringPriceCents,billingDay,billingDaySecond,billingInArrears,startedAt) VALUES (${id},${tenantId},${customerId},${petId},${name},'ACTIVE',100,${recurringPriceCents},${billingDays[0]||1},${billingDays[1]||null},true,NOW(3))`;
-    await db.$executeRaw`INSERT INTO MembershipPayment (id,tenantId,membershipId,amountCents,taxCents,paymentType,status,scheduledFor) VALUES (${randomUUID()},${tenantId},${id},100,0,'START_VIP','PENDING',NOW(3))`;
-    await db.$executeRaw`INSERT INTO MembershipPayment (id,tenantId,membershipId,amountCents,taxCents,paymentType,status,scheduledFor) VALUES (${randomUUID()},${tenantId},${id},${recurringPriceCents},0,'CARD_ON_FILE','PENDING',${firstBilling})`;
+    await db.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM Pet WHERE id=${petId} AND tenantId=${tenantId} FOR UPDATE`;
+    const duplicate=await tx.$queryRaw<any[]>`SELECT id FROM Membership WHERE tenantId=${tenantId} AND petId=${petId} AND status IN ('ACTIVE','PAUSED','PAUSE_REQUESTED','CANCELLATION_REQUESTED') LIMIT 1`;if(duplicate.length)throw new Error("This dog already has a current membership. Manage it below.");
+    await tx.$executeRaw`INSERT INTO Membership (id,tenantId,customerId,petId,name,status,startFeeCents,recurringPriceCents,billingDay,billingDaySecond,billingInArrears,startedAt) VALUES (${id},${tenantId},${customerId},${petId},${name},'ACTIVE',100,${recurringPriceCents},${billingDays[0]||1},${billingDays[1]||null},true,NOW(3))`;
+    await tx.$executeRaw`INSERT INTO MembershipPayment (id,tenantId,membershipId,amountCents,taxCents,paymentType,status,scheduledFor) VALUES (${randomUUID()},${tenantId},${id},100,0,'START_VIP','PENDING',NOW(3))`;
+    await tx.$executeRaw`INSERT INTO MembershipPayment (id,tenantId,membershipId,amountCents,taxCents,paymentType,status,scheduledFor) VALUES (${randomUUID()},${tenantId},${id},${recurringPriceCents},0,'CARD_ON_FILE','PENDING',${firstBilling})`;
+    });
     await writeAudit({tenantId,actorUserId:session.user.id,entityType:"MEMBERSHIP",entityId:id,customerId,action:"MEMBERSHIP_STARTED",summary:`Started ${name} for ${pet.name}.`,details:{petId,recurringPriceCents,firstBilling:firstBilling.toISOString(),billingDays}});
     return NextResponse.json({membershipId:id,benefitsActiveImmediately:true,startFeeCents:100,firstBillingAt:firstBilling.toISOString()},{status:201});
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Unable to start membership."},{status:400});}
@@ -50,3 +55,4 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({success:true});
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Unable to update membership."},{status:400});}
 }
+
