@@ -70,6 +70,7 @@ async function main() {
   const db = new PrismaClient();
   try {
     const count = process.argv.includes('--verify-only') ? await verify(db, plan) : await bootstrap(db, plan);
+    if(!process.argv.includes("--verify-only")){const repaired=await require("./repair-demo-hours.cjs").repairDemoHours(db);if(repaired)console.log(`GroomPro: corrected ${repaired} untouched demo appointments to location time.`)}
     console.log(`GroomPro: verified ${count} application tables and all required columns.`);
   } finally { await db.$disconnect(); }
 }
@@ -78,3 +79,4 @@ if (require.main === module) main().catch(error => {
   process.exitCode = 1;
 });
 module.exports = { statements, schemaPlan, verify, bootstrap };
+

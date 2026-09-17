@@ -1,3 +1,4 @@
+import { appointmentHoursError } from "@/src/lib/location-hours";
 import { requestLocation } from "@/src/lib/request-location";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
     if (source.status === "CANCELLED") return NextResponse.json({ error: "A cancelled appointment cannot be rebooked." }, { status: 409 });
 
     const durationMin = Math.max(15, source.durationMin || 30);
+    const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage)return NextResponse.json({error:hoursMessage},{status:400});
     const rules = await checkCustomerBookingRules(tenantId, source.customerId, scheduledStart, durationMin);
     if (rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at the selected time.", conflicts: rules.conflicts }, { status: 409 });
     if (rules.conflicts.length && !body.confirmRecentWarning) return NextResponse.json({ error: "This customer has another appointment close to the selected time.", conflicts: rules.conflicts, requiresConfirmation: true }, { status: 409 });

@@ -1,3 +1,4 @@
+import { appointmentHoursError } from "@/src/lib/location-hours";
 import { requestLocation } from "@/src/lib/request-location";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
   if (services.length !== serviceIds.length || products.length !== productIds.length) return NextResponse.json({ error: "One or more services or products could not be found." }, { status: 404 });
   if (assignedUsers.length !== assignedUserIds.length) return NextResponse.json({ error: "One or more assigned employees could not be found." }, { status: 404 });
   const durationMin = Math.max(15, Number(body.durationMin) || services.reduce((sum, s) => sum + s.durationMin, 0) || 30);
+  const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage)return NextResponse.json({error:hoursMessage},{status:400});
   const source = body.bookingSource === "ONLINE" ? "ONLINE" : "STAFF";
   const rules = await checkCustomerBookingRules(tenantId, customer.id, scheduledStart, durationMin);
   if (source === "ONLINE" && rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at this time. Online booking cannot double-book a customer.", conflicts: rules.conflicts }, { status: 409 });
@@ -93,6 +95,7 @@ export async function PATCH(request: NextRequest) {
   const ticket = await db.ticket.findFirst({ where: { id: body.ticketId, tenantId, locationId }, include: { customer: true, pets: { include: { pet: true } } } });
   if (!ticket) return NextResponse.json({ error: "Appointment could not be found." }, { status: 404 });
   if (!ticket.scheduledStart) return NextResponse.json({ error: "This appointment has no scheduled time to move." }, { status: 400 });
+  const hoursMessage=await appointmentHoursError(tenantId,locationId,newStart,ticket.durationMin);if(hoursMessage)return NextResponse.json({error:hoursMessage},{status:400});
   if (ticket.scheduledStart.getTime() === newStart.getTime()) return NextResponse.json({ ticket, moved: false });
   const previousStart = ticket.scheduledStart;
   const updated = await db.$transaction(async tx => {
