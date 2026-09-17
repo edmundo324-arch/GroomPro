@@ -168,6 +168,17 @@ async function main() {
     assert.equal((await seedApi('/api/tickets/'+sample.id)).ticket.id,sample.id);
     const deniedMove=await fetch(seedBase+'/api/tickets',{method:'PATCH',headers:{'Content-Type':'application/json',cookie:seedCookie},body:JSON.stringify({ticketId:sample.id,scheduledStart:sample.scheduledStart})});assert.equal(deniedMove.status,401);assert.match((await deniedMove.json()).error,/Employee PIN/);
     await seedApi('/api/employee/session','POST',{pin:'817263'});
+    const featureResponse=await seedApi('/api/features');
+    assert.ok(Array.isArray(featureResponse.features));
+    for(const f of featureResponse.features)assert.equal(typeof f.code,'string');
+    const boardDate=calendar.tickets[0].scheduledStart.slice(0,10);
+    const pushed=await seedApi('/api/whiteboard','POST',{date:boardDate});
+    assert.ok(pushed.ticketCount>0);
+    const board=await seedApi('/api/whiteboard?date='+boardDate);
+    assert.equal(board.snapshot.itemCount,pushed.ticketCount);
+    assert.ok(board.tickets.some(t=>t.id===calendar.tickets[0].id));
+    console.log('PASS: feature settings and Whiteboard push/read work with browser cookies and no location environment variable.');
+
     const moved=new Date(+new Date(sample.scheduledStart)+15*60000).toISOString();
     await seedApi('/api/tickets','PATCH',{ticketId:sample.id,scheduledStart:moved});
     assert.equal((await seedDb.ticket.findUnique({where:{id:sample.id}})).scheduledStart.toISOString(),moved);
