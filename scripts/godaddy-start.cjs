@@ -1,6 +1,8 @@
 const { spawn } = require('node:child_process');
 const { ROOT, loadEnvironment, databaseUrl } = require('./database-config.cjs');
 function main() {
+  const development = process.argv.includes('--dev');
+  process.env.NODE_ENV = development ? 'development' : 'production';
   loadEnvironment();
   process.env.DATABASE_URL = databaseUrl();
   let child;
@@ -19,7 +21,7 @@ function main() {
   }
   launch([require.resolve('./bootstrap-godaddy.cjs')], code => {
     if (code !== 0) { process.exitCode = code; return; }
-    launch([require.resolve('next/dist/bin/next'), 'start', '-H', '0.0.0.0', '-p', process.env.PORT || '3000'], code => { process.exitCode = code; });
+    launch([require.resolve('next/dist/bin/next'), development ? 'dev' : 'start', '-H', '0.0.0.0', '-p', process.env.PORT || '3000'], code => { process.exitCode = code; });
   });
 }
 if (require.main === module) {

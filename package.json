@@ -4,7 +4,7 @@
   "private": true,
   "main": "scripts/godaddy-start.cjs",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/godaddy-start.cjs --dev",
     "postinstall": "prisma generate",
     "build": "prisma generate && npm run db:sql && next build",
     "start": "node scripts/godaddy-start.cjs",

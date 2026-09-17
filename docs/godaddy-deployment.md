@@ -5,6 +5,9 @@
 Deploy the repository root using Node 22, install with `npm ci`, build with
 `npm run build`, and start with `npm start` (entry point: `scripts/godaddy-start.cjs`).
 The server binds to `0.0.0.0` and the host-provided `PORT`.
+GoDaddy preview logs previously showed `npm run dev`. That script now uses the
+same bootstrap gate before running Next in development mode, so preview cannot
+bypass database initialization. Local development also needs configured MySQL.
 GoDaddy must run the build before the start command; a static-only deployment
 cannot serve the GroomPro database APIs.
 
