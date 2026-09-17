@@ -103,7 +103,7 @@ async function main() {
     async function seedApi(route,method='GET',body){
       const r=await fetch(seedBase+route,{method,headers:{'Content-Type':'application/json',cookie:seedCookie},body:body?JSON.stringify(body):undefined});
       const text=await r.text();assert.ok(r.ok,method+' '+route+': '+r.status+' '+text);
-      const cookies=r.headers.getSetCookie();if(cookies.length)seedCookie=cookies.map(c=>c.split(';')[0]).join('; ');
+      const cookies=r.headers.getSetCookie();if(cookies.length){const jar=new Map(seedCookie.split('; ').filter(Boolean).map(c=>c.split('=')));for(const c of cookies){const [name,value]=c.split(';')[0].split('=');jar.set(name,value)}seedCookie=[...jar].map(([k,v])=>k+'='+v).join('; ')}
       return JSON.parse(text);
     }
     const denied=await fetch(seedBase+'/api/setup/seed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:'invalid'})});
@@ -129,6 +129,18 @@ async function main() {
     await seedApi('/api/setup/seed-schedules','POST',{secret:setupSecret});
     assert.equal((await seedApi('/api/employee-schedules')).schedules.length,55);
     const assets=await seedApi('/api/booking-assets');assert.equal(assets.assets.length,8);assert.ok(assets.assets.every(a=>a.schedules.length===6));
+    const sample=await seedDb.ticket.findFirst({where:{scheduledStart:{not:null}},orderBy:{scheduledStart:'asc'}});
+    const start=new Date(sample.scheduledStart);start.setHours(0,0,0,0);const end=new Date(start);end.setDate(end.getDate()+1);
+    const calendar=await seedApi('/api/calendar?start='+encodeURIComponent(start.toISOString())+'&end='+encodeURIComponent(end.toISOString()));
+    assert.equal(calendar.employees.length,12);assert.equal(calendar.assets.length,8);assert.equal(calendar.employeeSchedules.length,55);assert.equal(calendar.assetSchedules.length,48);assert.ok(calendar.tickets.some(t=>t.id===sample.id&&t.durationMin>0));
+    assert.equal((await seedApi('/api/tickets/'+sample.id)).ticket.id,sample.id);
+    const deniedMove=await fetch(seedBase+'/api/tickets',{method:'PATCH',headers:{'Content-Type':'application/json',cookie:seedCookie},body:JSON.stringify({ticketId:sample.id,scheduledStart:sample.scheduledStart})});assert.equal(deniedMove.status,401);assert.match((await deniedMove.json()).error,/Employee PIN/);
+    await seedApi('/api/employee/session','POST',{pin:'817263'});
+    const moved=new Date(+new Date(sample.scheduledStart)+15*60000).toISOString();
+    await seedApi('/api/tickets','PATCH',{ticketId:sample.id,scheduledStart:moved});
+    assert.equal((await seedDb.ticket.findUnique({where:{id:sample.id}})).scheduledStart.toISOString(),moved);
+    assert.equal((await seedApi('/api/tickets/checkout?ticketId='+sample.id)).ticket.id,sample.id);
+    console.log('PASS: calendar employees/assets/schedules and clickable ticket data; cookie-only PIN and appointment move persist to MySQL.');
     await seedDb.tenant.create({data:{name:'Second business'}});
     const ambiguous=await fetch(seedBase+'/api/setup/context');assert.equal(ambiguous.status,409);
     console.log('PASS: complete seed; cookie-only employee creation; restored business context; 100 customers; 11 seeded employees; 55 employee schedules; 48 asset schedules; repeat seed preserves PINs and appointments.');
@@ -141,3 +153,4 @@ async function main() {
   }
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
+

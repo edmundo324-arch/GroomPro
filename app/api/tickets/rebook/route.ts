@@ -1,3 +1,4 @@
+import { requestLocation } from "@/src/lib/request-location";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 import { writeAudit } from "@/src/lib/audit";
@@ -17,7 +18,7 @@ function rebookingDiscount(original: Date, next: Date) {
 
 export async function POST(request: NextRequest) {
   const tenantId = tenantFrom(request);
-  const locationId = request.nextUrl.searchParams.get("locationId") || process.env.GROOMPRO_DEV_LOCATION_ID || "";
+  const locationId = await requestLocation(request, tenantId);
   const sid = request.cookies.get(COOKIE)?.value || "";
   const session = tenantId && sid ? await getActiveEmployeeSession(tenantId, sid) : null;
   if (!tenantId || !locationId) return NextResponse.json({ error: "Tenant and location context are required." }, { status: 401 });
@@ -86,3 +87,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to rebook appointment." }, { status: 400 });
   }
 }
+
