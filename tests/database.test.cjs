@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
 const { databaseUrl } = require('../scripts/database-config.cjs');
 const { schemaPlan } = require('../scripts/bootstrap-godaddy.cjs');
 test('URL-only configuration works and takes precedence over split credentials', () => {
@@ -27,4 +29,14 @@ test('bundle includes all operational tables and missing core fields without des
   assert.doesNotMatch(sql, /DROP TABLE|FOREIGN_KEY_CHECKS|ADD COLUMN IF NOT EXISTS|INSERT INTO `TenantSetting`/);
   assert.ok(plan.tables.every(t=>t.columns.length>0));
   assert.match(sql, /'NO_SHOW'/);
+});
+for (const args of [[], ['--dev']]) test(`startup fails before serving HTTP when MySQL is unavailable (${args.length ? 'preview' : 'production'})`, async () => {
+  await assert.rejects(promisify(execFile)(process.execPath, ['scripts/godaddy-start.cjs', ...args], {
+    env: { ...process.env, DATABASE_URL: 'mysql://test:test@127.0.0.1:1/unavailable?connect_timeout=1' }, timeout: 15000,
+  }), error => {
+    assert.equal(error.code, 1);
+    assert.match(error.stderr, /bootstrap failed/);
+    assert.doesNotMatch(error.stdout, /Ready|Next.js/);
+    return true;
+  });
 });

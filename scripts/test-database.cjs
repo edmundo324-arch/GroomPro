@@ -50,7 +50,8 @@ async function main() {
     // Use split variables for the real start path, URL-only was exercised above.
     delete env.DATABASE_URL;
     Object.assign(env,{DB_HOST:url.hostname,DB_PORT:url.port||'3306',DB_USER:decodeURIComponent(url.username),DB_PASSWORD:decodeURIComponent(url.password),DB_NAME:url.pathname.slice(1)});
-    server = spawn(process.execPath, [path.join(ROOT,'scripts/godaddy-start.cjs')], {cwd:ROOT,env,stdio:'inherit'});
+    const runtimeArgs = process.env.TEST_RUNTIME === 'preview' ? ['--dev'] : [];
+    server = spawn(process.execPath, [path.join(ROOT,'scripts/godaddy-start.cjs'), ...runtimeArgs], {cwd:ROOT,env,stdio:'inherit'});
     const base = `http://127.0.0.1:${port}`;
     let ready = false;
     for (let i=0;i<90;i++) {

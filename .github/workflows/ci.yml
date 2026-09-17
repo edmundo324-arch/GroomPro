@@ -7,6 +7,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      matrix:
+        runtime: [production, preview]
     services:
       mysql:
         image: mysql:8.0
@@ -23,6 +26,7 @@ jobs:
       DATABASE_URL: mysql://root:integration-only@127.0.0.1:3306/groompro_test
       TEST_DATABASE_URL: mysql://root:integration-only@127.0.0.1:3306/groompro_test
       NEXT_TELEMETRY_DISABLED: '1'
+      TEST_RUNTIME: ${{ matrix.runtime }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,7 +41,7 @@ jobs:
       - name: Upload verified GoDaddy schema bundle
         uses: actions/upload-artifact@v4
         with:
-          name: godaddy-groompro-schema
+          name: godaddy-groompro-schema-${{ matrix.runtime }}
           path: |
             godaddy-groompro-schema.sql
             godaddy-groompro-schema.json

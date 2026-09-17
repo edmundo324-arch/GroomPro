@@ -46,7 +46,7 @@ read-only verification. Use the GoDaddy runtime for private database hosts
 that cannot be reached from a workstation.
 
 For a manual import into a confirmed empty database, download the
-`godaddy-groompro-schema` artifact from a successful GitHub Actions run and
+`godaddy-groompro-schema-production` artifact from a successful GitHub Actions run and
 import `godaddy-groompro-schema.sql` in the hosting database console. Select
 the intended database first. This SQL is a from-empty import, not a rerunnable
 migration. Restart the application afterward; bootstrap verifies the result.
@@ -76,6 +76,7 @@ and complete artifact contents. GitHub CI runs MySQL 8, the production build,
 SQL import into a separate empty database, fresh/repeat/interrupted bootstrap,
 data preservation, real production startup with split DB variables, employee
 PIN sessions, API customer/product/schedule persistence and credit adjustments.
+The same integration checks run in a second job against the preview/dev startup path.
 `npm run test:integration` requires an empty disposable database ending in `_test`
 via `TEST_DATABASE_URL`. It creates test data and an additional `_import_test`
 database and must never be pointed at a production database.
