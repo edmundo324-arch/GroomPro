@@ -87,6 +87,28 @@ async function main() {
     assert.equal((await api(`/api/customers/account?customerId=${customer.id}`)).customer.paymentMethodCount, 0);
     await api('/api/customers/account','POST',{customerId:customer.id,entryType:'CREDIT',amountCents:-234,reason:'Integration verification'});
     assert.equal((await db.customer.findUnique({where:{id:customer.id}})).creditCents,1000);
+    const catalogService={kind:'services',name:'Catalog Groom',description:'Grooming test',priceCents:6500,durationMin:60,category:'Grooming',commissionPct:25,active:true};
+    const svc=(await api('/api/catalog','POST',catalogService)).item;
+    await api('/api/catalog','PATCH',{...catalogService,id:svc.id,priceCents:7000});
+    assert.equal((await api('/api/services')).services.find(s=>s.id===svc.id).priceCents,7000);
+    const product=(await api('/api/catalog','POST',{kind:'products',name:'Catalog Shampoo',priceCents:1500,costCents:500,quantity:8,sku:'CAT-1',active:true})).item;
+    await api('/api/catalog','PATCH',{kind:'products',id:product.id,name:'Catalog Shampoo Updated',priceCents:1700,costCents:600,quantity:9,sku:'CAT-1',active:true});
+    assert.equal((await api('/api/products')).products.find(p=>p.id===product.id).quantity,9);
+    const pkg=(await api('/api/catalog','POST',{kind:'packages',name:'Groom Bundle',priceCents:6000,active:true,items:[{serviceId:svc.id,quantity:2}]})).item;
+    await api('/api/catalog','PATCH',{kind:'packages',id:pkg.id,name:'Groom Bundle Updated',priceCents:6200,active:true,items:[{serviceId:svc.id,quantity:3}]});
+    assert.equal((await db.packageItem.findFirst({where:{packageId:pkg.id}})).quantity,3);
+    const vip=(await api('/api/catalog','POST',{kind:'plans',name:'VIP Grooming',priceCents:3500,description:'Two visits',active:true})).item;
+    await api('/api/catalog','PATCH',{kind:'plans',id:vip.id,name:'VIP Grooming',priceCents:4000,active:true});
+    const cat=await api('/api/catalog');assert.equal(cat.plans.find(p=>p.id===vip.id).priceCents,4000);
+    const pet=await db.pet.create({data:{tenantId:tenant.id,customerId:created.customer.id,name:'Catalog Dog'}});
+    const booking=await api('/api/tickets','POST',{customerId:created.customer.id,petIds:[pet.id],lines:[{type:'SERVICE',id:svc.id,petId:pet.id,quantity:1}],scheduledStart:new Date(Date.now()+86400000).toISOString(),durationMin:60});
+    assert.equal(booking.ticket.lines[0].unitPriceCents,7000);assert.equal((await db.ticket.findUnique({where:{id:booking.ticket.id}})).durationMin,60);
+    const membership=await api('/api/memberships','POST',{customerId:created.customer.id,petId:pet.id,planId:vip.id,recurringPriceCents:1});
+    assert.equal((await api('/api/memberships?customerId='+created.customer.id)).memberships[0].recurringPriceCents,4000);
+    const noPin=await fetch(base+'/api/catalog',{method:'POST',headers:{'x-tenant-id':tenant.id,'Content-Type':'application/json'},body:JSON.stringify(catalogService)});assert.equal(noPin.status,401);
+    await api('/api/catalog','PATCH',{...catalogService,id:svc.id,active:false});assert.ok(!(await api('/api/services')).services.some(s=>s.id===svc.id));assert.equal((await db.ticketLine.findFirst({where:{ticketId:booking.ticket.id}})).unitPriceCents,7000);
+    await api('/api/catalog','PATCH',{...catalogService,id:svc.id,active:true});
+    console.log('PASS: catalog create/edit services, products, package contents, VIP plans and enrollment; service booking; PIN required; deactivation preserves ticket history.');
     // A completely empty business database must be initialized through the
     // actual protected seed API, then work using cookies alone (no tenant header).
     const seedUrl=new URL(url);seedUrl.pathname='/'+importName;
