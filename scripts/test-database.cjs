@@ -14,6 +14,8 @@ async function main() {
   process.env.DATABASE_URL = url.href;
   const db = new PrismaClient();
   let server;
+  let seedServer;
+  let seedDb;
   try {
     const existing = await db.$queryRaw`SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()`;
     assert.equal(existing.length, 0, 'Integration database must start empty.');
@@ -85,9 +87,56 @@ async function main() {
     assert.equal((await api(`/api/customers/account?customerId=${customer.id}`)).customer.paymentMethodCount, 0);
     await api('/api/customers/account','POST',{customerId:customer.id,entryType:'CREDIT',amountCents:-234,reason:'Integration verification'});
     assert.equal((await db.customer.findUnique({where:{id:customer.id}})).creditCents,1000);
+    // A completely empty business database must be initialized through the
+    // actual protected seed API, then work using cookies alone (no tenant header).
+    const seedUrl=new URL(url);seedUrl.pathname='/'+importName;
+    seedDb=new PrismaClient({datasources:{db:{url:seedUrl.href}}});
+    const seedPort=String(Number(port)+1),seedBase='http://127.0.0.1:'+seedPort;
+    const setupSecret=randomBytes(24).toString('hex');
+    seedServer=spawn(process.execPath,[path.join(ROOT,'scripts/godaddy-start.cjs'),...runtimeArgs],{cwd:ROOT,env:{...env,DB_NAME:importName,PORT:seedPort,GROOMPRO_SETUP_SECRET:setupSecret},stdio:'inherit'});
+    let seedReady=false;
+    for(let i=0;i<90;i++){if(seedServer.exitCode!==null)throw new Error('Seed runtime stopped');try{if((await fetch(seedBase+'/api/health')).ok){seedReady=true;break}}catch{}await new Promise(r=>setTimeout(r,1000))}
+    assert.ok(seedReady);
+    const emptyContext=await (await fetch(seedBase+'/api/setup/context')).json();
+    assert.equal(emptyContext.setupRequired,true);
+    let seedCookie='';
+    async function seedApi(route,method='GET',body){
+      const r=await fetch(seedBase+route,{method,headers:{'Content-Type':'application/json',cookie:seedCookie},body:body?JSON.stringify(body):undefined});
+      const text=await r.text();assert.ok(r.ok,method+' '+route+': '+r.status+' '+text);
+      const cookies=r.headers.getSetCookie();if(cookies.length)seedCookie=cookies.map(c=>c.split(';')[0]).join('; ');
+      return JSON.parse(text);
+    }
+    const denied=await fetch(seedBase+'/api/setup/seed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:'invalid'})});
+    assert.equal(denied.status,401);assert.equal(await seedDb.tenant.count(),0);
+    const seeded=await seedApi('/api/setup/seed','POST',{secret:setupSecret});
+    assert.equal(seeded.seeded.employeeCount,11);assert.equal(seeded.seeded.customerCount,100);
+    assert.equal(await seedDb.tenant.count(),1);assert.equal(await seedDb.customer.count(),100);assert.equal(await seedDb.pet.count(),100);
+    assert.equal(await seedDb.user.count(),11);assert.ok(await seedDb.ticket.count()>0);
+    const saved=await seedDb.user.findFirst();const changedPin='preserve-existing-pin';
+    await seedDb.user.update({where:{id:saved.id},data:{pinHash:changedPin}});
+    const ticketsBefore=await seedDb.ticket.count();
+    await seedApi('/api/setup/seed','POST',{secret:setupSecret});
+    assert.equal(await seedDb.customer.count(),100);assert.equal(await seedDb.user.count(),11);assert.equal(await seedDb.ticket.count(),ticketsBefore);
+    assert.equal((await seedDb.user.findUnique({where:{id:saved.id}})).pinHash,changedPin);
+    seedCookie=''; // Model a second browser opening the single-business app.
+    assert.equal((await seedApi('/api/setup/context')).setupRequired,false);
+    assert.ok(seedCookie.includes('groompro_tenant='));
+    assert.equal((await seedApi('/api/employees')).employees.length,11);
+    await seedApi('/api/employees','POST',{firstName:'Added',lastName:'Employee',role:'FRONT',pin:'817263'});
+    assert.equal(await seedDb.user.count(),12);
+    assert.equal((await seedApi('/api/locations')).locations.length,1);
+    assert.equal((await seedApi('/api/employee-schedules')).schedules.length,55);
+    await seedApi('/api/setup/seed-schedules','POST',{secret:setupSecret});
+    assert.equal((await seedApi('/api/employee-schedules')).schedules.length,55);
+    const assets=await seedApi('/api/booking-assets');assert.equal(assets.assets.length,8);assert.ok(assets.assets.every(a=>a.schedules.length===6));
+    await seedDb.tenant.create({data:{name:'Second business'}});
+    const ambiguous=await fetch(seedBase+'/api/setup/context');assert.equal(ambiguous.status,409);
+    console.log('PASS: complete seed; cookie-only employee creation; restored business context; 100 customers; 11 seeded employees; 55 employee schedules; 48 asset schedules; repeat seed preserves PINs and appointments.');
     console.log(`PASS: ${plan.tables.length} tables; SQL import; repeat and partial bootstrap; preserved data; production startup; API writes and database reads.`);
   } finally {
     if(server) server.kill('SIGTERM');
+    if(seedServer) seedServer.kill('SIGTERM');
+    if(seedDb) await seedDb.$disconnect();
     await db.$disconnect();
   }
 }
