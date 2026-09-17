@@ -1,20 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 
-function configureDatabaseUrl() {
-  if (process.env.DATABASE_URL) return;
-
-  const host = process.env.DB_HOST;
-  const name = process.env.DB_NAME;
-  const user = process.env.DB_USER;
-  const password = process.env.DB_PASSWORD;
-
-  if (!host || !name || !user || password === undefined) return;
-
-  const port = process.env.DB_PORT || "3306";
-  process.env.DATABASE_URL = `mysql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${encodeURIComponent(name)}`;
-}
-
-configureDatabaseUrl();
+const { databaseUrl } = require("../../scripts/database-config.cjs") as {
+  databaseUrl: (env?: NodeJS.ProcessEnv) => string;
+};
+// Builds need no live database. Runtime and bootstrap resolve the same target.
+if (process.env.DATABASE_URL || process.env.DB_HOST) process.env.DATABASE_URL = databaseUrl();
 
 declare global {
   // eslint-disable-next-line no-var

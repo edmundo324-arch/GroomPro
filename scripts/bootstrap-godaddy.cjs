@@ -1,50 +1,73 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
-const mysql = require('mysql2/promise');
-
-function databaseConfig() {
-  const required = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
-  const missing = required.filter((key) => process.env[key] === undefined || process.env[key] === '');
-  if (missing.length) throw new Error(`GoDaddy database configuration is missing: ${missing.join(', ')}.`);
-  return { host: process.env.DB_HOST, port: Number(process.env.DB_PORT || '3306'), user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME };
+const { PrismaClient } = require('@prisma/client');
+const { ROOT, loadEnvironment, databaseUrl } = require('./database-config.cjs');
+function statements(sql) {
+  return sql.replace(/^--.*$/gm, '').split(/;\s*(?:\r?\n|$)/).map(s => s.trim()).filter(Boolean);
 }
-
-function prismaPush() {
-  const prismaBin = require.resolve('prisma/build/index.js');
-  const result = spawnSync(process.execPath, [prismaBin, 'db', 'push', '--accept-data-loss', '--skip-generate'], { encoding: 'utf8', env: process.env });
-  if (result.status !== 0) throw new Error(`Unable to create GroomPro core tables: ${result.stderr || result.stdout}`);
-  console.log('GroomPro: core Prisma tables are ready.');
+function schemaPlan(sql) {
+  const all = statements(sql);
+  const tables = all.filter(s => /^CREATE TABLE/i.test(s)).map(statement => {
+    const name = statement.match(/^CREATE TABLE(?: IF NOT EXISTS)? `([^`]+)`/)[1];
+    const columns = [...statement.matchAll(/^\s*`([^`]+)` (.+?)(?:,)?$/gm)]
+      .map(([, name, definition]) => ({ name, definition: definition.replace(/,$/, '') }));
+    return { name, statement, columns };
+  });
+  if (!tables.length || new Set(tables.map(t => t.name)).size !== tables.length) throw new Error('Invalid schema bundle.');
+  return { all, tables };
 }
-
-async function applyFoundation(connection) {
-  const files = [
-    'prisma/migrations/20260908_pricing_history/migration.sql',
-    'prisma/migrations/20260913_booking_assets/migration.sql',
-    'prisma/migrations/20260914_employee_schedules/migration.sql',
-  ];
-  await connection.query('SET FOREIGN_KEY_CHECKS=0');
-  try {
-    for (const file of files) {
-      const sql = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-      for (const statement of sql.split(/;\s*(?:\r?\n|$)/).map((x) => x.trim()).filter(Boolean)) await connection.query(statement);
+async function verify(db, plan) {
+  const rows = await db.$queryRaw`SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()`;
+  const present = new Set(rows.map(r => `${r.tableName}.${r.columnName}`));
+  const missing = plan.tables.flatMap(t => t.columns.filter(c => !present.has(`${t.name}.${c.name}`)).map(c => `${t.name}.${c.name}`));
+  if (missing.length) throw new Error(`Database schema is incomplete: ${missing.join(', ')}`);
+  const status = await db.$queryRaw`SELECT COLUMN_TYPE AS columnType FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='Ticket' AND COLUMN_NAME='status'`;
+  if (!status[0]?.columnType.includes("'NO_SHOW'")) throw new Error('Ticket.status requires a reviewed migration to include NO_SHOW.');
+  for (const t of plan.tables) await db.$queryRawUnsafe(`SELECT ${t.columns.map(c => `\`${c.name}\``).join(',')} FROM \`${t.name}\` LIMIT 0`);
+  return plan.tables.length;
+}
+async function bootstrap(db, plan) {
+  // Pin the advisory lock to one connection. DDL autocommits in MySQL;
+  // metadata checks let a repeat run resume a partially completed bootstrap.
+  return db.$transaction(async tx => {
+    const lock = await tx.$queryRaw`SELECT GET_LOCK(CONCAT('groompro:', LEFT(SHA2(DATABASE(), 256), 48)), 60) AS acquired`;
+    if (Number(lock[0]?.acquired) !== 1) throw new Error('Another database bootstrap is still running.');
+    try {
+      for (const table of plan.tables) {
+        await tx.$executeRawUnsafe(table.statement.replace(/^CREATE TABLE(?: IF NOT EXISTS)?/, 'CREATE TABLE IF NOT EXISTS'));
+        const columns = await tx.$queryRaw`SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${table.name}`;
+        const names = new Set(columns.map(c => c.name));
+        for (const c of table.columns) {
+          if (!names.has(c.name)) await tx.$executeRawUnsafe(`ALTER TABLE \`${table.name}\` ADD COLUMN \`${c.name}\` ${c.definition}`);
+        }
+      }
+      for (const statement of plan.all.filter(s => /^ALTER TABLE/i.test(s))) {
+        const match = statement.match(/^ALTER TABLE `([^`]+)` ADD CONSTRAINT `([^`]+)`/);
+        if (!match) throw new Error('Unsupported schema statement; review the generated bundle.');
+        const existing = await tx.$queryRaw`SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME=${match[1]} AND CONSTRAINT_NAME=${match[2]}`;
+        if (!existing.length) await tx.$executeRawUnsafe(statement);
+      }
+      for (const statement of plan.all.filter(s => /^INSERT IGNORE INTO FeatureModule/i.test(s))) await tx.$executeRawUnsafe(statement);
+      return await verify(tx, plan);
+    } finally {
+      await tx.$queryRaw`SELECT RELEASE_LOCK(CONCAT('groompro:', LEFT(SHA2(DATABASE(), 256), 48))) AS released`;
     }
-  } finally {
-    await connection.query('SET FOREIGN_KEY_CHECKS=1');
-  }
+  }, { maxWait: 65000, timeout: 240000 });
 }
-
 async function main() {
-  process.env.DATABASE_URL = process.env.DATABASE_URL || `mysql://${encodeURIComponent(process.env.DB_USER || '')}:${encodeURIComponent(process.env.DB_PASSWORD || '')}@${process.env.DB_HOST || ''}:${process.env.DB_PORT || '3306'}/${encodeURIComponent(process.env.DB_NAME || '')}`;
-  databaseConfig();
-  prismaPush();
-  const connection = await mysql.createConnection(databaseConfig());
+  loadEnvironment();
+  process.env.DATABASE_URL = databaseUrl();
+  const filename = path.join(ROOT, 'godaddy-groompro-schema.sql');
+  const sql = fs.existsSync(filename) ? fs.readFileSync(filename, 'utf8') : require('./build-godaddy-schema-sql.cjs').buildSchema();
+  const plan = schemaPlan(sql);
+  const db = new PrismaClient();
   try {
-    await applyFoundation(connection);
-    console.log('GroomPro: GoDaddy database bootstrap complete.');
-  } finally {
-    await connection.end();
-  }
+    const count = process.argv.includes('--verify-only') ? await verify(db, plan) : await bootstrap(db, plan);
+    console.log(`GroomPro: verified ${count} application tables and all required columns.`);
+  } finally { await db.$disconnect(); }
 }
-
-main().catch((error) => { console.error(error); process.exit(1); });
+if (require.main === module) main().catch(error => {
+  console.error('GroomPro database bootstrap failed:', error.code || error.name, String(error.message).replace(/mysql:\/\/[^\s"']+/g, 'mysql://[redacted]'));
+  process.exitCode = 1;
+});
+module.exports = { statements, schemaPlan, verify, bootstrap };

@@ -26,6 +26,7 @@ enum TicketStatus {
   READY
   CLOSED
   CANCELLED
+  NO_SHOW
 }
 enum AuditActorType {
   EMPLOYEE
@@ -238,6 +239,7 @@ model User {
   lastName String
   email String?
   pinHash String
+  jobTitle String?
   role UserRole @default(FRONT)
   active Boolean @default(true)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -286,6 +288,7 @@ model Customer {
   vipStatus String?
   loyaltyPoints Int @default(0)
   balanceCents Int @default(0)
+  creditCents Int @default(0)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   phones CustomerPhone[]
   pets Pet[]
@@ -371,6 +374,10 @@ model Ticket {
   tipCents Int @default(0)
   salesTaxCents Int @default(0)
   totalCents Int @default(0)
+  accountCreditCents Int @default(0)
+  noShowFeeCents Int @default(0)
+  noShowFeeProcessedAt DateTime?
+  noShowFeePaymentId String?
   daycareStatus DaycareStatus @default(NONE)
   daycareAddedAt DateTime?
   daycareAddedByUserId String?
