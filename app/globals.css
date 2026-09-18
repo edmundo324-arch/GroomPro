@@ -16,4 +16,5 @@
 
 .gp-pos-footer{grid-template-columns:minmax(180px,.8fr) minmax(240px,1fr) minmax(300px,1.2fr)}.gp-pos-totals>div{font-size:13px!important;gap:8px!important}.gp-pos-checkout>div{grid-template-columns:1fr 1fr!important;gap:6px!important}.gp-pos-checkout>div>button{grid-column:1/-1}.gp-pos-checkout>button{width:100%;margin-top:7px!important}.gp-pos-footer-general .gp-btn{white-space:normal}.gp-pos-totals .gp-search-input{width:100%}
 @media(max-width:850px),(max-height:620px){.gp-pos-footer{grid-template-columns:1fr}}
+.gp-pos-window .gp-ticket-total{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}.gp-pos-window .gp-ticket-total strong{font-size:22px}.gp-pos-window .gp-ticket-total small{display:block}
 
