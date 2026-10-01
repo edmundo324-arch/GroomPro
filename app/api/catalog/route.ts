@@ -38,7 +38,7 @@ async function save(r:NextRequest){
  if(data.kind==="packages"){
  if(r.method==="PATCH"&&!await tx.package.findFirst({where:{id,tenantId}}))throw new Error("Item not found.");
  const ids=data.items.map(i=>i.serviceId);if((await tx.service.count({where:{tenantId,id:{in:ids}}}))!==ids.length)throw new Error("Every package service must belong to this business.");
- const values={...common,basePriceCents:data.priceCents};
+ const values={...common,basePriceCents:data.priceCents,...(data.defaultForBreeds!==undefined?{defaultForBreeds:data.defaultForBreeds}:{})};
  const saved=r.method==="PATCH"?await tx.package.update({where:{id},data:values}):await tx.package.create({data:{id,tenantId,...values}});
  await tx.packageItem.deleteMany({where:{packageId:id,tenantId}});
  if(data.items.length)await tx.packageItem.createMany({data:data.items.map((item,sortOrder)=>({...item,tenantId,packageId:id,sortOrder,role:item.role as any}))});return saved;

@@ -319,6 +319,7 @@ model CustomerPhone {
 }
 
 model Pet {
+  preferredPackageId String?
   id String @id @default(cuid())
   tenantId String
   customerId String
@@ -670,6 +671,7 @@ model LocationServicePricing {
 }
 
 model Package {
+  defaultForBreeds String?
   id String @id @default(cuid())
   tenantId String
   name String

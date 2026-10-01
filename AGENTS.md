@@ -14,3 +14,5 @@
 - Keep package editing focused on included items with quantities; use search to add services rather than showing the entire catalog.
 
 - All new ticket, appointment, and scheduling actions use PosTicketWindow. Unsaved and saved tickets must use the same POS Ticket screen and item editor, not separate forms; do not introduce separate appointment modules or return users to a list after creation.
+
+- Clicking a pet inside POS adds its assigned package, or its breed default when unassigned. It does not open pet editing. Pet editing stays in the shared customer/Pets editor.

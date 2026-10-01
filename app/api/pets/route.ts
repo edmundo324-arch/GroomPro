@@ -15,7 +15,9 @@ async function save(r:NextRequest,editing:boolean){
  try{const b=await r.json();const customerId=String(b.customerId||''),name=String(b.name||'').trim(),breed=String(b.breed||'').trim(),notes=String(b.notes||'').trim();
  if(!name||name.length>191||breed.length>191||notes.length>10000)return NextResponse.json({error:'Pet name is required. Names and breeds may contain up to 191 characters; notes up to 10,000.'},{status:400});
  const owner=await db.customer.findFirst({where:{id:customerId,tenantId,active:true},select:{id:true}});if(!owner)return NextResponse.json({error:'Customer not found.'},{status:404});
- const data={name,breed:breed||null,notes:notes||null};
+ const preferredPackageId=b.preferredPackageId===undefined?undefined:String(b.preferredPackageId||'').trim()||null;
+ if(preferredPackageId&&!await db.package.findFirst({where:{id:preferredPackageId,tenantId,active:true}}))return NextResponse.json({error:'Choose an active package for this business.'},{status:400});
+ const data={name,breed:breed||null,notes:notes||null,...(preferredPackageId!==undefined?{preferredPackageId}:{})};
  if(editing){const id=String(b.id||'');const result=await db.pet.updateMany({where:{id,tenantId,customerId,active:true},data});if(!result.count)return NextResponse.json({error:'Pet not found for this customer.'},{status:404});return NextResponse.json({pet:await db.pet.findFirst({where:{id,tenantId,customerId},include:{vaccinations:true}})})}
  const pet=await db.pet.create({data:{...data,tenantId,customerId},include:{vaccinations:true}});return NextResponse.json({pet},{status:201});
  }catch{return NextResponse.json({error:'Could not save pet. Please retry.'},{status:400})}
