@@ -1,0 +1,8 @@
+export const scheduleDays=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+export function dateKey(d:Date){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+export function parseDate(s:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))throw Error('Choose a valid date.');const d=new Date(s+'T12:00:00');if(!Number.isFinite(+d)||dateKey(d)!==s)throw Error('Choose a valid date.');return d}
+export function dateRange(start:string,end:string){const a=parseDate(start),b=parseDate(end),out:string[]=[];if(b<a)throw Error('End date must be on or after start date.');for(const d=new Date(a);d<=b;d.setDate(d.getDate()+1)){out.push(dateKey(d));if(out.length>31)throw Error('Choose a date range of up to 31 days.')}return out}
+export function shiftDate(s:string,days:number){const d=parseDate(s);d.setDate(d.getDate()+days);return dateKey(d)}
+export function validShift(start:string,end:string){return /^([01]\d|2[0-3]):[0-5]\d$/.test(start)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(end)&&start<end}
+export type DateOverride={resourceKind:string;resourceId:string;date:string;dayOff:boolean;startTime:string|null;endTime:string|null};
+export function effectiveShift<T extends {dayOfWeek:number;startTime:string;endTime:string;active?:boolean|number}>(slots:T[],overrides:DateOverride[],kind:string,id:string,date:string){const override=overrides.find(o=>o.resourceKind===kind&&o.resourceId===id&&o.date===date);if(override)return override.dayOff?null:{startTime:override.startTime!,endTime:override.endTime!};return slots.find(s=>s.active!==false&&s.active!==0&&Number(s.dayOfWeek)===parseDate(date).getDay())||null}

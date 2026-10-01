@@ -17,7 +17,8 @@ export async function GET(request:NextRequest){
  db.$queryRaw<any[]>`SELECT s.userId,s.dayOfWeek,s.startTime,s.endTime FROM EmployeeSchedule s JOIN User u ON u.id=s.userId WHERE s.tenantId=${tenantId} AND (u.locationId=${locationId} OR u.locationId IS NULL) AND s.active=1`,
  db.$queryRaw<any[]>`SELECT s.assetId,s.dayOfWeek,s.startTime,s.endTime FROM BookingAssetSchedule s JOIN BookingAsset a ON a.id=s.assetId WHERE a.tenantId=${tenantId} AND a.locationId=${locationId} AND s.active=1`
  ]);
- return NextResponse.json({employees,tickets,assets,employeeSchedules,assetSchedules,locationId},{headers:{"Cache-Control":"no-store"}});
+ const scheduleOverrides=await db.scheduleOverride.findMany({where:{tenantId,date:{gte:new Date(+start-86400000).toISOString().slice(0,10),lte:new Date(+end+86400000).toISOString().slice(0,10)}}});
+ return NextResponse.json({employees,tickets,assets,employeeSchedules,assetSchedules,scheduleOverrides,locationId},{headers:{"Cache-Control":"no-store"}});
  }catch(error){console.error("Calendar load failed",error);return NextResponse.json({error:"Calendar could not load. Retry to see your appointments."},{status:503})}
 }
 

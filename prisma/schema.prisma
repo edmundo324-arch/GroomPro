@@ -722,3 +722,19 @@ model CustomerLocationAccess {
   @@index([tenantId, customerId])
   @@index([tenantId, locationId])
 }
+
+// Date-specific employee and booking-asset hours override recurring weekly hours.
+model ScheduleOverride {
+  id String @id @default(cuid())
+  tenantId String
+  resourceKind String @db.VarChar(16)
+  resourceId String
+  date String @db.VarChar(10)
+  dayOff Boolean @default(false)
+  startTime String?
+  endTime String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId, resourceKind, resourceId, date])
+  @@index([tenantId, date])
+}

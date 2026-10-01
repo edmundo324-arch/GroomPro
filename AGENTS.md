@@ -8,3 +8,7 @@
 - Less clicking is more productive: request an employee PIN directly when an action needs one; avoid unnecessary navigation, confirmations, and modal chains.
 - Check navigation with a populated feature API response, not only empty fixture data.
 
+
+- Use one shared editor per entity (employee, customer, pet, booking asset, catalog item) wherever editing is offered. Do not create separate competing versions of the same module.
+- Pets belong to customers. Preserve that link in forms and imports; never guess ownership from a pet name alone.
+- Keep package editing focused on included items with quantities; use search to add services rather than showing the entire catalog.
