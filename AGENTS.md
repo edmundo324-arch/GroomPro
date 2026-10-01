@@ -12,3 +12,5 @@
 - Use one shared editor per entity (employee, customer, pet, booking asset, catalog item) wherever editing is offered. Do not create separate competing versions of the same module.
 - Pets belong to customers. Preserve that link in forms and imports; never guess ownership from a pet name alone.
 - Keep package editing focused on included items with quantities; use search to add services rather than showing the entire catalog.
+
+- All new ticket, appointment, and scheduling actions use PosTicketWindow. Saving a draft keeps that POS ticket open for its lifecycle actions; do not introduce separate appointment modules or return users to a list after creation.
