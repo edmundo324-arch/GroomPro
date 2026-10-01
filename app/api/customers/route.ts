@@ -7,7 +7,7 @@ import { getActiveEmployeeSession } from "@/src/lib/employee-session";
 const SESSION_COOKIE = "groompro_session";
 
 export async function POST(request: NextRequest) {
-  const tenantId = request.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID;
+  const tenantId = request.headers.get("x-tenant-id") || request.cookies.get("groompro_tenant")?.value || process.env.GROOMPRO_DEV_TENANT_ID;
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
 
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
   const phone = body.phone ? String(body.phone).trim() : undefined;
   const normalizedPhone = phone ? normalizePhone(phone) : "";
 
-  if (!firstName || !lastName) return NextResponse.json({ error: "First and last name are required." }, { status: 400 });
+  if (!firstName || !lastName || firstName.length > 191 || lastName.length > 191) return NextResponse.json({ error: "First and last name are required." }, { status: 400 });
+  if (email && (email.length > 191 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   if (phone && normalizedPhone.length < 7) return NextResponse.json({ error: "Enter a valid phone number." }, { status: 400 });
 
   const duplicate = await findPossibleDuplicateCustomer(tenantId, { firstName, lastName, email, phone });
