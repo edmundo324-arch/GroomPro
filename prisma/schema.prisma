@@ -683,6 +683,7 @@ model Package {
 }
 
 model PackageItem {
+  role TicketLineRole @default(ADD_ON)
   id String @id @default(cuid())
   tenantId String
   packageId String

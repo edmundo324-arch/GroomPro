@@ -13,4 +13,4 @@
 - Pets belong to customers. Preserve that link in forms and imports; never guess ownership from a pet name alone.
 - Keep package editing focused on included items with quantities; use search to add services rather than showing the entire catalog.
 
-- All new ticket, appointment, and scheduling actions use PosTicketWindow. Saving a draft keeps that POS ticket open for its lifecycle actions; do not introduce separate appointment modules or return users to a list after creation.
+- All new ticket, appointment, and scheduling actions use PosTicketWindow. Unsaved and saved tickets must use the same POS Ticket screen and item editor, not separate forms; do not introduce separate appointment modules or return users to a list after creation.

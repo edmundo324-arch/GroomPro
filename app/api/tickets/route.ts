@@ -1,3 +1,4 @@
+import {resolveSaleLines} from "@/src/lib/pos-lines";
 import { appointmentHoursError } from "@/src/lib/location-hours";
 import { requestLocation } from "@/src/lib/request-location";
 import { NextRequest, NextResponse } from "next/server";
@@ -9,7 +10,7 @@ import { checkCustomerBookingRules } from "@/src/lib/booking-rules";
 const SESSION_COOKIE = "groompro_session";
 function tenantFrom(request: NextRequest) { return request.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID || ""; }
 type TicketLineRole = "PREP" | "BATH" | "GROOM" | "ADD_ON" | "PRODUCT";
-type LineInput = { type: "SERVICE" | "PRODUCT"; id: string; petId?: string; quantity?: number; role?: TicketLineRole; assignedUserId?: string; sortOrder?: number };
+type LineInput = { type: "SERVICE" | "PRODUCT" | "PACKAGE"; id: string; petId?: string; quantity?: number; role?: TicketLineRole; assignedUserId?: string; sortOrder?: number };
 type PetDetailInput = { petId: string; weightLbs?: number | null; analSituation?: "DONE_REQUESTED" | "DONE_NOT_REQUESTED" | "NOT_NEEDED" | null; vipAvailability?: "AVAILABLE" | "NOT_AVAILABLE" | "NEEDS_MORE_SESSIONS" | null };
 
 export async function POST(request: NextRequest) {
@@ -27,21 +28,13 @@ export async function POST(request: NextRequest) {
   if (Number.isNaN(scheduledStart.getTime())) return NextResponse.json({ error: "Invalid appointment time." }, { status: 400 });
   const petIds = [...new Set([...(body.petIds || []), ...(body.petId ? [body.petId] : []), ...(body.petDetails || []).map(p => p.petId)])];
   const lineInputs = body.lines?.length ? body.lines : (body.serviceId ? [{ type: "SERVICE" as const, id: body.serviceId, petId: body.petId }] : (body.serviceIds || []).map(id => ({ type: "SERVICE" as const, id, petId: body.petId })));
-  if (!petIds.length || !lineInputs.length) return NextResponse.json({ error: "At least one pet and one service or product are required." }, { status: 400 });
+  if ((!petIds.length && lineInputs.some(l=>l.type!=="PRODUCT")) || !lineInputs.length) return NextResponse.json({ error: "At least one pet and one service or product are required." }, { status: 400 });
   const customer = await db.customer.findFirst({ where: { id: body.customerId, tenantId, active: true } });
   const pets = await db.pet.findMany({ where: { id: { in: petIds }, tenantId, customerId: body.customerId, active: true } });
   if (!customer || pets.length !== petIds.length) return NextResponse.json({ error: "Customer or pet could not be found." }, { status: 404 });
-  const serviceIds = [...new Set(lineInputs.filter(l => l.type === "SERVICE").map(l => l.id))];
-  const productIds = [...new Set(lineInputs.filter(l => l.type === "PRODUCT").map(l => l.id))];
-  const assignedUserIds = [...new Set(lineInputs.map(l => l.assignedUserId).filter(Boolean) as string[])];
-  const [services, products, assignedUsers] = await Promise.all([
-    serviceIds.length ? db.service.findMany({ where: { id: { in: serviceIds }, tenantId, active: true } }) : Promise.resolve([]),
-    productIds.length ? db.product.findMany({ where: { id: { in: productIds }, tenantId, active: true } }) : Promise.resolve([]),
-    assignedUserIds.length ? db.user.findMany({ where: { id: { in: assignedUserIds }, tenantId, active: true }, select: { id: true } }) : Promise.resolve([]),
-  ]);
-  if (services.length !== serviceIds.length || products.length !== productIds.length) return NextResponse.json({ error: "One or more services or products could not be found." }, { status: 404 });
-  if (assignedUsers.length !== assignedUserIds.length) return NextResponse.json({ error: "One or more assigned employees could not be found." }, { status: 404 });
-  const durationMin = Math.max(15, Number(body.durationMin) || services.reduce((sum, s) => sum + s.durationMin, 0) || 30);
+  let resolved;try{resolved=await resolveSaleLines(db,tenantId,lineInputs.map(l=>({...l,petId:l.petId||(l.type!=="PRODUCT"?petIds[0]:undefined)})),petIds,locationId)}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Invalid items."},{status:400})}
+  if(body.groomerId&&!await db.user.findFirst({where:{id:body.groomerId,tenantId,active:true}}))return NextResponse.json({error:"Scheduled groomer not found."},{status:400});
+  const durationMin=resolved.durationMin;
   const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage)return NextResponse.json({error:hoursMessage},{status:400});
   const source = body.bookingSource === "ONLINE" ? "ONLINE" : "STAFF";
   const rules = await checkCustomerBookingRules(tenantId, customer.id, scheduledStart, durationMin);
@@ -50,26 +43,7 @@ export async function POST(request: NextRequest) {
   if (source === "STAFF" && customerWarnings.length && !body.confirmRecentWarning) return NextResponse.json({ warning: customerWarnings.some(c => c.type === "OVERLAP") ? "This customer already has an appointment at this time." : "This customer has another appointment within two weeks.", conflicts: customerWarnings, requiresConfirmation: true }, { status: 409 });
   const orderAggregate = await db.ticket.aggregate({ where: { tenantId }, _max: { orderNumber: true } });
   const orderNumber = (orderAggregate._max.orderNumber || 0) + 1;
-  const serviceMap = new Map(services.map(s => [s.id, s]));
-  const productMap = new Map(products.map(p => [p.id, p]));
-  const assignedUserSet = new Set(assignedUserIds);
-  const validPetSet = new Set(petIds);
-  const lines = lineInputs.map((line, index) => {
-    const quantity = Math.max(1, Number(line.quantity) || 1);
-    const role = line.role || (line.type === "PRODUCT" ? "PRODUCT" : "ADD_ON");
-    const assignedUserId = line.assignedUserId && assignedUserSet.has(line.assignedUserId) ? line.assignedUserId : undefined;
-    const petId = line.petId && validPetSet.has(line.petId) ? line.petId : (line.type === "SERVICE" ? petIds[0] : undefined);
-    const sortOrder = Number.isFinite(Number(line.sortOrder)) ? Number(line.sortOrder) : index;
-    if (line.type === "SERVICE") {
-      const s = serviceMap.get(line.id)!;
-      const commissionPct = s.commissionPct == null ? null : Number(s.commissionPct);
-      const totalCents = s.priceCents * quantity;
-      const commissionCents = commissionPct == null ? 0 : Math.round(totalCents * commissionPct / 100);
-      return { lineType: "SERVICE" as const, role, serviceId: s.id, petId, description: s.name, quantity, unitPriceCents: s.priceCents, totalCents, commissionPct, commissionCents, sortOrder, assignedUserId, assignedAt: assignedUserId ? new Date() : null };
-    }
-    const p = productMap.get(line.id)!;
-    return { lineType: "PRODUCT" as const, role: "PRODUCT" as const, productId: p.id, petId, description: p.name, quantity, unitPriceCents: p.priceCents, totalCents: p.priceCents * quantity, commissionPct: null, commissionCents: 0, sortOrder, assignedUserId: null, assignedAt: null };
-  });
+  const lines=resolved.lines;
   const detailMap = new Map((body.petDetails || []).map(p => [p.petId, p]));
   const ticket = await db.$transaction(async tx => {
     const created = await tx.ticket.create({ data: { tenantId, locationId, customerId: customer.id, orderNumber, scheduledStart, durationMin, arrivalPriority: body.arrivalPriority ?? null, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: { userId: body.groomerId, role: "GROOMER" } } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser: true, pet: true } }, assignments: { include: { user: true } } } });

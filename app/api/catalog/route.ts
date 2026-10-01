@@ -41,11 +41,12 @@ async function save(r:NextRequest){
  const values={...common,basePriceCents:data.priceCents};
  const saved=r.method==="PATCH"?await tx.package.update({where:{id},data:values}):await tx.package.create({data:{id,tenantId,...values}});
  await tx.packageItem.deleteMany({where:{packageId:id,tenantId}});
- if(data.items.length)await tx.packageItem.createMany({data:data.items.map((item,sortOrder)=>({...item,tenantId,packageId:id,sortOrder}))});return saved;
+ if(data.items.length)await tx.packageItem.createMany({data:data.items.map((item,sortOrder)=>({...item,tenantId,packageId:id,sortOrder,role:item.role as any}))});return saved;
  }
  const settingKey=prefix+id;
  if(r.method==="PATCH"&&!await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey}}}))throw new Error("Item not found.");
- const value={...common,priceCents:data.priceCents};
+ const ids=data.items.map(i=>i.serviceId);if((await tx.service.count({where:{tenantId,id:{in:ids}}}))!==ids.length)throw new Error("Every VIP service must belong to this business.");
+ const value={...common,priceCents:data.priceCents,items:data.items,billingDay:data.billingDay,billingDaySecond:data.billingDaySecond};
  await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value},update:{value}});return{id,...value};
  });return NextResponse.json({item},{status:r.method==="POST"?201:200});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Unable to save catalog item."},{status:400})}
