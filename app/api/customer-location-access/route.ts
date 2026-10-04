@@ -1,3 +1,4 @@
+import {managerAction} from '@/src/lib/protected-action';
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/src/lib/db";
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ locations: rows });
 }
 
-export async function PUT(request: NextRequest) {
+async function handlePUT(request: NextRequest) {
   const tenantId = tenantFrom(request);
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
   try {
@@ -49,3 +50,5 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to save customer location access." }, { status: 400 });
   }
 }
+
+export const PUT=managerAction(handlePUT);

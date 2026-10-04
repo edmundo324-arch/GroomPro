@@ -1,3 +1,4 @@
+import {writeAudit} from '@/src/lib/audit';
 import {NextRequest,NextResponse} from "next/server";
 import {randomUUID} from "node:crypto";
 import {db} from "@/src/lib/db";
@@ -24,9 +25,11 @@ async function save(r:NextRequest){
  if(!id)return NextResponse.json({error:"Select an item to edit."},{status:400});
  const common={name:data.name,description:data.description,active:data.active};
  const item=await db.$transaction(async tx=>{
+ await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
  if(data.kind==="services"){
  if(r.method==="PATCH"&&!await tx.service.findFirst({where:{id,tenantId}}))throw new Error("Item not found.");
- const values={...common,priceCents:data.priceCents,category:data.category,durationMin:data.durationMin,commissionPct:data.commissionPct};
+ if(data.code&&await tx.service.findFirst({where:{tenantId,code:data.code,id:{not:id}}}))throw Error("Service ID is already used.");
+ const values={...common,priceCents:data.priceCents,category:data.category,durationMin:data.durationMin,...(data.code!==undefined?{code:data.code}:{}),...(data.commissionExemptRoles!==undefined?{commissionExemptRoles:data.commissionExemptRoles}:{})};
  return r.method==="PATCH"?tx.service.update({where:{id},data:values}):tx.service.create({data:{id,tenantId,...values}});
  }
  if(data.kind==="products"){
@@ -48,7 +51,7 @@ async function save(r:NextRequest){
  const ids=data.items.map(i=>i.serviceId);if((await tx.service.count({where:{tenantId,id:{in:ids}}}))!==ids.length)throw new Error("Every VIP service must belong to this business.");
  const value={...common,priceCents:data.priceCents,items:data.items,billingDay:data.billingDay,billingDaySecond:data.billingDaySecond};
  await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value},update:{value}});return{id,...value};
- });return NextResponse.json({item},{status:r.method==="POST"?201:200});
+ });await writeAudit({tenantId,actorUserId:session.user.id,entityType:"TENANT",entityId:tenantId,action:"CATALOG_"+(r.method==="POST"?"CREATE":"EDIT"),summary:`Updated ${data.kind}: ${data.name}.`,details:{kind:data.kind,itemId:id}});return NextResponse.json({item},{status:r.method==="POST"?201:200});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Unable to save catalog item."},{status:400})}
 }
 export const POST=save;export const PATCH=save;

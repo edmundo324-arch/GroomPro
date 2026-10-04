@@ -1,3 +1,4 @@
+import {finalizeTicketCommissions} from "@/src/lib/employee-compensation";
 import { requestLocation } from "@/src/lib/request-location";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
@@ -27,9 +28,9 @@ export async function GET(request: NextRequest) {
   if (!tenantId || !locationId || !ticketId) return NextResponse.json({ error: "Tenant, location, and ticket are required." }, { status: 400 });
   let ticket = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { lines: true, payments: true, customer: true } });
   if (!ticket) return NextResponse.json({ error: "Ticket could not be found." }, { status: 404 });
-  await ensureAccountBalanceLine(tenantId,ticket.id,ticket.customerId);
-  ticket = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { lines: true, payments: true, customer: true } });
-  if (!ticket) return NextResponse.json({ error: "Ticket could not be found." }, { status: 404 });
+  const balanceRows=await db.$queryRaw<any[]>`SELECT balanceCents FROM Customer WHERE id=${ticket.customerId} AND tenantId=${tenantId} LIMIT 1`;
+  const balance=Math.max(0,Number(balanceRows[0]?.balanceCents||0));
+  if(balance&&!['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status)&&!ticket.lines.some(l=>l.description==='Customer Account Balance'))ticket={...ticket,lines:[...ticket.lines,{id:'pending-account-balance',ticketId:ticket.id,lineType:'SERVICE',role:'ADD_ON',description:'Customer Account Balance',quantity:1,unitPriceCents:balance,discountCents:0,totalCents:balance,durationMin:0} as any]};
   const t = totals(ticket.lines, ticket.tipCents, ticket.salesTaxCents);
   const paidCents = ticket.payments.reduce((sum, p) => sum + Math.round(Number(p.amount) * 100), 0);
   const account=await db.$queryRaw<any[]>`SELECT balanceCents,creditCents,loyaltyPoints FROM Customer WHERE id=${ticket.customerId} AND tenantId=${tenantId} LIMIT 1`;
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
     if (action === "CLOSE") {
       if (dueBefore !== 0) return NextResponse.json({ error: `Ticket still has a $${(dueBefore / 100).toFixed(2)} balance. A closed ticket cannot have a balance.` }, { status: 409 });
-      const closed = await db.ticket.update({ where: { id: ticket.id }, data: { status: "CLOSED", tipCents, salesTaxCents, totalCents: t.totalCents, pickupCompletedAt: ticket.pickupCompletedAt || new Date(), closedAt: ticket.closedAt || new Date() } });
+      const closed = await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;const current=await tx.ticket.findFirst({where:{id:ticket.id,tenantId},include:{lines:true,payments:true}});if(!current||current.status==="CLOSED")throw Error("Ticket was already closed. Refresh its details.");if(totals(current.lines,tipCents,salesTaxCents).totalCents!==current.payments.reduce((n,p)=>n+Math.round(Number(p.amount)*100),0))throw Error("The ticket balance changed. Review it before closing.");await finalizeTicketCommissions(tx,tenantId,ticket.id);return tx.ticket.update({ where: { id: ticket.id }, data: { status: "CLOSED", tipCents, salesTaxCents, totalCents: t.totalCents, pickupCompletedAt: ticket.pickupCompletedAt || new Date(), closedAt: ticket.closedAt || new Date() } });},{timeout:30000});
       const alreadyAwarded=await db.$queryRaw<any[]>`SELECT id FROM CustomerRewardLedger WHERE tenantId=${tenantId} AND customerId=${ticket.customerId} AND referenceId=${`CLOSE:${ticket.id}`} LIMIT 1`;
       if(!alreadyAwarded.length){const rewardRate=await getTenantNumberSetting(tenantId,"REWARD_POINTS_PER_DOLLAR",1);const rewardableCents=ticket.lines.filter(l=>!/^Customer Account Balance$/i.test(l.description)&&!/^No-Show Fee$/i.test(l.description)).reduce((sum,l)=>sum+Math.max(0,l.unitPriceCents*l.quantity-l.discountCents),0);const points=Math.floor((rewardableCents/100)*rewardRate);if(points>0)await awardRewards({tenantId,customerId:ticket.customerId,ticketId:ticket.id,actorUserId:session.user.id,points,reason:`${points} Reward Points earned from Ticket #${ticket.orderNumber}.`,referenceId:`CLOSE:${ticket.id}`});}
       await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId:ticket.customerId, action: "CLOSE", summary: `Closed paid ticket #${ticket.orderNumber}.`, details: { totalCents: t.totalCents } });

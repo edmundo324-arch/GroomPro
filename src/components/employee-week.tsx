@@ -22,7 +22,7 @@ export function EmployeeWeek(){
 
  const[employees,setEmployees]=useState<Employee[]>([]),[shifts,setShifts]=useState<Shift[]>([]),[locations,setLocations]=useState<{id:string;name:string}[]>([]),[form,setForm]=useState<typeof blank|null>(null),[selected,setSelected]=useState<{employee:Employee;day:number;id?:string;start:string;end:string}|null>(null),[message,setMessage]=useState(""),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[query,setQuery]=useState(""),[inactive,setInactive]=useState(false);
 
- async function load(){try{const responses=await Promise.all([fetch('/api/employees',{cache:'no-store'}),fetch('/api/employee-schedules',{cache:'no-store'}),fetch('/api/locations',{cache:'no-store'})]);const data=await Promise.all(responses.map(r=>r.json()));if(responses.some(r=>!r.ok))throw Error(data.find(d=>d.error)?.error||'Could not load schedules.');setEmployees(data[0].employees);setShifts(data[1].schedules);setLocations(data[2].locations)}catch(e){setMessage(e instanceof Error?e.message:'Could not load schedules.')}finally{setLoading(false)}}
+ async function load(){try{const responses=await Promise.all([employeeFetch('/api/employees',{cache:'no-store'}),employeeFetch('/api/employee-schedules',{cache:'no-store'}),employeeFetch('/api/locations',{cache:'no-store'})]);const data=await Promise.all(responses.map(r=>r.json()));if(responses.some(r=>!r.ok))throw Error(data.find(d=>d.error)?.error||'Could not load schedules.');setEmployees(data[0].employees);setShifts(data[1].schedules);setLocations(data[2].locations)}catch(e){setMessage(e instanceof Error?e.message:'Could not load schedules.')}finally{setLoading(false)}}
 
  useEffect(()=>{void load()},[]);
 

@@ -71,6 +71,7 @@ async function main() {
   try {
     const count = process.argv.includes('--verify-only') ? await verify(db, plan) : await bootstrap(db, plan);
     if(!process.argv.includes("--verify-only")){const repaired=await require("./repair-demo-hours.cjs").repairDemoHours(db);if(repaired)console.log(`GroomPro: corrected ${repaired} untouched demo appointments to location time.`)}
+    if(!process.argv.includes("--verify-only")){const changed=await require("./upgrade-imported-services.cjs").upgradeImportedServices(db);if(changed)console.log(`GroomPro: separated imported service fields for ${changed} services; original values retained.`)}
     console.log(`GroomPro: verified ${count} application tables and all required columns.`);
   } finally { await db.$disconnect(); }
 }

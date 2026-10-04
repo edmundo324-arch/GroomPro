@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const ticketId = String(body.ticketId || "");
     const status = String(body.status || "") as Status;
-    if (!ticketId || !ALLOWED.includes(status)) return NextResponse.json({ error: "Ticket and valid status are required." }, { status: 400 });
+    if (!ticketId || (!ALLOWED.includes(status)&&!["UNDO_CHECK_IN","UNDO_READY"].includes(body.action))) return NextResponse.json({ error: "Ticket and valid status are required." }, { status: 400 });
 
     const ticket = await db.ticket.findFirst({
       where: { id: ticketId, tenantId },
@@ -27,6 +27,12 @@ export async function PATCH(request: NextRequest) {
     if (ticket.status === "CLOSED" && status !== "CLOSED") return NextResponse.json({ error: "A closed ticket cannot be reopened." }, { status: 409 });
     if (ticket.status === "CANCELLED" && status !== "CANCELLED") return NextResponse.json({ error: "A cancelled ticket cannot be reopened." }, { status: 409 });
 
+    if(['UNDO_CHECK_IN','UNDO_READY'].includes(body.action)){
+      if(['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status))return NextResponse.json({error:'This visit cannot be changed.'},{status:409});
+      const data=body.action==='UNDO_CHECK_IN'?{status:'CONFIRMED' as const,checkedInAt:null,pickupAt:null}:{status:ticket.checkedInAt?'CHECKED_IN' as const:'CONFIRMED' as const,pickupAt:null};
+      const updated=await db.ticket.update({where:{id:ticket.id},data});await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:body.action,summary:body.action==='UNDO_CHECK_IN'?'Reversed check-in.':'Reversed ready for pickup.'});return NextResponse.json({ticket:updated});
+    }
+    if(status==="CLOSED")return NextResponse.json({error:"Use Check Out / Close so payment and earnings are finalized together."},{status:409});
     const now = new Date();
     let updated;
     let assignedArrivalPriority: number | null = ticket.arrivalPriority;
@@ -49,7 +55,7 @@ export async function PATCH(request: NextRequest) {
       const data: { status: Status; checkedInAt?: Date | null; pickupAt?: Date | null; pickupCompletedAt?: Date | null; closedAt?: Date | null } = { status };
       if (status === "CHECKED_IN" && !ticket.checkedInAt) data.checkedInAt = now;
       if (status === "READY" && !ticket.pickupAt) data.pickupAt = now;
-      if (status === "CLOSED") { data.pickupCompletedAt = ticket.pickupCompletedAt || now; data.closedAt = ticket.closedAt || now; }
+
       updated = await db.ticket.update({ where: { id: ticket.id }, data });
     }
 

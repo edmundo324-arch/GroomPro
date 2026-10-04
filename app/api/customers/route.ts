@@ -1,3 +1,4 @@
+import {saveCustomerPhones} from '@/src/lib/customer-phones';
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 import { findPossibleDuplicateCustomer, normalizePhone, normalizeText } from "@/src/lib/customer";
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return NextResponse.json({ error: "Employee PIN is required before creating a customer." }, { status: 401 });
 
-  let body: { firstName?: string; lastName?: string; email?: string; phone?: string; notes?: string };
+  let body: { phones?:any[];firstName?: string; lastName?: string; email?: string; phone?: string; notes?: string };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
 
   const firstName = normalizeText(String(body.firstName || ""));
@@ -32,12 +33,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ duplicate: true, customer: duplicate, message: "An existing customer matches this information." }, { status: 409 });
   }
 
+  try {
   const customer = await db.$transaction(async (tx) => {
     const created = await tx.customer.create({ data: { tenantId, firstName, lastName, email, notes: body.notes?.trim() || null } });
-    if (phone) await tx.customerPhone.create({ data: { tenantId, customerId: created.id, number: phone, normalized: normalizedPhone, isPrimary: true } });
+    if(body.phones)await saveCustomerPhones(tx,tenantId,created.id,body.phones);
+    else if (phone) await tx.customerPhone.create({ data: { tenantId, customerId: created.id, number: phone, normalized: normalizedPhone, isPrimary: true } });
     return tx.customer.findUnique({ where: { id: created.id }, include: { phones: true, pets: true } });
   });
 
   await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "CUSTOMER", entityId: customer!.id, customerId: customer!.id, action: "CREATE", summary: `Created customer ${firstName} ${lastName}.` });
   return NextResponse.json({ customer }, { status: 201 });
+  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Could not save customer."},{status:400});}
 }

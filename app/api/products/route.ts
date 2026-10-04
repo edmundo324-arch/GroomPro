@@ -1,3 +1,4 @@
+import {managerAction} from '@/src/lib/protected-action';
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ products });
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const tenantId=await tenantFrom(request); if(!tenantId)return NextResponse.json({error:"Business setup is not complete yet."},{status:503});
   const b=await request.json(); const name=String(b.name||"").trim(),sku=String(b.sku||"").trim()||null,priceCents=Math.max(0,Math.round(Number(b.priceCents)||0)),quantity=Math.max(0,Math.round(Number(b.quantity)||0));
   if(!name)return NextResponse.json({error:"Product name is required."},{status:400});
@@ -24,10 +25,14 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({product},{status:201});
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePATCH(request: NextRequest) {
   const tenantId=await tenantFrom(request); if(!tenantId)return NextResponse.json({error:"Business setup is not complete yet."},{status:503});
   const b=await request.json(),id=String(b.id||""); if(!id)return NextResponse.json({error:"Product id is required."},{status:400});
   const existing=await db.product.findFirst({where:{id,tenantId}}); if(!existing)return NextResponse.json({error:"Product not found."},{status:404});
   const data:any={}; if(b.name!==undefined){const name=String(b.name).trim();if(!name)return NextResponse.json({error:"Product name is required."},{status:400});data.name=name} if(b.sku!==undefined)data.sku=String(b.sku||"").trim()||null; if(b.priceCents!==undefined)data.priceCents=Math.max(0,Math.round(Number(b.priceCents)||0)); if(b.quantity!==undefined)data.quantity=Math.max(0,Math.round(Number(b.quantity)||0)); if(b.active!==undefined)data.active=Boolean(b.active);
   const product=await db.product.update({where:{id},data,select:{id:true,name:true,sku:true,priceCents:true,quantity:true}}); return NextResponse.json({product});
 }
+
+export const POST=managerAction(handlePOST);
+
+export const PATCH=managerAction(handlePATCH);

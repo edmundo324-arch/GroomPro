@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     const created = await db.$transaction(async tx => {
       const ticket = await tx.ticket.create({
         data: {
-          tenantId, locationId, customerId: source.customerId, orderNumber, scheduledStart, durationMin,
+          tenantId, locationId, customerId: source.customerId, orderNumber, scheduledStart, durationMin,timingMode:source.timingMode,
           status: "OPEN", bookingSource: "STAFF", bookingDecision: "INTERNAL", notes: source.notes,
           pets: { create: source.pets.map(p => ({ petId: p.petId, weightLbs: p.weightLbs, analSituation: null, vipAvailability: p.vipAvailability })) },
           lines: { create: serviceLines.map((line, index) => {
@@ -73,11 +73,11 @@ export async function POST(request: NextRequest) {
             const gross = line.unitPriceCents * line.quantity;
             const discountCents = eligible && discountPct > 0 ? Math.round(gross * discountPct / 100) : 0;
             const totalCents = gross - discountCents;
-            return { lineType: "SERVICE", role: line.role, serviceId: line.serviceId, petId: line.petId, description: line.description, quantity: line.quantity, unitPriceCents: line.unitPriceCents, discountCents, totalCents, commissionPct: line.commissionPct, commissionCents: Math.round(totalCents * Number(line.commissionPct || 0) / 100), sortOrder: index, assignedUserId: null, assignedAt: null };
+            return {durationMin:line.durationMin,reportCardDescription:line.reportCardDescription,packageId:line.packageId,packageGroupKey:line.packageGroupKey,packageName:line.packageName, lineType: "SERVICE", role: line.role, serviceId: line.serviceId, petId: line.petId, description: line.description, quantity: line.quantity, unitPriceCents: line.unitPriceCents, discountCents, totalCents, commissionPct: line.commissionPct, commissionCents: Math.round(totalCents * Number(line.commissionPct || 0) / 100), sortOrder: index, assignedUserId: null, assignedAt: null };
           }) },
           ...(groomerId ? { assignments: { create: { userId: groomerId, role: "GROOMER" } } } : {})
         },
-        include: { customer: true, pets: { include: { pet: true } }, lines: { include: { pet: true, service: true } }, assignments: { include: { user: true } } }
+        include: { customer: true, pets: { include: { pet: true } }, lines: { include: { pet: true, service: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } }
       });
       await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
       return ticket;

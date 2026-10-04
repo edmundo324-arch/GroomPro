@@ -1,4 +1,5 @@
 "use client";
+import {employeeFetch} from "../lib/employee-fetch";
 import { useEffect, useState } from "react";
 
 export function RewardSettings() {
@@ -8,7 +9,7 @@ export function RewardSettings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/reward-settings")
+    employeeFetch("/api/reward-settings")
       .then(r => r.json())
       .then(d => {
         if (d.noShowFeeCents != null) setFee(String(Number(d.noShowFeeCents) / 100));
@@ -24,8 +25,7 @@ export function RewardSettings() {
       setMsg("Enter a valid No-Show Fee and Reward Points rate.");
       return;
     }
-    const r = await fetch("/api/reward-settings", {
-      method: "PUT",
+    const r = await employeeFetch("/api/reward-settings",{method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ noShowFeeCents: feeCents, rewardPointsPerDollar: pointsPerDollar })
     });

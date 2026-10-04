@@ -1,3 +1,5 @@
+import {writeAudit} from '@/src/lib/audit';
+import {saveCustomerPhones} from '@/src/lib/customer-phones';
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomerProfile } from "@/src/lib/customer";
 
@@ -26,8 +28,10 @@ export async function PATCH(request:NextRequest,{params}:{params:Promise<{custom
  try{const b=await request.json();const firstName=String(b.firstName||"").trim(),lastName=String(b.lastName||"").trim(),email=String(b.email||"").trim();
  if(!firstName||!lastName||firstName.length>191||lastName.length>191||email.length>191)return NextResponse.json({error:"Valid first and last names are required (up to 191 characters)."},{status:400});
  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return NextResponse.json({error:"Enter a valid email address."},{status:400});
- const result=await db.customer.updateMany({where:{id:customerId,tenantId},data:{firstName,lastName,email:email||null,notes:String(b.notes||"").trim()||null}});
+ const data={firstName,lastName,email:email||null,notes:String(b.notes||"").trim()||null};
+ const result=b.phones===undefined?await db.customer.updateMany({where:{id:customerId,tenantId},data}):await db.$transaction(async tx=>{const changed=await tx.customer.updateMany({where:{id:customerId,tenantId},data});if(changed.count)await saveCustomerPhones(tx,tenantId,customerId,b.phones);return changed});
  if(!result.count)return NextResponse.json({error:"Customer not found."},{status:404});
+ await writeAudit({tenantId,actorUserId:session.user.id,entityType:"CUSTOMER",entityId:customerId,customerId,action:"EDIT",summary:"Updated customer profile and contact information."});
  return NextResponse.json({customer:await getCustomerProfile(tenantId,customerId)});
- }catch{return NextResponse.json({error:"Could not save customer. Please retry."},{status:400})}
+ }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Could not save customer. Please retry."},{status:400})}
 }

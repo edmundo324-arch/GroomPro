@@ -1,3 +1,5 @@
+import {ticketDuration,timingMode} from '@/src/lib/ticket-timing';
+import {workflowSettings} from '@/src/lib/workflow-settings';
 import {resolveSaleLines} from "@/src/lib/pos-lines";
 import { appointmentHoursError } from "@/src/lib/location-hours";
 import { requestLocation } from "@/src/lib/request-location";
@@ -10,7 +12,7 @@ import { checkCustomerBookingRules } from "@/src/lib/booking-rules";
 const SESSION_COOKIE = "groompro_session";
 function tenantFrom(request: NextRequest) { return request.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID || ""; }
 type TicketLineRole = "PREP" | "BATH" | "GROOM" | "ADD_ON" | "PRODUCT";
-type LineInput = { type: "SERVICE" | "PRODUCT" | "PACKAGE"; id: string; petId?: string; quantity?: number; role?: TicketLineRole; assignedUserId?: string; sortOrder?: number };
+type LineInput = {packageId?:string;durationMin?:number; type: "SERVICE" | "PRODUCT" | "PACKAGE"; id: string; petId?: string; quantity?: number; role?: TicketLineRole; assignedUserId?: string; sortOrder?: number };
 type PetDetailInput = { petId: string; weightLbs?: number | null; analSituation?: "DONE_REQUESTED" | "DONE_NOT_REQUESTED" | "NOT_NEEDED" | null; vipAvailability?: "AVAILABLE" | "NOT_AVAILABLE" | "NEEDS_MORE_SESSIONS" | null };
 
 export async function POST(request: NextRequest) {
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return NextResponse.json({ error: "Employee PIN is required before creating a ticket." }, { status: 401 });
-  let body: { customerId?: string; petId?: string; petIds?: string[]; petDetails?: PetDetailInput[]; serviceId?: string; serviceIds?: string[]; lines?: LineInput[]; scheduledStart?: string; durationMin?: number; notes?: string; groomerId?: string; arrivalPriority?: number; bookingSource?: "STAFF"|"ONLINE"; onlineCategory?: "GROOMING"|"FULL_WASH"|"NAIL_GRINDING"|"SELFSERVICE"|"DAYCARE"|"BOARDING"; confirmRecentWarning?: boolean };
+  let body: { timingMode?:string;customerId?: string; petId?: string; petIds?: string[]; petDetails?: PetDetailInput[]; serviceId?: string; serviceIds?: string[]; lines?: LineInput[]; scheduledStart?: string; durationMin?: number; notes?: string; groomerId?: string; arrivalPriority?: number; bookingSource?: "STAFF"|"ONLINE"; onlineCategory?: "GROOMING"|"FULL_WASH"|"NAIL_GRINDING"|"SELFSERVICE"|"DAYCARE"|"BOARDING"; confirmRecentWarning?: boolean };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if (!body.customerId || !body.scheduledStart) return NextResponse.json({ error: "Customer and appointment time are required." }, { status: 400 });
   if (body.arrivalPriority !== undefined && (!Number.isInteger(body.arrivalPriority) || body.arrivalPriority < 1)) return NextResponse.json({ error: "Arrival priority must be a positive whole number." }, { status: 400 });
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
   if (!customer || pets.length !== petIds.length) return NextResponse.json({ error: "Customer or pet could not be found." }, { status: 404 });
   let resolved;try{resolved=await resolveSaleLines(db,tenantId,lineInputs.map(l=>({...l,petId:l.petId||(l.type!=="PRODUCT"?petIds[0]:undefined)})),petIds,locationId)}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Invalid items."},{status:400})}
   if(body.groomerId&&!await db.user.findFirst({where:{id:body.groomerId,tenantId,active:true}}))return NextResponse.json({error:"Scheduled groomer not found."},{status:400});
-  const durationMin=resolved.durationMin;
+  let mode;try{mode=timingMode(body.timingMode||(await workflowSettings(tenantId)).timingMode)}catch(e){return NextResponse.json({error:String(e)},{status:400})}const durationMin=ticketDuration(resolved.lines,mode);const groups=new Set<string>();for(const line of resolved.lines){if(line.packageId){const key=line.packageGroupKey+':'+line.serviceId;if(groups.has(key))return NextResponse.json({error:'This package service is already on the ticket.'},{status:400});groups.add(key)}}
   const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage)return NextResponse.json({error:hoursMessage},{status:400});
   const source = body.bookingSource === "ONLINE" ? "ONLINE" : "STAFF";
   const rules = await checkCustomerBookingRules(tenantId, customer.id, scheduledStart, durationMin);
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
   const lines=resolved.lines;
   const detailMap = new Map((body.petDetails || []).map(p => [p.petId, p]));
   const ticket = await db.$transaction(async tx => {
-    const created = await tx.ticket.create({ data: { tenantId, locationId, customerId: customer.id, orderNumber, scheduledStart, durationMin, arrivalPriority: body.arrivalPriority ?? null, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: { userId: body.groomerId, role: "GROOMER" } } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser: true, pet: true } }, assignments: { include: { user: true } } } });
+    const created = await tx.ticket.create({ data: { tenantId, locationId, customerId: customer.id, orderNumber, scheduledStart, durationMin, timingMode:mode, arrivalPriority: body.arrivalPriority ?? null, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: { userId: body.groomerId, role: "GROOMER" } } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}}, pet: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } } });
     await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
     return created;
   });

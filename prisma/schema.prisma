@@ -232,6 +232,11 @@ model Location {
 }
 
 model User {
+  compensationRules Json?
+  pinPrefixHashes Json?
+  dateOfHire DateTime?
+  importSourceId String?
+
   id String @id @default(cuid())
   tenantId String
   locationId String?
@@ -259,6 +264,7 @@ model User {
 }
 
 model EmployeeSession {
+  actionUsedAt DateTime?
   id String @id @default(cuid())
   tenantId String
   userId String
@@ -273,6 +279,24 @@ model EmployeeSession {
 }
 
 model Customer {
+  dateOfBirth DateTime?
+  anniversary DateTime?
+  occupation String?
+  gender String?
+  title String?
+  emergencyContactName String?
+  emergencyContactNumber String?
+  emergencyContactRelationship String?
+  doNotCall Boolean @default(false)
+  doNotPostalMail Boolean @default(false)
+  appointmentEmail Boolean @default(true)
+  appointmentSms Boolean @default(true)
+  serviceDiscountPct Decimal? @db.Decimal(5, 2)
+  productDiscountPct Decimal? @db.Decimal(5, 2)
+  preferredEmployeeId String?
+  pictureUrl String?
+  importSourceId String?
+
   id String @id @default(cuid())
   tenantId String
   firstName String
@@ -303,6 +327,9 @@ model Customer {
 }
 
 model CustomerPhone {
+  contactName String?
+  relationship String?
+
   id String @id @default(cuid())
   tenantId String
   customerId String
@@ -319,6 +346,21 @@ model CustomerPhone {
 }
 
 model Pet {
+  vipEligible Boolean @default(false)
+  vipEligibilityNotes String? @db.Text
+  dateOfBirth DateTime?
+  species String?
+  gender String?
+  color String?
+  weightLbs Decimal? @db.Decimal(6, 2)
+  groomingNotes String? @db.Text
+  medicalNotes String? @db.Text
+  behaviorNotes String? @db.Text
+  careFlags Json?
+  veterinarian String?
+  pictureUrl String?
+  importSourceId String?
+
   preferredPackageId String?
   id String @id @default(cuid())
   tenantId String
@@ -356,6 +398,8 @@ model Vaccination {
 }
 
 model Ticket {
+  timingMode String @default("SEQUENTIAL")
+
   id String @id @default(cuid())
   tenantId String
   locationId String
@@ -461,6 +505,9 @@ model Payment {
 }
 
 model Communication {
+  deliveryStatus String @default("RECORDED")
+  deliveryError String? @db.Text
+
   id String @id @default(cuid())
   tenantId String
   customerId String
@@ -518,6 +565,13 @@ model OnlineBookingRule {
 }
 
 model TicketLine {
+  durationMin Int?
+  reportCardDescription String? @db.Text
+  packageId String?
+  packageGroupKey String?
+  packageName String?
+  sourceKey String?
+
   id String @id @default(cuid())
   ticketId String
   lineType TicketLineType
@@ -547,6 +601,9 @@ model TicketLine {
 }
 
 model Service {
+  code String?
+  commissionExemptRoles Json?
+
   id String @id @default(cuid())
   tenantId String
   name String
@@ -740,4 +797,19 @@ model ScheduleOverride {
   updatedAt DateTime @updatedAt
   @@unique([tenantId, resourceKind, resourceId, date])
   @@index([tenantId, date])
+}
+
+// Original non-secret fields retained with explicit import mappings; never API credentials or SSNs.
+model ImportRecord {
+  id String @id @default(cuid())
+  tenantId String
+  source String
+  entityType String
+  sourceId String
+  targetId String?
+  payload Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId, source, entityType, sourceId])
+  @@index([tenantId, entityType, targetId])
 }

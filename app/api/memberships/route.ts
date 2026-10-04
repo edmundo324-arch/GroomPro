@@ -1,3 +1,6 @@
+import {nextMembershipBilling} from '@/src/lib/membership-billing';
+import {workflowSettings} from '@/src/lib/workflow-settings';
+import {requestLocation} from '@/src/lib/request-location';
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { db } from "@/src/lib/db";
@@ -8,7 +11,7 @@ const COOKIE = "groompro_session";
 const tenantFrom = (r: NextRequest) => r.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID || "";
 async function sessionFor(request: NextRequest, tenantId: string) { const sid = request.cookies.get(COOKIE)?.value || ""; return tenantId && sid ? getActiveEmployeeSession(tenantId, sid) : null; }
 function addDays(date: Date, days: number) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
-function nextBillingDate(start: Date, days: number[]) { for (let offset=0; offset<31; offset++) { const d=new Date(start); d.setDate(d.getDate()+offset); if(days.includes(d.getDate())) return d; } return addDays(start,30); }
+
 
 export async function GET(request: NextRequest) {
   const tenantId=tenantFrom(request); const customerId=request.nextUrl.searchParams.get("customerId"); const petId=request.nextUrl.searchParams.get("petId");
@@ -25,18 +28,21 @@ export async function POST(request: NextRequest) {
     if(b.planId){const plan=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:"VIP_PLAN:"+String(b.planId)}}});const value=plan?.value as any;if(!value?.active)return NextResponse.json({error:"Select an active VIP plan."},{status:400});planSnapshot=value;name=value.name;recurringPriceCents=value.priceCents;}
     if(!customerId||!petId||!Number.isInteger(recurringPriceCents)||recurringPriceCents<0)return NextResponse.json({error:"Customer, dog, and recurring price are required."},{status:400});
     const customer=await db.customer.findFirst({where:{id:customerId,tenantId},select:{id:true}}); const pet=await db.pet.findFirst({where:{id:petId,customerId,tenantId},select:{id:true,name:true}}); if(!customer||!pet)return NextResponse.json({error:"Customer or dog could not be found."},{status:404});
-    const setting=await db.$queryRaw<any[]>`SELECT value FROM TenantSetting WHERE tenantId=${tenantId} AND settingKey='VIP_BILLING_DAYS' LIMIT 1`;
-    const billingDays=planSnapshot?[Number(planSnapshot.billingDay||1),Number(planSnapshot.billingDaySecond||0)].filter(n=>n>=1&&n<=28):String(setting[0]?.value||"1,15").split(",").map(Number).filter(n=>n>=1&&n<=28); const firstBilling=nextBillingDate(new Date(),billingDays.length?billingDays:[1,15]); const id=randomUUID();
+    const options=await workflowSettings(tenantId);const day=Number(b.billingDay);if(!options.vipBillingDays.includes(day))throw Error('Choose a billing day supported by this business.');const billingDays=[day],id=randomUUID();let enrollmentTicketId=String(b.ticketId||'');const locationId=await requestLocation(request,tenantId);if(!locationId)throw Error('Location required.');const location=await db.location.findFirst({where:{id:locationId,tenantId},select:{timezone:true}});if(!location)throw Error('Location not found.');const firstBilling=nextMembershipBilling(new Date(),billingDays,location.timezone||'America/Chicago');
     await db.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM Pet WHERE id=${petId} AND tenantId=${tenantId} FOR UPDATE`;
     const duplicate=await tx.$queryRaw<any[]>`SELECT id FROM Membership WHERE tenantId=${tenantId} AND petId=${petId} AND status IN ('ACTIVE','PAUSED','PAUSE_REQUESTED','CANCELLATION_REQUESTED') LIMIT 1`;if(duplicate.length)throw new Error("This dog already has a current membership. Manage it below.");
     await tx.$executeRaw`INSERT INTO Membership (id,tenantId,customerId,petId,name,status,startFeeCents,recurringPriceCents,billingDay,billingDaySecond,billingInArrears,startedAt) VALUES (${id},${tenantId},${customerId},${petId},${name},'ACTIVE',100,${recurringPriceCents},${billingDays[0]||1},${billingDays[1]||null},true,NOW(3))`;
-    await tx.$executeRaw`INSERT INTO MembershipPayment (id,tenantId,membershipId,amountCents,taxCents,paymentType,status,scheduledFor) VALUES (${randomUUID()},${tenantId},${id},100,0,'START_VIP','PENDING',NOW(3))`;
+    if(enrollmentTicketId){await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${enrollmentTicketId} AND tenantId=${tenantId} FOR UPDATE`;const ticket=await tx.ticket.findFirst({where:{id:enrollmentTicketId,tenantId,customerId,status:{notIn:['CLOSED','CANCELLED','NO_SHOW']}}});if(!ticket)throw Error('Choose an open POS ticket for this customer.');}
+    else{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;const max=await tx.ticket.aggregate({where:{tenantId},_max:{orderNumber:true}});const ticket=await tx.ticket.create({data:{tenantId,locationId,customerId,orderNumber:(max._max.orderNumber||0)+1,status:'OPEN',pets:{create:{petId}}}});enrollmentTicketId=ticket.id;}
+    await tx.ticketPet.upsert({where:{ticketId_petId:{ticketId:enrollmentTicketId,petId}},create:{ticketId:enrollmentTicketId,petId},update:{}});
+    await tx.ticketLine.create({data:{ticketId:enrollmentTicketId,petId,lineType:'SERVICE',role:'ADD_ON',description:name+' — VIP activation',quantity:1,unitPriceCents:100,totalCents:100,durationMin:0,assignedUserId:session.user.id,assignedAt:new Date(),sourceKey:'MEMBERSHIP_START:'+id}});
+    await tx.pet.update({where:{id:petId},data:{vipEligible:false}});
     await tx.$executeRaw`INSERT INTO MembershipPayment (id,tenantId,membershipId,amountCents,taxCents,paymentType,status,scheduledFor) VALUES (${randomUUID()},${tenantId},${id},${recurringPriceCents},0,'CARD_ON_FILE','PENDING',${firstBilling})`;
     if(planSnapshot)await tx.tenantSetting.create({data:{tenantId,settingKey:"MEMBERSHIP_PLAN:"+id,value:{...planSnapshot,planId:String(b.planId)}}});
     });
     await writeAudit({tenantId,actorUserId:session.user.id,entityType:"MEMBERSHIP",entityId:id,customerId,action:"MEMBERSHIP_STARTED",summary:`Started ${name} for ${pet.name}.`,details:{petId,recurringPriceCents,firstBilling:firstBilling.toISOString(),billingDays}});
-    return NextResponse.json({membershipId:id,benefitsActiveImmediately:true,startFeeCents:100,firstBillingAt:firstBilling.toISOString()},{status:201});
+    return NextResponse.json({ticketId:enrollmentTicketId,membershipId:id,benefitsActiveImmediately:true,startFeeCents:100,firstBillingAt:firstBilling.toISOString()},{status:201});
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Unable to start membership."},{status:400});}
 }
 

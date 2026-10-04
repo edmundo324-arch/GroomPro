@@ -1,5 +1,3 @@
-import { getCustomerLedger } from "./audit";
-
-export async function getCustomerLedgerForProfile(tenantId: string, customerId: string) {
-  return getCustomerLedger(tenantId, customerId);
-}
+import {getCustomerLedger} from './audit';
+import {db} from './db';
+export async function getCustomerLedgerForProfile(tenantId:string,customerId:string){const [audit,account]=await Promise.all([getCustomerLedger(tenantId,customerId),db.$queryRaw<any[]>`SELECT a.id,a.entryType,a.amountCents,a.reason,a.createdAt,u.firstName,u.lastName FROM CustomerAccountLedger a LEFT JOIN User u ON u.id=a.actorUserId AND u.tenantId=a.tenantId WHERE a.tenantId=${tenantId} AND a.customerId=${customerId} ORDER BY a.createdAt DESC LIMIT 100`]);return [...audit,...account.map(a=>({id:a.id,actorType:a.firstName?'EMPLOYEE':'SYSTEM',actorUser:{firstName:a.firstName,lastName:a.lastName},action:'ACCOUNT_'+a.entryType,summary:`${a.entryType}: $${(a.amountCents/100).toFixed(2)} — ${a.reason}`,occurredAt:a.createdAt}))].sort((a,b)=>+new Date(b.occurredAt)-+new Date(a.occurredAt))}
