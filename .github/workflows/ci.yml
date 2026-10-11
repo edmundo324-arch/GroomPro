@@ -38,6 +38,8 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run test:integration
+      - name: Verify shared PIN and POS workflows
+        run: node scripts/test-pin-pos.cjs
       - name: Verify reversible source imports
         run: node scripts/test-import-database.cjs
         env:

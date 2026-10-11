@@ -58,11 +58,13 @@ export async function POST(request: NextRequest) {
       discountLabel = requestedOverride === 20 && automatic.weeks <= 3 ? "Manager-Extended Touchup Groom/Bath" : "Manager Rebooking Discount";
     }
 
-    const maxOrder = await db.ticket.aggregate({ where: { tenantId }, _max: { orderNumber: true } });
-    const orderNumber = (maxOrder._max.orderNumber || 0) + 1;
+    let orderNumber=0;
     const serviceLines = source.lines.filter(line => line.lineType === "SERVICE");
 
     const created = await db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
+      const maxOrder=await tx.ticket.aggregate({where:{tenantId},_max:{orderNumber:true}});
+      orderNumber=(maxOrder._max.orderNumber||0)+1;
       const ticket = await tx.ticket.create({
         data: {
           tenantId, locationId, customerId: source.customerId, orderNumber, scheduledStart, durationMin,timingMode:source.timingMode,

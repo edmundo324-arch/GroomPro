@@ -45,11 +45,13 @@ export async function POST(request: NextRequest) {
   if (source === "ONLINE" && rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at this time. Online booking cannot double-book a customer.", conflicts: rules.conflicts }, { status: 409 });
   const customerWarnings = rules.conflicts;
   if (source === "STAFF" && customerWarnings.length && !body.confirmRecentWarning) return NextResponse.json({ warning: customerWarnings.some(c => c.type === "OVERLAP") ? "This customer already has an appointment at this time." : "This customer has another appointment within two weeks.", conflicts: customerWarnings, requiresConfirmation: true }, { status: 409 });
-  const orderAggregate = await db.ticket.aggregate({ where: { tenantId }, _max: { orderNumber: true } });
-  const orderNumber = (orderAggregate._max.orderNumber || 0) + 1;
+  let orderNumber=0;
   const lines=resolved.lines;
   const detailMap = new Map((body.petDetails || []).map(p => [p.petId, p]));
   const ticket = await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
+    const orderAggregate=await tx.ticket.aggregate({where:{tenantId},_max:{orderNumber:true}});
+    orderNumber=(orderAggregate._max.orderNumber||0)+1;
     const created = await tx.ticket.create({ data: { tenantId, locationId, customerId: customer.id, tipCents:body.tipCents||0,salesTaxCents:body.salesTaxCents||0,orderNumber, scheduledStart, durationMin, timingMode:mode, arrivalPriority: body.arrivalPriority ?? null, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: { userId: body.groomerId, role: "GROOMER" } } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}}, pet: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } } });
     if(scheduledStart)await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
     return created;
