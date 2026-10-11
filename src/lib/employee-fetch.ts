@@ -15,8 +15,9 @@ async function authorizedFetch(input:string,init?:RequestInit):Promise<Response>
   if(![401,403].includes(response.status))return response;
   const body=await response.clone().json().catch(()=>({}));
   const signIn=response.status===401&&/employee (?:PIN is required|session required)/i.test(body.error||'');
-  const manager=response.status===403&&/manager|administrator/i.test(body.error||'');
+  let manager=response.status===403&&/manager|administrator/i.test(body.error||'');
   if(!signIn&&!manager)return response;
+  if(manager){const current=await fetch('/api/employee/session').then(r=>r.json());if(!current.employee)manager=false;}
   let hash:string|undefined;
   if(manager){
    // Hash the exact body, including multipart boundaries, without submitting it.

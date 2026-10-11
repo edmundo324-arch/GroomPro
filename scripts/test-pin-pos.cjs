@@ -51,6 +51,12 @@ async function main(){
   await ok('/api/employee/session','POST',{pin:'745193'});
   await ok('/api/pos-operation','POST',{kind:'CLOSE',requestKey:randomUUID(),ticketId:paid.ticket.id,details:{tipCents:200,salesTaxCents:100}});
   assert.equal((await db.ticket.findUnique({where:{id:paid.ticket.id}})).status,'CLOSED');
+  await ok('/api/employee/session','POST',{pin:'745193'});
+  const secondPet=await db.pet.create({data:{tenantId:tenant.id,customerId:customer.id,name:'VIP Dog'}});
+  const enrollBody={kind:'ENROLL',requestKey:randomUUID(),draft:{...draft,petIds:[secondPet.id],lines:[{type:'SERVICE',id:service.id,petId:secondPet.id,quantity:1}]},details:{customerId:customer.id,petId:secondPet.id,name:'Test VIP',recurringPriceCents:2500,billingDay:1}};
+  const enrolled=await ok('/api/pos-operation','POST',enrollBody);assert.ok(enrolled.ticketId);assert.equal(await db.ticketLine.count({where:{ticketId:enrolled.ticketId}}),2);
+  await ok('/api/employee/session','POST',{pin:'745193'});
+  const checked=await ok('/api/pos-operation','POST',{kind:'STATUS',requestKey:randomUUID(),draft,details:{status:'CHECKED_IN'}});assert.ok(checked.savedTicketId);assert.equal((await db.ticket.findUnique({where:{id:checked.savedTicketId}})).status,'CHECKED_IN');
   await db.tenantSetting.update({where:{tenantId_settingKey:{tenantId:tenant.id,settingKey:'WORKFLOW'}},data:{value:{securityMode:'INACTIVITY',inactivityMinutes:30}}});
   const save={kind:'SAVE',requestKey:randomUUID(),draft};const before=await db.ticket.count({where:{tenantId:tenant.id}});
   const concurrent=await Promise.all([call('/api/pos-operation','POST',save),call('/api/pos-operation','POST',save)]);assert.ok(concurrent.some(r=>r.status===200));assert.equal(await db.ticket.count({where:{tenantId:tenant.id}}),before+1);
