@@ -97,8 +97,8 @@ async function main() {
     const pkg=(await api('/api/catalog','POST',{kind:'packages',name:'Groom Bundle',priceCents:6000,active:true,items:[{serviceId:svc.id,quantity:2}]})).item;
     await api('/api/catalog','PATCH',{kind:'packages',id:pkg.id,name:'Groom Bundle Updated',priceCents:6200,active:true,items:[{serviceId:svc.id,quantity:3}]});
     assert.equal((await db.packageItem.findFirst({where:{packageId:pkg.id}})).quantity,3);
-    const vip=(await api('/api/catalog','POST',{kind:'plans',name:'VIP Grooming',priceCents:3500,description:'Two visits',active:true})).item;
-    await api('/api/catalog','PATCH',{kind:'plans',id:vip.id,name:'VIP Grooming',priceCents:4000,active:true});
+    const vip=(await api('/api/catalog','POST',{kind:'plans',name:'VIP Grooming',priceCents:3500,description:'Two visits',active:true,items:[{serviceId:svc.id,quantity:2}]})).item;
+    await api('/api/catalog','PATCH',{kind:'plans',id:vip.id,name:'VIP Grooming',priceCents:4000,active:true,items:[{serviceId:svc.id,quantity:2}]});
     const cat=await api('/api/catalog');assert.equal(cat.plans.find(p=>p.id===vip.id).priceCents,4000);
     const pet=await db.pet.create({data:{tenantId:tenant.id,customerId:created.customer.id,name:'Catalog Dog'}});
     const booking=await api('/api/tickets','POST',{customerId:created.customer.id,petIds:[pet.id],lines:[{type:'SERVICE',id:svc.id,petId:pet.id,quantity:1}],scheduledStart:new Date().toISOString().slice(0,10)+"T15:00:00.000Z",durationMin:60});
@@ -113,7 +113,7 @@ async function main() {
     const modified=hours.hours.map(h=>({...h,open:'09:00',close:'16:00'}));await api('/api/operating-hours','PUT',{locationId:location.id,timezone:'America/Chicago',hours:modified});assert.equal((await api('/api/operating-hours')).hours[1].close,'16:00');
     await api('/api/operating-hours','PUT',{locationId:location.id,timezone:'America/Chicago',hours:hours.hours});
     console.log('PASS: operating hours persist; early and late creation, moving and rebooking rejected.');
-    const membership=await api('/api/memberships','POST',{customerId:created.customer.id,petId:pet.id,planId:vip.id,recurringPriceCents:1});
+    const membership=await api('/api/memberships','POST',{customerId:created.customer.id,petId:pet.id,planId:vip.id,recurringPriceCents:1,billingDay:1});
     assert.equal((await api('/api/memberships?customerId='+created.customer.id)).memberships[0].recurringPriceCents,4000);
     const noPin=await fetch(base+'/api/catalog',{method:'POST',headers:{'x-tenant-id':tenant.id,'Content-Type':'application/json'},body:JSON.stringify(catalogService)});assert.equal(noPin.status,401);
     await api('/api/catalog','PATCH',{...catalogService,id:svc.id,active:false});assert.ok(!(await api('/api/services')).services.some(s=>s.id===svc.id));assert.equal((await db.ticketLine.findFirst({where:{ticketId:booking.ticket.id}})).unitPriceCents,7000);
@@ -154,6 +154,7 @@ async function main() {
     assert.equal((await seedApi('/api/setup/context')).setupRequired,false);
     assert.ok(seedCookie.includes('groompro_tenant='));
     assert.equal((await seedApi('/api/employees')).employees.length,11);
+    await seedApi('/api/employee/session','POST',{pin:'1111'});
     await seedApi('/api/employees','POST',{firstName:'Added',lastName:'Employee',role:'FRONT',pin:'817263'});
     assert.equal(await seedDb.user.count(),12);
     assert.equal((await seedApi('/api/locations')).locations.length,1);
@@ -166,6 +167,7 @@ async function main() {
     const calendar=await seedApi('/api/calendar?start='+encodeURIComponent(start.toISOString())+'&end='+encodeURIComponent(end.toISOString()));
     assert.equal(calendar.employees.length,12);assert.equal(calendar.assets.length,8);assert.equal(calendar.employeeSchedules.length,55);assert.equal(calendar.assetSchedules.length,48);assert.ok(calendar.tickets.some(t=>t.id===sample.id&&t.durationMin>0));
     assert.equal((await seedApi('/api/tickets/'+sample.id)).ticket.id,sample.id);
+    await seedApi('/api/employee/session','DELETE');
     const deniedMove=await fetch(seedBase+'/api/tickets',{method:'PATCH',headers:{'Content-Type':'application/json',cookie:seedCookie},body:JSON.stringify({ticketId:sample.id,scheduledStart:sample.scheduledStart})});assert.equal(deniedMove.status,401);assert.match((await deniedMove.json()).error,/Employee PIN/);
     await seedApi('/api/employee/session','POST',{pin:'817263'});
     const featureResponse=await seedApi('/api/features');
