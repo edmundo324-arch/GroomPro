@@ -232,6 +232,28 @@ model Location {
 }
 
 model User {
+  displayName String?
+  address1 String?
+  address2 String?
+  city String?
+  state String?
+  postalCode String?
+  phone String?
+  cellPhone String?
+  smsNumber String?
+  dateOfBirth DateTime?
+  lastWorkDate DateTime?
+  independent Boolean @default(false)
+  maxOccupancy Int?
+  serviceLimit Int?
+  bookBeyondMaxOccupancy Boolean @default(false)
+  notificationsEmail Boolean @default(false)
+  notificationsSms Boolean @default(false)
+  invalidEmail Boolean @default(false)
+  invalidSmsNumber Boolean @default(false)
+  notes String? @db.LongText
+  certifications Json?
+
   compensationRules Json?
   pinPrefixHashes Json?
   dateOfHire DateTime?
@@ -279,6 +301,20 @@ model EmployeeSession {
 }
 
 model Customer {
+  popupNotes String? @db.LongText
+  historyNotes String? @db.LongText
+  sourceCreatedAt DateTime?
+  firstVisit DateTime?
+  lastVisit DateTime?
+  totalVisits Int?
+  noShowCount Int?
+  invalidEmail Boolean @default(false)
+  invalidSmsNumber Boolean @default(false)
+  consentStatus String?
+  spouse String?
+  documentFolder String? @db.LongText
+  pictureGuid String?
+
   dateOfBirth DateTime?
   anniversary DateTime?
   occupation String?
@@ -307,7 +343,7 @@ model Customer {
   city String?
   state String?
   postalCode String?
-  notes String? @db.Text
+  notes String? @db.LongText
   active Boolean @default(true)
   vipStatus String?
   loyaltyPoints Int @default(0)
@@ -346,16 +382,24 @@ model CustomerPhone {
 }
 
 model Pet {
+  weightDescription String?
+  lastVisit DateTime?
+  pictureGuid String?
+  kennelNotes String? @db.LongText
+  coatLength String?
+  coatTexture String?
+  breedingStatus String?
+
   vipEligible Boolean @default(false)
-  vipEligibilityNotes String? @db.Text
+  vipEligibilityNotes String? @db.LongText
   dateOfBirth DateTime?
   species String?
   gender String?
   color String?
   weightLbs Decimal? @db.Decimal(6, 2)
-  groomingNotes String? @db.Text
-  medicalNotes String? @db.Text
-  behaviorNotes String? @db.Text
+  groomingNotes String? @db.LongText
+  medicalNotes String? @db.LongText
+  behaviorNotes String? @db.LongText
   careFlags Json?
   veterinarian String?
   pictureUrl String?
@@ -367,7 +411,7 @@ model Pet {
   customerId String
   name String
   breed String?
-  notes String? @db.Text
+  notes String? @db.LongText
   active Boolean @default(true)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -601,6 +645,18 @@ model TicketLine {
 }
 
 model Service {
+  importSourceId String?
+  favorite Boolean @default(false)
+  aliases Json?
+  customFields Json?
+  taxConfiguration Json?
+  onlineBookingDays Json?
+  webDisplayName String?
+  webOrder Int?
+  inventoryDetails Json?
+  sourceCommission Json?
+  loyaltyPoints Int?
+
   code String?
   commissionExemptRoles Json?
 
@@ -728,6 +784,8 @@ model LocationServicePricing {
 }
 
 model Package {
+  minimumWeightLbs Decimal? @db.Decimal(6,2)
+  maximumWeightLbs Decimal? @db.Decimal(6,2)
   defaultForBreeds String?
   id String @id @default(cuid())
   tenantId String
@@ -812,4 +870,31 @@ model ImportRecord {
   updatedAt DateTime @updatedAt
   @@unique([tenantId, source, entityType, sourceId])
   @@index([tenantId, entityType, targetId])
+}
+
+model ImportJob {
+  id String @id @default(cuid())
+  tenantId String
+  source String
+  status String @default("STAGED")
+  mode String @default("NEW")
+  fingerprint String
+  encryptedData String @db.LongText
+  report Json
+  createdBy String
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  updatedAt DateTime @updatedAt
+  @@index([tenantId, createdAt])
+}
+model ImportChange {
+  id String @id @default(cuid())
+  tenantId String
+  jobId String
+  entityType String
+  targetId String
+  encryptedBefore String? @db.LongText
+  encryptedAfter String @db.LongText
+  createdAt DateTime @default(now())
+  @@index([tenantId, jobId])
 }

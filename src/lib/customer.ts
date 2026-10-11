@@ -16,12 +16,15 @@ export async function searchCustomers(tenantId: string, query: string) {
 
   if (!text && !phone) return [];
 
-  return db.customer.findMany({
+  const results=await db.customer.findMany({
     where: {
       tenantId,
       active: true,
       OR: [
-        ...(phone.length >= 7 ? [{ phones: { some: { tenantId, normalized: { contains: phone } } } }] : []),
+        { id: { equals: text } },
+        { importSourceId: { contains: text } },
+        ...(text.split(' ').length>1?[{AND:text.split(' ').filter(Boolean).map(word=>({OR:[{firstName:{contains:word}},{lastName:{contains:word}}]}))}]:[]),
+        ...(phone.length >= 3 ? [{ phones: { some: { tenantId, normalized: { contains: phone } } } }] : []),
         { firstName: { contains: text } },
         { lastName: { contains: text } },
         { email: { contains: text } },
@@ -30,11 +33,13 @@ export async function searchCustomers(tenantId: string, query: string) {
     },
     include: {
       phones: { orderBy: { isPrimary: "desc" } },
+      tickets:{where:{scheduledStart:{gte:new Date()},status:{notIn:["CANCELLED","NO_SHOW","CLOSED"]}},orderBy:{scheduledStart:"asc"},take:1,select:{scheduledStart:true}},
       pets: { where: { active: true }, orderBy: { name: "asc" } },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     take: 25,
   });
+ return results.map(({tickets,...customer})=>({...customer,nextAppointment:tickets[0]?.scheduledStart||null}));
 }
 
 export async function findPossibleDuplicateCustomer(
@@ -67,7 +72,7 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
     include: {
       phones: { orderBy: { isPrimary: "desc" } },
       pets: {
-        where: { active: true },
+
         include: { vaccinations: { orderBy: { expiresAt: "desc" } } },
         orderBy: { name: "asc" },
       },

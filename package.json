@@ -17,17 +17,20 @@
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "fast-xml-parser": "^5.11.2",
+    "fflate": "^0.8.3",
+    "mysql2": "^3.14.4",
     "next": "^15.5.0",
     "prisma": "^6.15.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "mysql2": "^3.14.4",
+    "sql.js": "^1.14.2",
     "typescript": "^5.8.2",
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
-  "devDependencies": {},
   "engines": {
     "node": ">=22 <23"
   }

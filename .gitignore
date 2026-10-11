@@ -6,3 +6,8 @@ node_modules/
 *.tsbuildinfo
 godaddy-groompro-schema.sql
 godaddy-groompro-schema.json
+
+.next-*/
+
+.npm-cache/
+test-results/
