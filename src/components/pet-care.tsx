@@ -1,0 +1,3 @@
+"use client";
+const labels:Record<string,string>={AgWithAnimals:'Animal aggression',AgWithPeople:'People aggression — assessment required',Barker:'Barker',Biter:'Biting risk',Blind:'Blind',Deaf:'Deaf',Diabetic:'Diabetic',Epileptic:'Epilepsy flag',HairDryer:'Dryer difficulty',Hyper:'Hyperactive',LeashOn:'Leash retained',SensitiveSkin:'Sensitive skin',Shy:'Shy'};
+export function PetCare({pet}:{pet:any}){return <span style={{display:'flex',gap:6,flexWrap:'wrap'}}>{Object.entries(labels).filter(([k])=>['true','1','-1','yes'].includes(String(pet.careFlags?.[k]).toLowerCase())).map(([k,v])=><span key={k} title={v} aria-label={v}>⚑ {v}</span>)}{pet.active===false&&<strong>Inactive</strong>}</span>;}

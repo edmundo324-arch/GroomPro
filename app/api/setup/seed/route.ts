@@ -1,3 +1,4 @@
+import {hashPinPrefixes} from "@/src/lib/pin";
 import {localToInstant,wallTime} from "@/src/lib/operating-hours";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID, randomBytes, scryptSync } from "node:crypto";
@@ -34,7 +35,7 @@ export async function POST(request:NextRequest){
   if(!expectedSecret||expectedSecret==="replace-with-a-long-random-secret")return NextResponse.json({error:"GROOMPRO_SETUP_SECRET is not configured."},{status:503});
   const body=await request.json().catch(()=>({}));
   if(body.secret!==expectedSecret)return NextResponse.json({error:"Invalid setup secret."},{status:401});
-  const preparedEmployees=employees.map(e=>({...e,pinHash:hashPin(e.pin)}));
+  const preparedEmployees=await Promise.all(employees.map(async e=>({...e,pinHash:hashPin(e.pin),pinPrefixHashes:await hashPinPrefixes(e.pin)})));
   const result=await db.$transaction(async tx=>{
    const lock=await tx.$queryRaw<Array<{acquired:bigint|number}>>`SELECT GET_LOCK(CONCAT('groompro-seed:', LEFT(SHA2(DATABASE(),256),40)),10) AS acquired`;
    if(Number(lock[0]?.acquired)!==1)throw new Error("Setup is already running. Please wait for it to finish.");
@@ -50,7 +51,7 @@ export async function POST(request:NextRequest){
    const employeeIds:string[]=[];
    for(const e of preparedEmployees){
     const existing=await tx.user.findFirst({where:{tenantId,firstName:e.firstName,lastName:e.lastName}});
-    const data={role:e.role as any,active:true,locationId:location.id,pinHash:e.pinHash};
+    const data={role:e.role as any,active:true,locationId:location.id,pinHash:e.pinHash,pinPrefixHashes:e.pinPrefixHashes};
     const user=existing||await tx.user.create({data:{...data,tenantId,firstName:e.firstName,lastName:e.lastName}});
     await tx.$executeRaw`UPDATE User SET jobTitle=${e.title} WHERE id=${user.id}`;employeeIds.push(user.id);
     for(const day of employeeWorkDays[`${e.firstName} ${e.lastName}`]||[])await tx.$executeRaw`INSERT INTO EmployeeSchedule (id,tenantId,userId,dayOfWeek,startTime,endTime,active) VALUES (${randomUUID()},${tenantId},${user.id},${day},'08:30','17:00',1) ON DUPLICATE KEY UPDATE startTime='08:30',endTime='17:00',active=1`;

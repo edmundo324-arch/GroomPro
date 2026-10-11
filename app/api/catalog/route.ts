@@ -27,9 +27,12 @@ async function save(r:NextRequest){
  const item=await db.$transaction(async tx=>{
  await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
  if(data.kind==="services"){
+ const previous=await tx.service.findFirst({where:{id,tenantId}});
+ const categoryConfig=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'SERVICE_CATEGORIES'}}});
+ if(data.category!==previous?.category&&(categoryConfig?.value as any[]||[]).some(c=>c.name===data.category&&c.active===false))throw Error('Choose an active service category.');
  if(r.method==="PATCH"&&!await tx.service.findFirst({where:{id,tenantId}}))throw new Error("Item not found.");
  if(data.code&&await tx.service.findFirst({where:{tenantId,code:data.code,id:{not:id}}}))throw Error("Service ID is already used.");
- const values={...common,priceCents:data.priceCents,category:data.category,durationMin:data.durationMin,...(data.code!==undefined?{code:data.code}:{}),...(data.commissionExemptRoles!==undefined?{commissionExemptRoles:data.commissionExemptRoles}:{})};
+ const values={...common,...(data.favorite!==undefined?{favorite:data.favorite}:{}),priceCents:data.priceCents,category:data.category,durationMin:data.durationMin,...(data.code!==undefined?{code:data.code}:{}),...(data.commissionExemptRoles!==undefined?{commissionExemptRoles:data.commissionExemptRoles}:{})};
  return r.method==="PATCH"?tx.service.update({where:{id},data:values}):tx.service.create({data:{id,tenantId,...values}});
  }
  if(data.kind==="products"){
@@ -41,7 +44,7 @@ async function save(r:NextRequest){
  if(data.kind==="packages"){
  if(r.method==="PATCH"&&!await tx.package.findFirst({where:{id,tenantId}}))throw new Error("Item not found.");
  const ids=data.items.map(i=>i.serviceId);if((await tx.service.count({where:{tenantId,id:{in:ids}}}))!==ids.length)throw new Error("Every package service must belong to this business.");
- const values={...common,basePriceCents:data.priceCents,...(data.defaultForBreeds!==undefined?{defaultForBreeds:data.defaultForBreeds}:{})};
+ const values={...common,...(data.minimumWeightLbs!==undefined?{minimumWeightLbs:data.minimumWeightLbs}:{}),...(data.maximumWeightLbs!==undefined?{maximumWeightLbs:data.maximumWeightLbs}:{}),basePriceCents:data.priceCents,...(data.defaultForBreeds!==undefined?{defaultForBreeds:data.defaultForBreeds}:{})};
  const saved=r.method==="PATCH"?await tx.package.update({where:{id},data:values}):await tx.package.create({data:{id,tenantId,...values}});
  await tx.packageItem.deleteMany({where:{packageId:id,tenantId}});
  if(data.items.length)await tx.packageItem.createMany({data:data.items.map((item,sortOrder)=>({...item,tenantId,packageId:id,sortOrder,role:item.role as any}))});return saved;

@@ -18,8 +18,8 @@ function schemaPlan(sql) {
 }
 async function verify(db, plan) {
   const rows = await db.$queryRaw`SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()`;
-  const present = new Set(rows.map(r => `${r.tableName}.${r.columnName}`));
-  const missing = plan.tables.flatMap(t => t.columns.filter(c => !present.has(`${t.name}.${c.name}`)).map(c => `${t.name}.${c.name}`));
+  const present = new Set(rows.map(r => `${r.tableName}.${r.columnName}`.toLowerCase()));
+  const missing = plan.tables.flatMap(t => t.columns.filter(c => !present.has(`${t.name}.${c.name}`.toLowerCase())).map(c => `${t.name}.${c.name}`));
   if (missing.length) throw new Error(`Database schema is incomplete: ${missing.join(', ')}`);
   const status = await db.$queryRaw`SELECT COLUMN_TYPE AS columnType FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='Ticket' AND COLUMN_NAME='status'`;
   if (!status[0]?.columnType.includes("'NO_SHOW'")) throw new Error('Ticket.status requires a reviewed migration to include NO_SHOW.');
@@ -54,6 +54,7 @@ async function bootstrap(db, plan) {
       if (status[0]?.columnType === "enum('OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED','CANCELLED')") {
         await tx.$executeRawUnsafe("ALTER TABLE `Ticket` MODIFY COLUMN `status` ENUM('OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED','CANCELLED','NO_SHOW') NOT NULL DEFAULT 'OPEN'");
       }
+      await require("./import-foundation-migration.cjs").migrateImportFoundation(tx);
       return await verify(tx, plan);
     } finally {
       await tx.$queryRaw`SELECT RELEASE_LOCK(CONCAT('groompro:', LEFT(SHA2(DATABASE(), 256), 48))) AS released`;
