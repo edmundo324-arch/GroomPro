@@ -68,12 +68,17 @@ export async function POST(request: NextRequest) {
       if (!Number.isInteger(amountCents) || amountCents <= 0) return NextResponse.json({ error: "Payment amount must be a positive whole number of cents." }, { status: 400 });
       if (amountCents > dueBefore) return NextResponse.json({ error: "Payment cannot exceed the ticket balance. Closed tickets cannot carry a credit." }, { status: 409 });
       const result = await db.$transaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;
+        const current=await tx.ticket.findFirst({where:{id:ticket.id,tenantId},include:{lines:true,payments:true}});
+        if(!current||['CLOSED','CANCELLED','NO_SHOW'].includes(current.status))throw Error('This ticket cannot accept payment.');
+        const currentPaid=current.payments.reduce((n,p)=>n+Math.round(Number(p.amount)*100),0);
+        if(amountCents>totals(current.lines,tipCents,salesTaxCents).totalCents-currentPaid)throw Error('The balance changed. Review payments before continuing.');
         const updated = await tx.ticket.update({ where: { id: ticket.id }, data: { tipCents, salesTaxCents, totalCents: t.totalCents } });
         const payment = await tx.payment.create({ data: { tenantId, ticketId: ticket.id, amount: (amountCents / 100).toFixed(2), paymentType: paymentType as typeof PAYMENT_TYPES[number] } });
-        return { updated, payment };
+        return { updated, payment, paidBefore:currentPaid };
       });
       const settled = await settleOwedBalance({tenantId,customerId:ticket.customerId,ticketId:ticket.id,actorUserId:session.user.id,amountCents:amountCents,reason:`Payment applied to Ticket #${ticket.orderNumber} account balance.` ,referenceId:result.payment.id});
-      const newPaid = paidCents + amountCents;
+      const newPaid = result.paidBefore + amountCents;
       await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "PAYMENT", entityId: result.payment.id, customerId: ticket.customerId, action: "PAYMENT", summary: `Recorded $${(amountCents / 100).toFixed(2)} payment on ticket #${ticket.orderNumber}.`, details: { ticketId: ticket.id, paymentType, amountCents, accountBalanceSettledCents:settled.amountCents, dueAfterCents: Math.max(0, t.totalCents - newPaid) } });
       const account=await db.$queryRaw<any[]>`SELECT balanceCents,creditCents,loyaltyPoints FROM Customer WHERE id=${ticket.customerId} AND tenantId=${tenantId} LIMIT 1`;
       return NextResponse.json({ ticket: result.updated, payment: result.payment, subtotalCents: t.subtotalCents, tipCents, salesTaxCents, totalCents: t.totalCents, paidCents: newPaid, dueCents: Math.max(0, t.totalCents - newPaid), account:account[0] });

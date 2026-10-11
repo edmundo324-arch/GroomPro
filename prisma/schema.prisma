@@ -898,3 +898,30 @@ model ImportChange {
   createdAt DateTime @default(now())
   @@index([tenantId, jobId])
 }
+
+// One-time manager approval, bound to an exact request and the working session.
+model ActionApproval {
+  id String @id
+  tenantId String
+  sessionId String
+  deviceId String
+  approverId String
+  requestHash String
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([tenantId, sessionId])
+}
+
+// Durable receipts prevent duplicate POS operations after slow or lost responses.
+model PosOperation {
+  id String @id
+  tenantId String
+  requestKey String
+  requestHash String
+  status String @default("RUNNING")
+  response Json?
+  responseStatus Int?
+  createdAt DateTime @default(now())
+  @@unique([tenantId, requestKey])
+}
