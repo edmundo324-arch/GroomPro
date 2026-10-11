@@ -26,7 +26,7 @@ export async function POST(r:NextRequest){
  // Keep all uploaded datasets in staging; only selected datasets are committed in the execution envelope.
  await db.importJob.update({where:{id},data:{source,mode:b.mode,status,encryptedData:seal(datasets,tenantId),fingerprint:fingerprint(report),report:report as any}});
  return NextResponse.json({id,status,report});}
- if(b.action==='SOURCE'){const datasets=unseal(job.encryptedData,tenantId) as Dataset[];const dataset=datasets.find(d=>d.name===b.dataset);if(!dataset)throw Error('Dataset not found.');const row=dataset.rows[Number(b.row)-2];if(!row)throw Error('Record not found.');const {sensitive}=await import('@/src/lib/import/fields');return NextResponse.json({values:Object.fromEntries(Object.entries(row).map(([k,v])=>[k,sensitive(k)?'[protected; retained encrypted]':v]))});}
+ if(b.action==='SOURCE'){const datasets=unseal(job.encryptedData,tenantId) as Dataset[];const dataset=datasets.find(d=>d.name===b.dataset);if(!dataset)throw Error('Dataset not found.');const row=dataset.rows[Number(b.row)-2];if(!row)throw Error('Record not found.');const {sensitive}=await import('@/src/lib/import/fields');return NextResponse.json({values:Object.fromEntries(Object.entries(row).map(([k,v])=>[k,(sensitive(k)||dataset.mapping[k]==='SECURE')?'[protected; retained encrypted]':v]))});}
  throw Error('Unknown import action.');
  }catch(e){const message=(e as Error).message;return NextResponse.json({error:(/Prisma|Invalid .*invocation|Foreign key|Transaction|Unique constraint/.test(message))?'Import could not commit. No operational changes were committed; validate and retry.':message},{status:400});}
 }
