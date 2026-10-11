@@ -110,6 +110,35 @@ async function main(){
   assert.equal((await db.ticketLine.findUnique({where:{id:grooming.id}})).assignmentUnavailable,true);
   assert.equal((await db.ticketLine.findUnique({where:{id:otherLine.id}})).assignmentUnavailable,false);
   assert.equal(await db.ticketAssignment.count({where:{ticketId:reservation.id,role:'GROOMER',userId:staff.id}}),0);
+  // Inactivation removes current work while preserving closed-ticket attribution.
+  await ok('/api/schedule-overrides','DELETE',{resourceKind:'employee',resourceId:staff.id,date:'2030-10-14'});
+  await ok('/api/ticket-lines','PATCH',{lineId:grooming.id,assignedUserId:staff.id});
+  const historical=await db.ticket.findFirst({where:{tenantId:tenant.id,status:'CLOSED'}});
+  const historicalLine=await db.ticketLine.findFirst({where:{ticketId:historical.id}});await db.ticketLine.update({where:{id:historicalLine.id},data:{assignedUserId:staff.id}});
+  await ok('/api/employees','PATCH',{id:staff.id,active:false});
+  assert.equal((await db.ticketLine.findUnique({where:{id:grooming.id}})).assignmentUnavailable,true);
+  assert.equal((await db.ticketLine.findUnique({where:{id:historicalLine.id}})).assignedUserId,staff.id);
+  assert.equal((await db.ticketLine.findUnique({where:{id:historicalLine.id}})).assignmentUnavailable,false);
+  assert.equal((await db.ticket.findUnique({where:{id:reservation.id}})).scheduledStart.toISOString(),'2030-10-14T15:00:00.000Z');
+  // Each Whiteboard selector changes one matching line, not another grooming service.
+  const anotherGroom=await db.ticketLine.create({data:{ticketId:reservation.id,petId:pet2.id,serviceId:service.id,lineType:'SERVICE',role:'GROOM',description:'Additional groom',durationMin:1,assignedUserId:manager.id}});
+  for(const role of ['PREP','BATH'])await db.ticketLine.create({data:{ticketId:reservation.id,petId:pet2.id,lineType:'SERVICE',role,description:role,assignedUserId:manager.id}});
+  await ok('/api/whiteboard','PATCH',{ticketId:reservation.id,petId:pet2.id,action:'ASSIGN',lineRole:'GROOM',lineId:anotherGroom.id,userId:null});
+  assert.equal((await db.ticketLine.findUnique({where:{id:otherLine.id}})).assignedUserId,manager.id);
+  // Removing the last available actual groomer removes its Calendar placement.
+  await ok('/api/ticket-lines?lineId='+otherLine.id,'DELETE');
+  assert.equal(await db.ticketAssignment.count({where:{ticketId:reservation.id,role:'GROOMER'}}),0);
+  const roleChange=(await ok('/api/ticket-lines','POST',{ticketId:reservation.id,petId:pet2.id,type:'SERVICE',id:service.id,role:'ADD_ON',assignedUserId:manager.id})).line;
+  await ok('/api/ticket-lines','PATCH',{lineId:roleChange.id,role:'GROOM'});
+  assert.equal((await db.ticketAssignment.findFirst({where:{ticketId:reservation.id,role:'GROOMER'}})).userId,manager.id);
+  assert.equal((await call('/api/ticket-lines','POST',{ticketId:reservation.id,petId:pet2.id,type:'SERVICE',id:service.id,assignedUserId:staff.id})).status,400);
+  await ok('/api/schedule-overrides','PUT',{resourceKind:'employee',resourceId:manager.id,date:'2030-10-21',dayOff:true});
+  assert.equal((await call('/api/tickets/rebook','POST',{ticketId:reservation.id,scheduledStart:'2030-10-21T15:00:00.000Z',groomerId:manager.id,confirmRecentWarning:true})).status,409);
+  // Adding/removing a pet uses the same POS ticket and rejects another customer's pet.
+  const thirdPet=await db.pet.create({data:{tenantId:tenant.id,customerId:customer.id,name:'Third pet'}});
+  await ok('/api/tickets/pets','PATCH',{ticketId:reservation.id,petId:thirdPet.id,included:true});
+  await ok('/api/tickets/pets','PATCH',{ticketId:reservation.id,petId:thirdPet.id,included:false});
+  assert.equal((await call('/api/tickets/pets','PATCH',{ticketId:reservation.id,petId:pet.id,included:false})).status,409);
   console.log('PASS: numbered drafts, duplicate prevention, recovery, tenant boundaries, same-ID promotion, planned assignment, time off, partial-day availability, Whiteboard/line synchronization and multiple pets.');
   console.log('PASS: shared PIN API, legacy upgrade, automatic sign-in, scoped manager approval, unchanged employee session, tamper/replay/tenant rejection, per-action composite payment, idempotent save/payment/rebook, close, expiry and switch.');
  }finally{if(server)server.kill();await db.$disconnect()}

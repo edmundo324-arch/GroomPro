@@ -1,3 +1,4 @@
+import {employeeAvailable} from '@/src/lib/groomer-assignment';
 import {nextTicketNumber} from '@/src/lib/ticket-number';
 import { appointmentHoursError } from "@/src/lib/location-hours";
 import { requestLocation } from "@/src/lib/request-location";
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
 
     if (groomerId) {
       const groomer = await db.user.findFirst({ where: { id: groomerId, tenantId, active: true, OR: [{ locationId }, { locationId: null }] }, select: { id: true } });
+      if(groomer&&!await employeeAvailable(tenantId,groomerId,locationId,scheduledStart,durationMin))return NextResponse.json({error:'Choose an available groomer or Assign later.'},{status:409});
       if (!groomer) return NextResponse.json({ error: "Selected groomer could not be found." }, { status: 404 });
     }
 
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
             const totalCents = gross - discountCents;
             return {durationMin:line.durationMin,reportCardDescription:line.reportCardDescription,packageId:line.packageId,packageGroupKey:line.packageGroupKey,packageName:line.packageName, lineType: "SERVICE", role: line.role, serviceId: line.serviceId, petId: line.petId, description: line.description, quantity: line.quantity, unitPriceCents: line.unitPriceCents, discountCents, totalCents, commissionPct: line.commissionPct, commissionCents: Math.round(totalCents * Number(line.commissionPct || 0) / 100), sortOrder: index, assignedUserId: null, assignedAt: null };
           }) },
-          ...(groomerId ? { assignments: { create: { userId: groomerId, role: "GROOMER" } } } : {})
+          ...(groomerId ? { assignments: { create: [{ userId: groomerId, role: "GROOMER" },{userId:groomerId,role:"PLANNED_GROOMER"}] } } : {})
         },
         include: { customer: true, pets: { include: { pet: true } }, lines: { include: { pet: true, service: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } }
       });

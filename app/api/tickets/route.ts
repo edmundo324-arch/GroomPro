@@ -1,5 +1,5 @@
 import {nextTicketNumber} from '@/src/lib/ticket-number';
-import {employeeAvailable,reconcileEmployeeAssignments} from '@/src/lib/groomer-assignment';
+import {employeeAvailable,reconcileEmployeeAssignments,syncActualGroomers} from '@/src/lib/groomer-assignment';
 import {ticketDuration,timingMode} from '@/src/lib/ticket-timing';
 import {workflowSettings} from '@/src/lib/workflow-settings';
 import {resolveSaleLines} from "@/src/lib/pos-lines";
@@ -38,9 +38,10 @@ export async function POST(request: NextRequest) {
   const pets = await db.pet.findMany({ where: { id: { in: petIds }, tenantId, customerId: body.customerId, active: true } });
   if (!customer || pets.length !== petIds.length) return NextResponse.json({ error: "Customer or pet could not be found." }, { status: 404 });
   let resolved;try{resolved=await resolveSaleLines(db,tenantId,lineInputs.map(l=>({...l,petId:l.petId||(l.type!=="PRODUCT"?petIds[0]:undefined)})),petIds,locationId)}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Invalid items."},{status:400})}
-  if(body.groomerId&&!await db.user.findFirst({where:{id:body.groomerId,tenantId,active:true}}))return NextResponse.json({error:"Scheduled groomer not found."},{status:400});
+  if(body.groomerId&&!await db.user.findFirst({where:{id:body.groomerId,tenantId,active:true}}))return NextResponse.json({error:"Selected groomer not found."},{status:400});
   let mode;try{mode=timingMode(body.timingMode||(await workflowSettings(tenantId)).timingMode)}catch(e){return NextResponse.json({error:String(e)},{status:400})}const durationMin=ticketDuration(resolved.lines,mode);const groups=new Set<string>();for(const line of resolved.lines){if(line.packageId){const key=line.packageGroupKey+':'+line.serviceId;if(groups.has(key))return NextResponse.json({error:'This package service is already on the ticket.'},{status:400});groups.add(key)}}
   if(body.groomerId&&scheduledStart&&!await employeeAvailable(tenantId,body.groomerId,locationId,scheduledStart,durationMin))return NextResponse.json({error:'Choose an available groomer or Assign later.'},{status:409});
+  if(scheduledStart)for(const userId of new Set(resolved.lines.map(l=>l.assignedUserId).filter((id):id is string=>!!id)))if(!await employeeAvailable(tenantId,userId,locationId,scheduledStart,durationMin))return NextResponse.json({error:'This employee is unavailable for this appointment.'},{status:409});
   const hoursMessage=scheduledStart?await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin):null;if(hoursMessage)return NextResponse.json({error:hoursMessage},{status:400});
   const source = body.bookingSource === "ONLINE" ? "ONLINE" : "STAFF";
   if(source === "ONLINE" && !scheduledStart) return NextResponse.json({error:"Online appointments require a scheduled date and time."},{status:400});
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
     if(draft?.promotedAt){const existing=await tx.ticket.findFirst({where:{id:draft.id,tenantId}});if(existing)return existing;}
     orderNumber=draft?.orderNumber||await nextTicketNumber(tx,tenantId);
     const created = await tx.ticket.create({ data: { ...(draft?{id:draft.id,createdAt:draft.createdAt}:{}),tenantId, locationId, customerId: customer.id, tipCents:body.tipCents||0,salesTaxCents:body.salesTaxCents||0,orderNumber, scheduledStart, durationMin, timingMode:mode, arrivalPriority: body.arrivalPriority ?? null, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: [{ userId: body.groomerId, role: "GROOMER" },{userId:body.groomerId,role:"PLANNED_GROOMER"}] } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}}, pet: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } } });
+    if(lines.some(l=>l.role==='GROOM'&&l.assignedUserId))await syncActualGroomers(tx,created.id);
     if(scheduledStart)await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
     if(draft)await tx.posDraft.update({where:{id:draft.id},data:{promotedAt:new Date()}});
     return created;
