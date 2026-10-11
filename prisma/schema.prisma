@@ -609,6 +609,7 @@ model OnlineBookingRule {
 }
 
 model TicketLine {
+  assignmentUnavailable Boolean @default(false)
   durationMin Int?
   reportCardDescription String? @db.Text
   packageId String?
@@ -642,6 +643,21 @@ model TicketLine {
   @@index([serviceId])
   @@index([productId])
   @@index([assignedUserId])
+}
+
+model PosDraft {
+  id String @id @default(cuid())
+  tenantId String
+  locationId String
+  requestKey String
+  orderNumber Int
+  payload Json
+  promotedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId, requestKey])
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, locationId, promotedAt])
 }
 
 model Service {

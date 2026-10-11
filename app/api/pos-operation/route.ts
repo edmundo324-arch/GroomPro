@@ -43,7 +43,7 @@ export async function POST(request:NextRequest){
    return NextResponse.json(result,{status:response.status});
   };
   try{
-   if(!ticketId&&body.kind==='ENROLL'&&!body.draft?.lines?.length)return complete(await call(enroll,'/api/memberships',body.details||{}));
+   if(!ticketId&&body.kind==='ENROLL'&&!body.draft?.lines?.length)return complete(await call(enroll,'/api/memberships',{...(body.details||{}),draftId:body.draft?.draftId}));
    if(!ticketId){
     if(!body.draft)return complete(NextResponse.json({error:'Ticket details are required.'},{status:400}));
     const created=await call(createTicket,'/api/tickets',body.draft);
