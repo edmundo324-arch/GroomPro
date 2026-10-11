@@ -68,6 +68,49 @@ async function main(){
   assert.equal((await ok('/api/employee/session')).employee,null);assert.equal((await call('/api/pos-operation','POST',{...save,requestKey:randomUUID()})).status,401);
   await ok('/api/employee/session','POST',{pin:'948672',mode:'SWITCH'});assert.equal((await ok('/api/employee/session')).employee.id,manager.id);
   assert.ok((await db.employeeSession.findUnique({where:{id:session.id}})).endedAt);
+  // Permanent draft identity, recovery, tenant isolation and promotion.
+  const draftKey=randomUUID(),countBefore=await db.ticket.count({where:{tenantId:tenant.id}});
+  const reservations=await Promise.all([ok('/api/pos-drafts','POST',{requestKey:draftKey}),ok('/api/pos-drafts','POST',{requestKey:draftKey})]);
+  const reservation=reservations[0].draft;assert.equal(reservation.id,reservations[1].draft.id);assert.ok(reservation.orderNumber);
+  assert.equal(await db.ticket.count({where:{tenantId:tenant.id}}),countBefore);
+  await ok('/api/pos-drafts','PUT',{id:reservation.id,payload:{ticket:{customer:{id:customer.id},notes:'Recover this work'}}});
+  assert.equal((await ok('/api/pos-drafts?id='+reservation.id)).drafts[0].payload.ticket.notes,'Recover this work');
+  assert.equal((await call('/api/pos-drafts?id='+reservation.id,'GET',undefined,{'x-tenant-id':other.id})).status,401);
+  const promotion=await ok('/api/pos-operation','POST',{kind:'SAVE',requestKey:randomUUID(),draft:{...draft,draftId:reservation.id,scheduledStart:'2030-10-14T15:00:00.000Z',confirmRecentWarning:true}});
+  assert.equal(promotion.ticket.id,reservation.id);assert.equal(promotion.ticket.orderNumber,reservation.orderNumber);
+  assert.equal((await ok('/api/pos-drafts?id='+reservation.id)).drafts.length,0);
+  const nextDraft=(await ok('/api/pos-drafts','POST',{requestKey:randomUUID()})).draft;assert.ok(nextDraft.orderNumber>reservation.orderNumber);
+  // Planned assignment never overwrites actual lines. All staff shifts use location time.
+  for(const user of [manager,staff])await ok('/api/employee-schedules','PUT',{userId:user.id,dayOfWeek:1,startTime:'08:30',endTime:'17:00'});
+  await ok('/api/tickets/groomer','PATCH',{ticketId:reservation.id,userId:manager.id});
+  assert.equal(await db.ticketLine.count({where:{ticketId:reservation.id,assignedUserId:manager.id}}),0);
+  await ok('/api/tickets/groomer','PATCH',{ticketId:reservation.id,userId:null});
+  assert.equal(await db.ticketAssignment.count({where:{ticketId:reservation.id,role:'GROOMER'}}),0);
+  await ok('/api/tickets/groomer','PATCH',{ticketId:reservation.id,userId:manager.id});
+  await ok('/api/schedule-overrides','PUT',{resourceKind:'employee',resourceId:manager.id,date:'2030-10-14',dayOff:true});
+  assert.equal(await db.ticketAssignment.count({where:{ticketId:reservation.id,role:'GROOMER'}}),0);
+  assert.equal((await call('/api/tickets/groomer','PATCH',{ticketId:reservation.id,userId:manager.id})).status,409);
+  await ok('/api/schedule-overrides','DELETE',{resourceKind:'employee',resourceId:manager.id,date:'2030-10-14'});
+  await ok('/api/tickets/groomer','PATCH',{ticketId:reservation.id,userId:manager.id});
+  await ok('/api/tickets/status','PATCH',{ticketId:reservation.id,status:'CHECKED_IN'});
+  assert.equal((await call('/api/tickets/groomer','PATCH',{ticketId:reservation.id,userId:staff.id})).status,409);
+  for(const role of ['PREP','BATH','GROOM'])await db.ticketLine.create({data:{ticketId:reservation.id,petId:pet.id,serviceId:service.id,lineType:'SERVICE',role,description:role,durationMin:1,totalCents:0}});
+  await ok('/api/whiteboard','PATCH',{ticketId:reservation.id,petId:pet.id,action:'ASSIGN',lineRole:'PREP',userId:staff.id});
+  await ok('/api/whiteboard','PATCH',{ticketId:reservation.id,petId:pet.id,action:'ASSIGN',lineRole:'BATH',userId:staff.id});
+  await ok('/api/whiteboard','PATCH',{ticketId:reservation.id,petId:pet.id,action:'ASSIGN',lineRole:'GROOM',userId:manager.id});
+  const grooming=await db.ticketLine.findFirst({where:{ticketId:reservation.id,role:'GROOM'}});
+  await ok('/api/ticket-lines','PATCH',{lineId:grooming.id,assignedUserId:staff.id});
+  assert.equal((await db.ticketAssignment.findFirst({where:{ticketId:reservation.id,role:'GROOMER'}})).userId,staff.id);
+  assert.equal(await db.ticketLine.count({where:{ticketId:reservation.id,role:{in:['PREP','BATH']},assignedUserId:staff.id}}),2);
+  const pet2=await db.pet.create({data:{tenantId:tenant.id,customerId:customer.id,name:'Second assignment dog'}});await db.ticketPet.create({data:{ticketId:reservation.id,petId:pet2.id}});
+  const otherLine=await db.ticketLine.create({data:{ticketId:reservation.id,petId:pet2.id,serviceId:service.id,lineType:'SERVICE',role:'GROOM',description:'Second dog grooming',durationMin:1}});
+  await ok('/api/ticket-lines','PATCH',{lineId:otherLine.id,assignedUserId:manager.id});
+  assert.equal(await db.ticketAssignment.count({where:{ticketId:reservation.id,role:'GROOMER'}}),2);
+  await ok('/api/schedule-overrides','PUT',{resourceKind:'employee',resourceId:staff.id,date:'2030-10-14',dayOff:false,startTime:'12:00',endTime:'17:00'});
+  assert.equal((await db.ticketLine.findUnique({where:{id:grooming.id}})).assignmentUnavailable,true);
+  assert.equal((await db.ticketLine.findUnique({where:{id:otherLine.id}})).assignmentUnavailable,false);
+  assert.equal(await db.ticketAssignment.count({where:{ticketId:reservation.id,role:'GROOMER',userId:staff.id}}),0);
+  console.log('PASS: numbered drafts, duplicate prevention, recovery, tenant boundaries, same-ID promotion, planned assignment, time off, partial-day availability, Whiteboard/line synchronization and multiple pets.');
   console.log('PASS: shared PIN API, legacy upgrade, automatic sign-in, scoped manager approval, unchanged employee session, tamper/replay/tenant rejection, per-action composite payment, idempotent save/payment/rebook, close, expiry and switch.');
  }finally{if(server)server.kill();await db.$disconnect()}
 }

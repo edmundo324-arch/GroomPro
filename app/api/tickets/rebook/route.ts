@@ -1,3 +1,4 @@
+import {nextTicketNumber} from '@/src/lib/ticket-number';
 import { appointmentHoursError } from "@/src/lib/location-hours";
 import { requestLocation } from "@/src/lib/request-location";
 import { NextRequest, NextResponse } from "next/server";
@@ -63,8 +64,7 @@ export async function POST(request: NextRequest) {
 
     const created = await db.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
-      const maxOrder=await tx.ticket.aggregate({where:{tenantId},_max:{orderNumber:true}});
-      orderNumber=(maxOrder._max.orderNumber||0)+1;
+      orderNumber=await nextTicketNumber(tx,tenantId);
       const ticket = await tx.ticket.create({
         data: {
           tenantId, locationId, customerId: source.customerId, orderNumber, scheduledStart, durationMin,timingMode:source.timingMode,

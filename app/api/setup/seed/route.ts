@@ -1,3 +1,4 @@
+import {nextTicketNumber} from '@/src/lib/ticket-number';
 import {hashPinPrefixes} from "@/src/lib/pin";
 import {localToInstant,wallTime} from "@/src/lib/operating-hours";
 import { NextRequest, NextResponse } from "next/server";
@@ -73,7 +74,7 @@ export async function POST(request:NextRequest){
    }
    const groomers=await tx.user.findMany({where:{tenantId,role:"GROOMER",active:true},select:{id:true,firstName:true,lastName:true}});
    const start=new Date(wallTime(new Date(),location.timezone||"America/Chicago").slice(0,10)+"T00:00:00Z");const end=new Date(start);end.setDate(end.getDate()+14);const already=await tx.ticket.count({where:{tenantId,locationId:location.id,scheduledStart:{gte:start,lt:end}}});let demoAppointmentCount=0;
-   if(!already&&groomers.length){const customers=shuffle(customerIds);let ci=0;const max=await tx.ticket.aggregate({where:{tenantId},_max:{orderNumber:true}});let order=(max._max.orderNumber||0)+1;
+   if(!already&&groomers.length){const customers=shuffle(customerIds);let ci=0;let order=await nextTicketNumber(tx,tenantId);
     for(let offset=0;offset<14;offset++){const date=new Date(start);date.setUTCDate(start.getUTCDate()+offset);const day=date.getUTCDay();if(day===0)continue;const count=day===5?18:day===6?16:6;const available=groomers.filter(g=>employeeWorkDays[`${g.firstName} ${g.lastName}`]?.includes(day));const workers=available.length?available:groomers;
      for(let i=0;i<count;i++){const worker=workers[i%workers.length],customerId=customers[ci++%customers.length],pet=await tx.pet.findFirst({where:{tenantId,customerId,active:true},orderBy:{createdAt:"asc"}});if(!pet)continue;const slot=Math.floor(i/workers.length),minute=510+slot*30,when=localToInstant(`${date.toISOString().slice(0,10)}T${String(Math.floor(minute/60)).padStart(2,"0")}:${String(minute%60).padStart(2,"0")}`,location.timezone||"America/Chicago");
       const ticket=await tx.ticket.create({data:{tenantId,locationId:location.id,customerId,orderNumber:order++,scheduledStart:when,durationMin:30,status:"CONFIRMED",bookingSource:"STAFF",bookingDecision:"ACCEPTED",totalCents:8000,salesTaxCents:0,pets:{create:{petId:pet.id,weightLbs:25}},lines:{create:{lineType:"SERVICE",role:"GROOM",petId:pet.id,description:"Demo Full Groom",quantity:1,unitPriceCents:8000,totalCents:8000,commissionCents:1600,commissionPct:20}},assignments:{create:{userId:worker.id,role:"GROOMER"}}}});await tx.ticketScheduleHistory.create({data:{tenantId,ticketId:ticket.id,changeType:"CREATED",newStart:when}});demoAppointmentCount++;}
