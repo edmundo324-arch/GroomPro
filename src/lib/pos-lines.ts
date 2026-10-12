@@ -1,8 +1,11 @@
+import {groomingEligibility} from './breed-classification';
+import {loadBreeds} from './breed-store';
 import {allocatePackage as distributePrice} from './package-lines';
 export type SaleInput={type:"SERVICE"|"PRODUCT"|"PACKAGE";id:string;petId?:string;quantity?:number;role?:string;assignedUserId?:string;packageId?:string;durationMin?:number};
 export {allocatePackage as distributePrice} from './package-lines';
 export async function resolveSaleLines(db:any,tenantId:string,inputs:SaleInput[],petIds:string[],locationId?:string){
  const lines:any[]=[];let durationMin=0;
+ const packageCache=new Map<string,any>(),petCache=new Map<string,any>();let breedDictionary:Awaited<ReturnType<typeof loadBreeds>>|undefined;
  for(const input of inputs){
   if(!['SERVICE','PRODUCT','PACKAGE'].includes(input.type))throw Error('Choose a valid item type.');
   const quantity=input.quantity??1;if(!Number.isInteger(quantity)||quantity<1||quantity>1000)throw Error('Quantity must be a whole number from 1 to 1000.');
@@ -10,8 +13,10 @@ export async function resolveSaleLines(db:any,tenantId:string,inputs:SaleInput[]
   if(input.assignedUserId&&!await db.user.findFirst({where:{id:input.assignedUserId,tenantId,active:true}}))throw Error('Assigned employee not found.');
   let entries:any[]=[];
   if(input.type==='PACKAGE'||input.packageId){
-   const pkg=await db.package.findFirst({where:{id:input.packageId||input.id,tenantId,active:true},include:{items:{include:{service:true},orderBy:{sortOrder:'asc'}},locationPricing:{where:{locationId,active:true}}}});
+   const packageId=input.packageId||input.id;
+   const pkg=packageCache.get(packageId)||await db.package.findFirst({where:{id:packageId,tenantId,active:true},include:{items:{include:{service:true},orderBy:{sortOrder:'asc'}},locationPricing:{where:{locationId,active:true}}}});if(pkg)packageCache.set(packageId,pkg);
    if(!pkg||!pkg.items.length||pkg.items.some((i:any)=>!i.service||!i.service.active||i.service.tenantId!==tenantId))throw Error('Package or included services are unavailable.');
+   const pet=petCache.get(petId!)||await db.pet.findFirst({where:{id:petId,tenantId}});if(!pet)throw Error('Dog not found.');petCache.set(petId!,pet);breedDictionary??=await loadBreeds(db,tenantId);const eligibility=groomingEligibility(pet,pkg,breedDictionary);if(eligibility.status!=='eligible')throw Error(pkg.name+': '+eligibility.reason);
    const pricing=pkg.locationPricing?.[0];const price=pricing?.priceOverrideCents??Math.round(pkg.basePriceCents*(1+Number(pricing?.priceAdjustmentPct||0)/100));
    const multiplier=input.packageId?1:quantity;const allocated=distributePrice(price*multiplier,pkg.items.map((i:any)=>i.quantity*multiplier));
    entries=pkg.items.map((i:any,n:number)=>({service:i.service,...allocated[n],role:i.role||'ADD_ON',description:pkg.name+' · '+i.service.name,packageId:pkg.id,packageGroupKey:petId+':'+pkg.id,packageName:pkg.name}));

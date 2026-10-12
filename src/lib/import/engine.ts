@@ -1,3 +1,5 @@
+import {petBreedData} from '../breed-classification';
+import {loadBreeds} from '../breed-store';
 import {localToInstant} from '../operating-hours';
 import {randomUUID} from 'node:crypto';
 import {Dataset,Entity,definitions,convert,sensitive} from './fields';
@@ -33,6 +35,7 @@ export async function planImport(client:any,tenantId:string,source:string,datase
  if(!['NEW','MATCH','UPDATE'].includes(mode))throw Error('Choose new records, match only, or reviewed updates.');
  const issues=validateDatasets(datasets),fields=inventory(datasets),plans:Plan[]=[];
  if(issues.length)return {issues,fields,plans,totals:{examined:datasets.reduce((n,d)=>n+d.rows.length,0)}};
+ const breeds=await loadBreeds(client,tenantId);
  const old=await client.importRecord.findMany({where:{tenantId,source}});const links=new Map(old.map((r:any)=>[r.entityType+':'+r.sourceId,r]));
  const entities:any={};for(const [entity,model] of Object.entries(models))entities[entity]=await client[model].findMany({where:{tenantId},...(entity==='CUSTOMER'?{include:{phones:true}}:{})});
  const ids=new Map<string,string>();for(const r of old)if(r.targetId)ids.set(r.entityType+':'+r.sourceId,r.targetId);
@@ -43,6 +46,7 @@ export async function planImport(client:any,tenantId:string,source:string,datase
   // Only stable identifiers are automatic matches. Email, phone and names are conflict detectors.
   if(!existing&&d.entity!=='HISTORY'){const matches=entities[d.entity].filter((r:any)=>r.importSourceId===sourceId||(d.entity==='SERVICE'&&r.code&&r.code===row.ID));if(matches.length>1){issues.push({dataset:d.name,row:index+2,message:'Source identifier matches multiple records.'});continue;}existing=matches[0]||null;}
   const data:any={},phones:any[]=[];for(const h of d.headers){const def=Object.hasOwn(definitions[d.entity],d.mapping[h])?definitions[d.entity][d.mapping[h]]:undefined;if(!def)continue;let value=converted(row[h],def,d);if(value===null)continue;if(def.kind==='phone'){const number=String(value),normalized=number.replace(/\D/g,'').replace(/^1(?=\d{10}$)/,'');if(normalized.length<7||normalized.length>15){issues.push({dataset:d.name,row:index+2,field:h,message:'Phone cannot be normalized safely.'});continue;}if(!phones.some(p=>p.normalized===normalized))phones.push({number,normalized,label:def.target.split(':')[1],isPrimary:def.target==='phone:Primary',smsEnabled:false,callEnabled:false});}else if(def.kind==='relation'){const relation=def.target==='customerId'?'CUSTOMER':def.target==='petId'?'PET':'EMPLOYEE';value=ids.get(relation+':'+String(value))||entities[relation].find((r:any)=>r.importSourceId===String(value))?.id;if(!value)issues.push({dataset:d.name,row:index+2,field:h,message:'Unresolved '+relation.toLowerCase()+' identifier. Include or import the related dataset first.'});else if(def.target.includes(':')){const [group,key]=def.target.split(':');data[group]={...(data[group]||{}),[key]:value};}else data[def.target]=value;}else if(def.target.includes(':')){const [group,key]=def.target.split(':');data[group]={...(data[group]||{}),[key]:value};}else data[def.target]=value;}
+  if(d.entity==='PET'&&data.breed!==undefined)Object.assign(data,petBreedData(data,breeds,existing||{}));
   if(existing)for(const field of ['careFlags','certifications','taxConfiguration','onlineBookingDays','inventoryDetails','sourceCommission'])if(data[field]&&typeof data[field]==='object'&&!Array.isArray(data[field]))data[field]={...(existing[field]||{}),...data[field]};
   if(d.entity==='PET'){if(d.mapping.Dead==='Dead'&&present(row.Dead)){try{if(convert(row.Dead,{target:'active',kind:'bool'}))data.active=false;}catch{issues.push({dataset:d.name,row:index+2,field:'Dead',message:'Inactive status needs review.'});}}}
   if(d.entity==='EMPLOYEE'){if(!existing){data.active=false;data.pinHash='IMPORT_DISABLED';data.role='FRONT';}}
