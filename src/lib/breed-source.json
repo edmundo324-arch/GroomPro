@@ -1,0 +1,1396 @@
+[
+  {
+    "id": "breed-affenpinscher",
+    "name": "Affenpinscher",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-afghan-hound",
+    "name": "Afghan Hound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-airedale-terrier",
+    "name": "Airedale Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-akita",
+    "name": "Akita",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-alaskan-malamute",
+    "name": "Alaskan Malamute",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-american-english-coonhound",
+    "name": "American English Coonhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-american-eskimo-dog",
+    "name": "American Eskimo Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-american-foxhound",
+    "name": "American Foxhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-american-hairless-terrier",
+    "name": "American Hairless Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-american-leopard-hound",
+    "name": "American Leopard Hound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-american-staffordshire-terrier",
+    "name": "American Staffordshire Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-american-water-spaniel",
+    "name": "American Water Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-anatolian-shepherd-dog",
+    "name": "Anatolian Shepherd Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-appenzeller-sennenhund",
+    "name": "Appenzeller Sennenhund",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-australian-cattle-dog",
+    "name": "Australian Cattle Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-australian-shepherd",
+    "name": "Australian Shepherd",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-australian-terrier",
+    "name": "Australian Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-azawakh",
+    "name": "Azawakh",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-barbet",
+    "name": "Barbet",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-basenji",
+    "name": "Basenji",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-basset-fauve-de-bretagne",
+    "name": "Basset Fauve de Bretagne",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-basset-hound",
+    "name": "Basset Hound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-beagle",
+    "name": "Beagle",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bearded-collie",
+    "name": "Bearded Collie",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-beauceron",
+    "name": "Beauceron",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bedlington-terrier",
+    "name": "Bedlington Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-belgian-laekenois",
+    "name": "Belgian Laekenois",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-belgian-malinois",
+    "name": "Belgian Malinois",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-belgian-sheepdog",
+    "name": "Belgian Sheepdog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-belgian-tervuren",
+    "name": "Belgian Tervuren",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bergamasco-sheepdog",
+    "name": "Bergamasco Sheepdog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-berger-picard",
+    "name": "Berger Picard",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bernese-mountain-dog",
+    "name": "Bernese Mountain Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bichon-frise",
+    "name": "Bichon Frise",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-biewer-terrier",
+    "name": "Biewer Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-black-and-tan-coonhound",
+    "name": "Black and Tan Coonhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-black-russian-terrier",
+    "name": "Black Russian Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bloodhound",
+    "name": "Bloodhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bluetick-coonhound",
+    "name": "Bluetick Coonhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-boerboel",
+    "name": "Boerboel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-border-collie",
+    "name": "Border Collie",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-border-terrier",
+    "name": "Border Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-borzoi",
+    "name": "Borzoi",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-boston-terrier",
+    "name": "Boston Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bouvier-des-flandres",
+    "name": "Bouvier des Flandres",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-boxer",
+    "name": "Boxer",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-boykin-spaniel",
+    "name": "Boykin Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bracco-italiano",
+    "name": "Bracco Italiano",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-braque-du-bourbonnais",
+    "name": "Braque du Bourbonnais",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-briard",
+    "name": "Briard",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-brittany",
+    "name": "Brittany",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-brussels-griffon",
+    "name": "Brussels Griffon",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bull-terrier",
+    "name": "Bull Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bulldog",
+    "name": "Bulldog",
+    "aliases": [
+      "English Bulldog",
+      "Bulldog (English)"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-bullmastiff",
+    "name": "Bullmastiff",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-cairn-terrier",
+    "name": "Cairn Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-canaan-dog",
+    "name": "Canaan Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-cane-corso",
+    "name": "Cane Corso",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-cardigan-welsh-corgi",
+    "name": "Cardigan Welsh Corgi",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-cavalier-king-charles-spaniel",
+    "name": "Cavalier King Charles Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-cesky-terrier",
+    "name": "Cesky Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-chesapeake-bay-retriever",
+    "name": "Chesapeake Bay Retriever",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-chihuahua",
+    "name": "Chihuahua",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-chinese-crested",
+    "name": "Chinese Crested",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-chinese-shar-pei",
+    "name": "Chinese Shar-Pei",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-chinook",
+    "name": "Chinook",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-chow-chow",
+    "name": "Chow Chow",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-cirneco-dell-etna",
+    "name": "Cirneco dell’Etna",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-clumber-spaniel",
+    "name": "Clumber Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-cocker-spaniel",
+    "name": "Cocker Spaniel",
+    "aliases": [
+      "Cocker Spaniel (American)"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-collie",
+    "name": "Collie",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-coton-de-tulear",
+    "name": "Coton de Tulear",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-curly-coated-retriever",
+    "name": "Curly-Coated Retriever",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-dachshund",
+    "name": "Dachshund",
+    "aliases": [
+      "Dacshound"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-dalmatian",
+    "name": "Dalmatian",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-dandie-dinmont-terrier",
+    "name": "Dandie Dinmont Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-danish-swedish-farmdog",
+    "name": "Danish-Swedish Farmdog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-doberman-pinscher",
+    "name": "Doberman Pinscher",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-dogo-argentino",
+    "name": "Dogo Argentino",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-dutch-shepherd",
+    "name": "Dutch Shepherd",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-english-cocker-spaniel",
+    "name": "English Cocker Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-english-foxhound",
+    "name": "English Foxhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-english-setter",
+    "name": "English Setter",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-english-springer-spaniel",
+    "name": "English Springer Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-english-toy-spaniel",
+    "name": "English Toy Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-entlebucher-mountain-dog",
+    "name": "Entlebucher Mountain Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-field-spaniel",
+    "name": "Field Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-finnish-lapphund",
+    "name": "Finnish Lapphund",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-finnish-spitz",
+    "name": "Finnish Spitz",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-flat-coated-retriever",
+    "name": "Flat-Coated Retriever",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-french-bulldog",
+    "name": "French Bulldog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-german-pinscher",
+    "name": "German Pinscher",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-german-shepherd-dog",
+    "name": "German Shepherd Dog",
+    "aliases": [
+      "German Shepherd"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-german-shorthaired-pointer",
+    "name": "German Shorthaired Pointer",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-german-wirehaired-pointer",
+    "name": "German Wirehaired Pointer",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-giant-schnauzer",
+    "name": "Giant Schnauzer",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-glen-of-imaal-terrier",
+    "name": "Glen of Imaal Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-golden-retriever",
+    "name": "Golden Retriever",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-gordon-setter",
+    "name": "Gordon Setter",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-grand-basset-griffon-vendeen",
+    "name": "Grand Basset Griffon Vendéen",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-great-dane",
+    "name": "Great Dane",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-great-pyrenees",
+    "name": "Great Pyrenees",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-greater-swiss-mountain-dog",
+    "name": "Greater Swiss Mountain Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-greyhound",
+    "name": "Greyhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-hamiltonstovare",
+    "name": "Hamiltonstovare",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-harrier",
+    "name": "Harrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-havanese",
+    "name": "Havanese",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-ibizan-hound",
+    "name": "Ibizan Hound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-icelandic-sheepdog",
+    "name": "Icelandic Sheepdog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-irish-red-and-white-setter",
+    "name": "Irish Red and White Setter",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-irish-setter",
+    "name": "Irish Setter",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-irish-terrier",
+    "name": "Irish Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-irish-water-spaniel",
+    "name": "Irish Water Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-irish-wolfhound",
+    "name": "Irish Wolfhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-italian-greyhound",
+    "name": "Italian Greyhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-japanese-chin",
+    "name": "Japanese Chin",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-keeshond",
+    "name": "Keeshond",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-kerry-blue-terrier",
+    "name": "Kerry Blue Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-komondor",
+    "name": "Komondor",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-kuvasz",
+    "name": "Kuvasz",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-labrador-retriever",
+    "name": "Labrador Retriever",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-lagotto-romagnolo",
+    "name": "Lagotto Romagnolo",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-lakeland-terrier",
+    "name": "Lakeland Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-lancashire-heeler",
+    "name": "Lancashire Heeler",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-leonberger",
+    "name": "Leonberger",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-lhasa-apso",
+    "name": "Lhasa Apso",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-lowchen",
+    "name": "Lowchen",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-maltese",
+    "name": "Maltese",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-manchester-terrier",
+    "name": "Manchester Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-mastiff",
+    "name": "Mastiff",
+    "aliases": [
+      "English Mastiff"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-miniature-american-shepherd",
+    "name": "Miniature American Shepherd",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-miniature-bull-terrier",
+    "name": "Miniature Bull Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-miniature-pinscher",
+    "name": "Miniature Pinscher",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-miniature-schnauzer",
+    "name": "Miniature Schnauzer",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-mudi",
+    "name": "Mudi",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-neapolitan-mastiff",
+    "name": "Neapolitan Mastiff",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-newfoundland",
+    "name": "Newfoundland",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-norfolk-terrier",
+    "name": "Norfolk Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-norwegian-buhund",
+    "name": "Norwegian Buhund",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-norwegian-elkhound",
+    "name": "Norwegian Elkhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-norwegian-lundehund",
+    "name": "Norwegian Lundehund",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-norwich-terrier",
+    "name": "Norwich Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-nova-scotia-duck-tolling-retriever",
+    "name": "Nova Scotia Duck Tolling Retriever",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-old-english-sheepdog",
+    "name": "Old English Sheepdog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-otterhound",
+    "name": "Otterhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-papillon",
+    "name": "Papillon",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-parson-russell-terrier",
+    "name": "Parson Russell Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-pekingese",
+    "name": "Pekingese",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-pembroke-welsh-corgi",
+    "name": "Pembroke Welsh Corgi",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-petit-basset-griffon-vendeen",
+    "name": "Petit Basset Griffon Vendéen",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-pharaoh-hound",
+    "name": "Pharaoh Hound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-plott-hound",
+    "name": "Plott Hound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-pointer",
+    "name": "Pointer",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-polish-lowland-sheepdog",
+    "name": "Polish Lowland Sheepdog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-pomeranian",
+    "name": "Pomeranian",
+    "aliases": [
+      "Pom"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-poodle-miniature",
+    "name": "Poodle (Miniature)",
+    "aliases": [
+      "Miniature Poodle"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-poodle-standard",
+    "name": "Poodle (Standard)",
+    "aliases": [
+      "Standard Poodle"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-poodle-toy",
+    "name": "Poodle (Toy)",
+    "aliases": [
+      "Toy Poodle"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-portuguese-podengo-pequeno",
+    "name": "Portuguese Podengo Pequeno",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-portuguese-water-dog",
+    "name": "Portuguese Water Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-pug",
+    "name": "Pug",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-puli",
+    "name": "Puli",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-pumi",
+    "name": "Pumi",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-pyrenean-shepherd",
+    "name": "Pyrenean Shepherd",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-rat-terrier",
+    "name": "Rat Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-redbone-coonhound",
+    "name": "Redbone Coonhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-rhodesian-ridgeback",
+    "name": "Rhodesian Ridgeback",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-romanian-mioritic-shepherd-dog",
+    "name": "Romanian Mioritic Shepherd Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-rottweiler",
+    "name": "Rottweiler",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-russell-terrier",
+    "name": "Russell Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-russian-toy",
+    "name": "Russian Toy",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-russian-tsvetnaya-bolonka",
+    "name": "Russian Tsvetnaya Bolonka",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-saint-bernard",
+    "name": "Saint Bernard",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-saluki",
+    "name": "Saluki",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-samoyed",
+    "name": "Samoyed",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-schipperke",
+    "name": "Schipperke",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-scottish-deerhound",
+    "name": "Scottish Deerhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-scottish-terrier",
+    "name": "Scottish Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-sealyham-terrier",
+    "name": "Sealyham Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-shetland-sheepdog",
+    "name": "Shetland Sheepdog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-shiba-inu",
+    "name": "Shiba Inu",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-shih-tzu",
+    "name": "Shih Tzu",
+    "aliases": [
+      "Shitzu",
+      "Shih-Tzu"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-siberian-husky",
+    "name": "Siberian Husky",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-silky-terrier",
+    "name": "Silky Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-skye-terrier",
+    "name": "Skye Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-sloughi",
+    "name": "Sloughi",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-soft-coated-wheaten-terrier",
+    "name": "Soft Coated Wheaten Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-spanish-water-dog",
+    "name": "Spanish Water Dog",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-spinone-italiano",
+    "name": "Spinone Italiano",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-staffordshire-bull-terrier",
+    "name": "Staffordshire Bull Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-standard-schnauzer",
+    "name": "Standard Schnauzer",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-sussex-spaniel",
+    "name": "Sussex Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-swedish-vallhund",
+    "name": "Swedish Vallhund",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-teddy-roosevelt-terrier",
+    "name": "Teddy Roosevelt Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-thai-ridgeback",
+    "name": "Thai Ridgeback",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-tibetan-mastiff",
+    "name": "Tibetan Mastiff",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-tibetan-spaniel",
+    "name": "Tibetan Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-tibetan-terrier",
+    "name": "Tibetan Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-toy-fox-terrier",
+    "name": "Toy Fox Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-treeing-walker-coonhound",
+    "name": "Treeing Walker Coonhound",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-vizsla",
+    "name": "Vizsla",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-weimaraner",
+    "name": "Weimaraner",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-welsh-springer-spaniel",
+    "name": "Welsh Springer Spaniel",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-welsh-terrier",
+    "name": "Welsh Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-west-highland-white-terrier",
+    "name": "West Highland White Terrier",
+    "aliases": [
+      "Westie"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-whippet",
+    "name": "Whippet",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-wire-fox-terrier",
+    "name": "Wire Fox Terrier",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-wirehaired-pointing-griffon",
+    "name": "Wirehaired Pointing Griffon",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-wirehaired-vizsla",
+    "name": "Wirehaired Vizsla",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-xoloitzcuintli",
+    "name": "Xoloitzcuintli",
+    "aliases": [],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-yorkshire-terrier",
+    "name": "Yorkshire Terrier",
+    "aliases": [
+      "Yorkie",
+      "Yorkshire"
+    ],
+    "source": "Provided breed list"
+  },
+  {
+    "id": "breed-american-eskimo-dog-standard",
+    "name": "American Eskimo Dog (Standard)",
+    "aliases": [],
+    "source": "Provided Google Sheet"
+  },
+  {
+    "id": "breed-dachshund-miniature",
+    "name": "Dachshund (Miniature)",
+    "aliases": [],
+    "source": "Provided Google Sheet"
+  },
+  {
+    "id": "breed-bulldog-american",
+    "name": "Bulldog (American)",
+    "aliases": [],
+    "source": "Provided Google Sheet"
+  },
+  {
+    "id": "breed-dachshund-standard",
+    "name": "Dachshund (Standard)",
+    "aliases": [],
+    "source": "Provided Google Sheet"
+  },
+  {
+    "id": "breed-dogue-de-bordeaux",
+    "name": "Dogue de Bordeaux",
+    "aliases": [],
+    "source": "Provided Google Sheet"
+  },
+  {
+    "id": "breed-toy-manchester-terrier",
+    "name": "Toy Manchester Terrier",
+    "aliases": [],
+    "source": "Provided Google Sheet"
+  },
+  {
+    "id": "breed-smooth-fox-terrier",
+    "name": "Smooth Fox Terrier",
+    "aliases": [],
+    "source": "Provided Google Sheet"
+  },
+  {
+    "id": "breed-poodle",
+    "name": "Poodle",
+    "aliases": [],
+    "source": "Approved breed matching examples"
+  },
+  {
+    "id": "breed-long-haired-chihuahua",
+    "name": "Long-Haired Chihuahua",
+    "aliases": [
+      "LH Chihuahua",
+      "Long Hair Chi"
+    ],
+    "source": "Approved breed matching examples"
+  },
+  {
+    "id": "breed-pomchi",
+    "name": "Pomchi",
+    "aliases": [
+      "Pom Chi"
+    ],
+    "primaryBreedId": "breed-pomeranian",
+    "secondaryBreedId": "breed-chihuahua",
+    "source": "Approved mixed-breed examples"
+  },
+  {
+    "id": "breed-goldendoodle",
+    "name": "Goldendoodle",
+    "aliases": [
+      "Golden Doodle"
+    ],
+    "primaryBreedId": "breed-golden-retriever",
+    "secondaryBreedId": "breed-poodle",
+    "source": "Approved mixed-breed examples"
+  },
+  {
+    "id": "breed-maltipoo",
+    "name": "Maltipoo",
+    "aliases": [],
+    "primaryBreedId": "breed-maltese",
+    "secondaryBreedId": "breed-poodle",
+    "source": "Approved mixed-breed examples"
+  },
+  {
+    "id": "breed-cockapoo",
+    "name": "Cockapoo",
+    "aliases": [],
+    "primaryBreedId": "breed-cocker-spaniel",
+    "secondaryBreedId": "breed-poodle",
+    "source": "Approved mixed-breed examples"
+  },
+  {
+    "id": "breed-pomapoo",
+    "name": "Pomapoo",
+    "aliases": [],
+    "primaryBreedId": "breed-pomeranian",
+    "secondaryBreedId": "breed-poodle",
+    "source": "Approved mixed-breed examples"
+  }
+]

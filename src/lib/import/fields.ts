@@ -10,6 +10,10 @@ export const definitions:Record<Entity,Record<string,Field>>={
 };
 definitions.PET.Dead=field('careFlags:Dead','bool');
 for(const h of ['AgWithAnimals','AgWithPeople','Barker','Biter','Blind','Burns','Chews','Deaf','Diabetic','Epileptic','HairDryer','Heart','Hyper','LeashOn','Rabies','SensitiveSkin','Shy'])definitions.PET[h]=field('careFlags:'+h);
+definitions.PET.WeightLbs=field('weightLbs','decimal');
+definitions.PET.CoatLength=field('coatLength');
+definitions.PET.CoatTexture=field('coatTexture');
+definitions.PET.GroomingClassification=field('groomingClassification');
 for(let i=0;i<10;i++)definitions.EMPLOYEE['Cert'+i]=field('certifications:Cert'+i);
 for(const [group,headers] of Object.entries({aliases:['Alias1','Alias2','Alias3'],customFields:['CustomField1','CustomField2','CustomField3'],taxConfiguration:['Tax1','Tax2','Tax3'],onlineBookingDays:['WebBookingMonday','WebBookingTuesday','WebBookingWednesday','WebBookingThursday','WebBookingFriday','WebBookingSaturday','WebBookingSunday'],inventoryDetails:['PreExpires','PreInstructions','PreLot','PreManufacturer','PreQuantity','PreRefills','Prescription','QntPur','QntUsed','Vendor'],sourceCommission:['CommissionBonus','ComPurType','ComPurValue','ComType','ComUsedType','ComUsedValue']}))for(const h of headers)definitions.SERVICE[h]=field(group+':'+h,'long');
 // Unknown semantics remain source data, not guessed business rules.

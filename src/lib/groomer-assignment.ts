@@ -35,8 +35,8 @@ export async function setPlannedGroomer(tenantId:string,ticketId:string,userId:s
 }
 
 // Preserve attribution; flag unavailable actual work instead of erasing history.
-export async function reconcileEmployeeAssignments(tenantId:string){
- const tickets=await db.ticket.findMany({where:{tenantId,scheduledStart:{gte:new Date(Date.now()-86400000)},status:{in:['OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS']}},include:{assignments:true,lines:true}});
+export async function reconcileEmployeeAssignments(tenantId:string,scope:{locationId?:string;start?:Date;end?:Date;ticketId?:string}={}){
+ const tickets=await db.ticket.findMany({where:{tenantId,...(scope.locationId?{locationId:scope.locationId}:{}),...(scope.ticketId?{id:scope.ticketId}:{}),scheduledStart:{gte:scope.start&&+scope.start>Date.now()-86400000?scope.start:new Date(Date.now()-86400000),...(scope.end?{lt:scope.end}:{})},status:{in:['OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS']}},include:{assignments:true,lines:true}});
  for(const ticket of tickets){
   const candidates=new Set([...ticket.assignments.filter(a=>a.role==='GROOMER').map(a=>a.userId),...ticket.lines.map(l=>l.assignedUserId).filter((id):id is string=>!!id)]);
   const unavailable:string[]=[];

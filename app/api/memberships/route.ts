@@ -1,3 +1,5 @@
+import {groomingEligibility} from '@/src/lib/breed-classification';
+import {loadBreeds} from '@/src/lib/breed-store';
 import {nextTicketNumber} from '@/src/lib/ticket-number';
 import {nextMembershipBilling} from '@/src/lib/membership-billing';
 import {workflowSettings} from '@/src/lib/workflow-settings';
@@ -28,7 +30,8 @@ export async function POST(request: NextRequest) {
     const b=await request.json(); const customerId=String(b.customerId||""); const petId=String(b.petId||""); let planSnapshot:any=null;let name=String(b.name||"Fur EverVIP"); let recurringPriceCents=Number(b.recurringPriceCents);
     if(b.planId){const plan=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:"VIP_PLAN:"+String(b.planId)}}});const value=plan?.value as any;if(!value?.active)return NextResponse.json({error:"Select an active VIP plan."},{status:400});planSnapshot=value;name=value.name;recurringPriceCents=value.priceCents;}
     if(!customerId||!petId||!Number.isInteger(recurringPriceCents)||recurringPriceCents<0)return NextResponse.json({error:"Customer, dog, and recurring price are required."},{status:400});
-    const customer=await db.customer.findFirst({where:{id:customerId,tenantId},select:{id:true}}); const pet=await db.pet.findFirst({where:{id:petId,customerId,tenantId},select:{id:true,name:true}}); if(!customer||!pet)return NextResponse.json({error:"Customer or dog could not be found."},{status:404});
+    const customer=await db.customer.findFirst({where:{id:customerId,tenantId},select:{id:true}}); const pet=await db.pet.findFirst({where:{id:petId,customerId,tenantId}}); if(!customer||!pet)return NextResponse.json({error:"Customer or dog could not be found."},{status:404});
+    if(planSnapshot){const eligibility=groomingEligibility(pet,planSnapshot,await loadBreeds(db,tenantId));if(eligibility.status!=='eligible')throw Error(eligibility.reason);}
     const options=await workflowSettings(tenantId);const day=Number(b.billingDay);if(!options.vipBillingDays.includes(day))throw Error('Choose a billing day supported by this business.');const billingDays=[day],id=randomUUID();let enrollmentTicketId=String(b.ticketId||'');const locationId=await requestLocation(request,tenantId);if(!locationId)throw Error('Location required.');const location=await db.location.findFirst({where:{id:locationId,tenantId},select:{timezone:true}});if(!location)throw Error('Location not found.');const firstBilling=nextMembershipBilling(new Date(),billingDays,location.timezone||'America/Chicago');
     await db.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM Pet WHERE id=${petId} AND tenantId=${tenantId} FOR UPDATE`;

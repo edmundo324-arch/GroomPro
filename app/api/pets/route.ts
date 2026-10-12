@@ -1,3 +1,5 @@
+import {petBreedData} from '@/src/lib/breed-classification';
+import {loadBreeds} from '@/src/lib/breed-store';
 import {writeAudit} from '@/src/lib/audit';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -20,10 +22,13 @@ async function save(r:NextRequest,editing:boolean){
  if(preferredPackageId&&!await db.package.findFirst({where:{id:preferredPackageId,tenantId,active:true}}))return NextResponse.json({error:'Choose an active package for this business.'},{status:400});
  if(b.weightLbs!==undefined&&b.weightLbs!==''&&b.weightLbs!==null&&(!Number.isFinite(Number(b.weightLbs))||Number(b.weightLbs)<0||Number(b.weightLbs)>9999.99))throw Error('Invalid weight.');
  if(b.veterinarian!==undefined&&String(b.veterinarian).length>191)throw Error('Veterinarian must be 191 characters or fewer.');
- const data={...(b.active!==undefined?{active:b.active===true}:{}),...(b.weightLbs!==undefined?{weightLbs:b.weightLbs===''?null:b.weightLbs}:{}),...(b.veterinarian!==undefined?{veterinarian:String(b.veterinarian)||null}:{}),...(b.vipEligible!==undefined?{vipEligible:b.vipEligible===true}:{}),...(b.vipEligibilityNotes!==undefined?{vipEligibilityNotes:String(b.vipEligibilityNotes).trim()||null}:{}),...(b.groomingNotes!==undefined?{groomingNotes:String(b.groomingNotes).trim()||null}:{}),name,breed:breed||null,notes:notes||null,...(preferredPackageId!==undefined?{preferredPackageId}:{})};
+ const previous=editing?await db.pet.findFirst({where:{id:String(b.id||''),tenantId,customerId}}):null;
+ const classification=petBreedData(b,await loadBreeds(db,tenantId),previous||{});
+ const coat:any={};for(const key of ['coatLength','coatTexture','groomingClassification'])if(b[key]!==undefined){if(b[key]!==null&&(typeof b[key]!=='string'||b[key].length>191))throw Error('Invalid '+key);coat[key]=b[key]?.trim()||null;}
+ const data={...classification,...coat,...(b.active!==undefined?{active:b.active===true}:{}),...(b.weightLbs!==undefined?{weightLbs:b.weightLbs===''?null:b.weightLbs}:{}),...(b.veterinarian!==undefined?{veterinarian:String(b.veterinarian)||null}:{}),...(b.vipEligible!==undefined?{vipEligible:b.vipEligible===true}:{}),...(b.vipEligibilityNotes!==undefined?{vipEligibilityNotes:String(b.vipEligibilityNotes).trim()||null}:{}),...(b.groomingNotes!==undefined?{groomingNotes:String(b.groomingNotes).trim()||null}:{}),name,notes:notes||null,...(preferredPackageId!==undefined?{preferredPackageId}:{})};
  if(editing){const id=String(b.id||'');const result=await db.pet.updateMany({where:{id,tenantId,customerId},data});if(!result.count)return NextResponse.json({error:'Pet not found for this customer.'},{status:404});await writeAudit({tenantId,actorUserId:session.user.id,entityType:'PET',entityId:id,customerId,action:'EDIT',summary:'Updated pet '+name+'.'});return NextResponse.json({pet:await db.pet.findFirst({where:{id,tenantId,customerId},include:{vaccinations:true}})})}
  const pet=await db.pet.create({data:{...data,tenantId,customerId},include:{vaccinations:true}});await writeAudit({tenantId,actorUserId:session.user.id,entityType:'PET',entityId:pet.id,customerId,action:'CREATE',summary:'Added pet '+name+'.'});return NextResponse.json({pet},{status:201});
- }catch{return NextResponse.json({error:'Could not save pet. Please retry.'},{status:400})}
+ }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Could not save pet. Please retry.'},{status:400})}
 }
 export const POST=(r:NextRequest)=>save(r,false);
 export const PATCH=(r:NextRequest)=>save(r,true);

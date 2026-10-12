@@ -1,0 +1,12 @@
+const test=require('node:test'),assert=require('node:assert/strict'),ts=require('typescript'),fs=require('fs'),vm=require('vm');
+const context={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/whiteboard-layout.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,context);const {arrangeRows,moveAppointment,insertChronologically}=context.exports;
+const row=(id,pet,hour=9)=>({id,pets:[{petId:pet}],scheduledStart:`2026-10-12T${String(hour).padStart(2,'0')}:00:00`});
+test('Default layout preserves morning and afternoon arrangement',()=>{const s=arrangeRows([row('a','p'),row('b','q',13)],null);assert.equal(s[0],'a:p');assert.equal(s[23],'b:q');assert.equal(s.length,46)});
+test('Drag preserves gaps and moves all dogs together and keeps following appointments after them',()=>{const s=arrangeRows([row('a','p'),row('a','q'),row('b','r')],null),n=moveAppointment(s,'a:q',5);assert.equal(n[0],null);assert.equal(n[1],null);assert.equal(n[7],'b:r');assert.equal(n[5],'a:p');assert.equal(n[6],'a:q');assert.equal(s[0],'a:p')});
+test('Occupied destinations and split groups are rejected without losing work',()=>{const s=arrangeRows([row('a','p'),row('a','q'),row('b','r')],null);const n=moveAppointment(s,'a:p',2);assert.equal(n[2],'a:p');assert.equal(n[3],'a:q');assert.equal(n[4],'b:r');assert.throws(()=>moveAppointment(s,'a:p',22));assert.equal(s[2],'b:r')});
+test('Repush and refresh preserve saved spaces; new dogs do not overwrite spaces',()=>{const rows=[row('a','p'),row('b','r')],s=moveAppointment(arrangeRows(rows,null),'a:p',4),n=arrangeRows([...rows,row('c','s')],s);assert.equal(n[0],null);assert.equal(n[4],'a:p');assert.equal(n[5],'b:r');assert.equal(n[6],'c:s')});
+test('Removed appointments leave blank space and never resurrect',()=>{const s=arrangeRows([row('a','p')],null),n=arrangeRows([],s);assert.equal(n[0],null)});
+
+test('Reset restores erased dogs even when their former space is occupied',()=>{const n=insertChronologically(['b:p',null],['a:p'],{'a:p':1,'b:p':2},true);assert.deepEqual(Array.from(n),['a:p','b:p',null])});
+test('New appointments fill chronological gaps without moving existing rows',()=>{const n=insertChronologically(['a:p',null,'c:p'],['b:p'],{'a:p':1,'b:p':2,'c:p':3});assert.deepEqual(Array.from(n),['a:p','b:p','c:p'])});
+test('Full boards keep new dogs waiting instead of displacing appointments',()=>{const n=insertChronologically(['a:p','c:p'],['b:p'],{'a:p':1,'b:p':2,'c:p':3});assert.deepEqual(Array.from(n),['a:p','c:p'])});

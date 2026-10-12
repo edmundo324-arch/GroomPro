@@ -382,6 +382,11 @@ model CustomerPhone {
 }
 
 model Pet {
+  breedId String?
+  primaryBreedId String?
+  secondaryBreedId String?
+  originalBreed String?
+  groomingClassification String?
   weightDescription String?
   lastVisit DateTime?
   pictureGuid String?
@@ -800,6 +805,7 @@ model LocationServicePricing {
 }
 
 model Package {
+  groomingRules Json?
   minimumWeightLbs Decimal? @db.Decimal(6,2)
   maximumWeightLbs Decimal? @db.Decimal(6,2)
   defaultForBreeds String?

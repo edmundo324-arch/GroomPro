@@ -66,3 +66,12 @@ export async function POST(request:NextRequest){
   }
  });
 }
+
+export async function GET(request:NextRequest){
+ const tenantId=request.headers.get('x-tenant-id')||request.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
+ const sid=request.cookies.get('groompro_session')?.value||'';
+ if(!tenantId||!sid||!await getActiveEmployeeSession(tenantId,sid))return NextResponse.json({error:'Employee PIN is required.'},{status:401});
+ const requestKey=request.nextUrl.searchParams.get('requestKey')||'';
+ const operation=await db.posOperation.findUnique({where:{tenantId_requestKey:{tenantId,requestKey}}});
+ return NextResponse.json(operation?{status:operation.status,response:operation.response,responseStatus:operation.responseStatus}:{status:'UNKNOWN'},{headers:{'Cache-Control':'no-store'}});
+}

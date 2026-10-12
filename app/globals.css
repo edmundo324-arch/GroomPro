@@ -31,3 +31,27 @@
 .gp-pos-resize{position:sticky;bottom:0;align-self:flex-end;margin-top:-20px;width:20px;height:20px;flex:none;z-index:8;cursor:nwse-resize;touch-action:none;user-select:none;color:#17324d;text-align:right}
 
 .gp-appointment-hover{position:fixed;z-index:90;pointer-events:none;background:white;color:#17324d;border:1px solid #8297ab;border-radius:8px;box-shadow:0 5px 20px #0003;padding:12px;width:320px;max-height:360px;overflow:auto}.gp-appointment-hover section{border-bottom:1px solid #ddd;padding:8px 0}.gp-appointment-hover p{margin:4px 0}.gp-phone-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+/* Fixed television board: 23 rows per half, proportional columns. */
+.gp-whiteboard-shell{height:100dvh;min-height:0;overflow:hidden}
+.gp-whiteboard-shell .gp-main{flex:1;min-height:0;display:flex;padding:8px}
+.gp-whiteboard-host{height:100%!important;min-height:0!important;width:100%;overflow:hidden}
+.gp-whiteboard{display:flex;flex-direction:column;min-height:0;--wb-cols:minmax(0,.8fr) minmax(0,.55fr) minmax(0,1.5fr) minmax(0,1.1fr) minmax(0,.85fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.45fr) minmax(0,1fr) minmax(0,.5fr) minmax(0,.55fr) minmax(0,.65fr)}
+.gp-wb-body{flex:1;min-height:0;overflow:hidden}
+.gp-wb-half{min-width:0;min-height:0;display:grid;grid-template-rows:repeat(23,minmax(0,1fr));border:1px solid #6f738e}
+.gp-wb-row,.gp-wb-columns{display:grid;grid-template-columns:var(--wb-cols)!important;gap:0!important;padding:0!important;min-width:0;min-height:0!important}
+.gp-wb-row{font-size:clamp(9px,.78vw,22px)!important;border-bottom:1px solid #85869b!important;background:#eeebfa!important;overflow:hidden}
+.gp-wb-row:nth-child(even){background:#fff!important}
+.gp-wb-row>div,.gp-wb-row>button{min-width:0;min-height:0;height:100%;border-right:1px solid #85869b;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:inherit!important}
+.gp-wb-row select,.gp-wb-row button{width:100%!important;max-width:100%;min-width:0;min-height:0!important;height:100%;padding:0 2px!important;font-size:inherit!important;border-radius:0;white-space:nowrap;text-overflow:ellipsis;background:transparent;border:0}
+.gp-wb-row>div:has(select){flex-direction:column}
+.gp-wb-columns{font-size:clamp(8px,.65vw,18px)!important;min-height:32px;align-items:center}
+.gp-wb-columns>div{min-width:0;overflow-wrap:anywhere;padding:2px}
+.gp-wb-banner{flex-shrink:0}
+.gp-wb-banner>div,.gp-wb-banner>time{font-size:clamp(12px,1.15vw,30px)!important}
+.gp-wb-snapshot,.gp-wb-footer{font-size:clamp(9px,.65vw,16px)!important;flex-shrink:0}
+.gp-wb-row[data-ready="true"]{background:#b9e8ef!important}
+.gp-wb-empty>div{border-right:1px solid #85869b}
+.gp-wb-slot{min-height:0;min-width:0;height:100%}.gp-wb-slot>.gp-wb-row{height:100%}.gp-wb-slot:nth-child(even) .gp-wb-row:not([data-ready="true"]){background:#fff!important}.gp-wb-slot[draggable="true"]{cursor:grab}.gp-wb-slot:hover{outline:1px solid #7773c8;outline-offset:-1px}
+.gp-wb-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;background:#4b55c7;color:white;font-size:clamp(9px,.65vw,16px);padding:2px 6px}.gp-wb-bottom button{margin-left:auto;padding:2px 14px;font-weight:bold}
+
+.gp-record-opening{position:fixed;right:24px;bottom:16px;z-index:60;display:flex;align-items:center;gap:10px;background:white;border:1px solid #cbd3d9;border-radius:6px;padding:8px 12px;box-shadow:0 2px 8px #0002}
