@@ -1,5 +1,7 @@
 # GroomPro product requirements
 
+- Design for busy human employees and business owners, not AI agents. Group settings by the user's task and familiar entities (Ticket information, Customer information, Pet information). Use readable labels, spacing, and progressive disclosure instead of dense field dumps. Put short explanations behind accessible question-mark help controls. Verify the rendered interface, not just the code. Preserve approved layouts and the “Less clicking is more productive” rule.
+
 - Preserve working functionality and navigation. Requests are additive unless the user explicitly asks to change, move, or remove a specific capability.
 - Preserve Calendar search behavior exactly unless explicitly requested otherwise.
 - Keep Calendar directly accessible from the main menu. Do not hide modules because feature configuration is missing or uses a different response field.
@@ -16,3 +18,5 @@
 - All new ticket, appointment, and scheduling actions use PosTicketWindow. Unsaved and saved tickets must use the same POS Ticket screen and item editor, not separate forms; do not introduce separate appointment modules or return users to a list after creation.
 
 - Clicking a pet inside POS adds its assigned package, or its breed default when unassigned. It does not open pet editing. Pet editing stays in the shared customer/Pets editor.
+
+- Next session: remind Edmundo to implement Choose Related Files import for customers, their pets, and their appointments, with ownership links and duplicate protection. Do not import employee profiles or the service catalog; retain booked line-item details. This is deferred work, not part of the current publication.

@@ -1,0 +1,6 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),vm=require('node:vm');
+const exportsObject={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/calendar-interaction.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:exportsObject,Date});
+const {popupPosition,slotMinute,intervalsOverlap}=exportsObject;
+test('popup stays beside appointment at both viewport edges',()=>{for(const rect of [{left:5,right:150,top:100},{left:900,right:1020,top:100},{left:400,right:650,top:100}]){const p=popupPosition(rect,1024,768);assert.ok(p.left>=0);assert.ok(p.left+p.width<=1024);assert.ok(p.left>=rect.right||p.left+p.width<=rect.left)}});
+test('empty calendar slots snap to five minutes and preserve selected hour',()=>{assert.equal(slotMinute(136,100,480),510);assert.equal(slotMinute(211,100,480),570);assert.equal(slotMinute(10000,0,480),1435)});
+test('time blocks include overlap but permit adjacent bookings',()=>{const at=h=>`2026-10-14T${h}:00:00Z`;assert.equal(intervalsOverlap(at('09'),at('10'),at('10'),at('11')),false);assert.equal(intervalsOverlap(at('09'),at('11'),at('10'),at('12')),true)});

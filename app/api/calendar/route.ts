@@ -1,3 +1,4 @@
+import {calendarBlocks} from '@/src/lib/calendar-blocks';
 import {reconcileEmployeeAssignments} from '@/src/lib/groomer-assignment';
 import {NextRequest,NextResponse} from "next/server";
 import {db} from "@/src/lib/db";
@@ -14,14 +15,14 @@ export async function GET(request:NextRequest){
  const ticketId=request.nextUrl.searchParams.get('ticketId')||undefined;
  await reconcileEmployeeAssignments(tenantId,{locationId,start,end,ticketId});
  const[employees,tickets,assets,employeeSchedules,assetSchedules]=await Promise.all([
- ticketId?Promise.resolve([]):db.user.findMany({where:{tenantId,OR:[{locationId},{locationId:null}]},select:{id:true,firstName:true,lastName:true,role:true,active:true},orderBy:[{lastName:"asc"},{firstName:"asc"}]}),
+ ticketId?Promise.resolve([]):db.user.findMany({where:{tenantId,active:true,OR:[{locationId},{locationId:null}]},select:{id:true,firstName:true,lastName:true,role:true,active:true},orderBy:[{lastName:"asc"},{firstName:"asc"}]}),
  db.ticket.findMany({where:{tenantId,locationId,...(ticketId?{id:ticketId}:{}),scheduledStart:{gte:start,lt:end},status:{not:"CANCELLED"}},include:{customer:{select:{firstName:true,lastName:true,_count:{select:{tickets:{where:{status:"CLOSED"}}}}}},pets:{include:{pet:{select:{id:true,name:true,groomingNotes:true}}}},lines:{select:{description:true,packageName:true,petId:true,assignmentUnavailable:true,role:true,assignedUserId:true},orderBy:{sortOrder:"asc"}},assignments:{where:{role:'GROOMER'},include:{user:{select:{id:true,firstName:true,lastName:true}}}}},orderBy:{scheduledStart:"asc"}}),
  ticketId?Promise.resolve([]):db.$queryRaw<any[]>`SELECT id,name,category,active FROM BookingAsset WHERE tenantId=${tenantId} AND locationId=${locationId} AND active=1 ORDER BY category,name`,
  ticketId?Promise.resolve([]):db.$queryRaw<any[]>`SELECT s.userId,s.dayOfWeek,s.startTime,s.endTime FROM EmployeeSchedule s JOIN User u ON u.id=s.userId WHERE s.tenantId=${tenantId} AND (u.locationId=${locationId} OR u.locationId IS NULL) AND s.active=1`,
  ticketId?Promise.resolve([]):db.$queryRaw<any[]>`SELECT s.assetId,s.dayOfWeek,s.startTime,s.endTime FROM BookingAssetSchedule s JOIN BookingAsset a ON a.id=s.assetId WHERE a.tenantId=${tenantId} AND a.locationId=${locationId} AND s.active=1`
  ]);
  const scheduleOverrides=ticketId?[]:await db.scheduleOverride.findMany({where:{tenantId,date:{gte:new Date(+start-86400000).toISOString().slice(0,10),lte:new Date(+end+86400000).toISOString().slice(0,10)}}});
- return NextResponse.json({employees,tickets:tickets.map(t=>({...t,needsAssignment:t.lines.some(l=>l.assignmentUnavailable&&l.role==='GROOM')})),assets,employeeSchedules,assetSchedules,scheduleOverrides,locationId},{headers:{"Cache-Control":"no-store"}});
+ return NextResponse.json({blocks:ticketId?undefined:await calendarBlocks(tenantId,locationId),employees,tickets:tickets.map(t=>({...t,needsAssignment:t.lines.some(l=>l.assignmentUnavailable&&l.role==='GROOM')})),assets,employeeSchedules,assetSchedules,scheduleOverrides,locationId},{headers:{"Cache-Control":"no-store"}});
  }catch(error){console.error("Calendar load failed",error);return NextResponse.json({error:"Calendar could not load. Retry to see your appointments."},{status:503})}
 }
 

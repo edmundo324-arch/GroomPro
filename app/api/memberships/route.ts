@@ -16,11 +16,15 @@ async function sessionFor(request: NextRequest, tenantId: string) { const sid = 
 function addDays(date: Date, days: number) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
 
 
+async function withBillingSchedules(tenantId:string,memberships:any[]){
+ const rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:memberships.map(m=>'MEMBERSHIP_BILLING:'+m.id)}}});
+ return memberships.map(m=>({...m,billingSchedule:rows.find(r=>r.settingKey==='MEMBERSHIP_BILLING:'+m.id)?.value||{cadence:'MONTHLY',days:[m.billingDay,m.billingDaySecond].filter(Boolean)}}));
+}
 export async function GET(request: NextRequest) {
   const tenantId=tenantFrom(request); const customerId=request.nextUrl.searchParams.get("customerId"); const petId=request.nextUrl.searchParams.get("petId");
   if(!tenantId)return NextResponse.json({error:"Tenant context is required."},{status:401});
-  if(customerId){ const memberships=await db.$queryRaw<any[]>`SELECT * FROM Membership WHERE tenantId=${tenantId} AND customerId=${customerId} ORDER BY createdAt DESC`; return NextResponse.json({memberships}); }
-  if(petId){ const memberships=await db.$queryRaw<any[]>`SELECT * FROM Membership WHERE tenantId=${tenantId} AND petId=${petId} ORDER BY createdAt DESC`; return NextResponse.json({memberships}); }
+  if(customerId){ const memberships=await db.$queryRaw<any[]>`SELECT * FROM Membership WHERE tenantId=${tenantId} AND customerId=${customerId} ORDER BY createdAt DESC`; return NextResponse.json({memberships:await withBillingSchedules(tenantId,memberships)}); }
+  if(petId){ const memberships=await db.$queryRaw<any[]>`SELECT * FROM Membership WHERE tenantId=${tenantId} AND petId=${petId} ORDER BY createdAt DESC`; return NextResponse.json({memberships:await withBillingSchedules(tenantId,memberships)}); }
   return NextResponse.json({error:"customerId or petId is required."},{status:400});
 }
 
@@ -32,21 +36,22 @@ export async function POST(request: NextRequest) {
     if(!customerId||!petId||!Number.isInteger(recurringPriceCents)||recurringPriceCents<0)return NextResponse.json({error:"Customer, dog, and recurring price are required."},{status:400});
     const customer=await db.customer.findFirst({where:{id:customerId,tenantId},select:{id:true}}); const pet=await db.pet.findFirst({where:{id:petId,customerId,tenantId}}); if(!customer||!pet)return NextResponse.json({error:"Customer or dog could not be found."},{status:404});
     if(planSnapshot){const eligibility=groomingEligibility(pet,planSnapshot,await loadBreeds(db,tenantId));if(eligibility.status!=='eligible')throw Error(eligibility.reason);}
-    const options=await workflowSettings(tenantId);const day=Number(b.billingDay);if(!options.vipBillingDays.includes(day))throw Error('Choose a billing day supported by this business.');const billingDays=[day],id=randomUUID();let enrollmentTicketId=String(b.ticketId||'');const locationId=await requestLocation(request,tenantId);if(!locationId)throw Error('Location required.');const location=await db.location.findFirst({where:{id:locationId,tenantId},select:{timezone:true}});if(!location)throw Error('Location not found.');const firstBilling=nextMembershipBilling(new Date(),billingDays,location.timezone||'America/Chicago');
+    const options=await workflowSettings(tenantId);const cadence=b.billingCadence==='WEEKLY'?'WEEKLY':'MONTHLY';const day=Number(b.billingDay);if(!(cadence==='WEEKLY'?(options.vipBillingWeekdays||[]):options.vipBillingDays).includes(day))throw Error('Choose a billing day supported by this business.');const billingDays=[day],id=randomUUID();let enrollmentTicketId=String(b.ticketId||'');const locationId=await requestLocation(request,tenantId);if(!locationId)throw Error('Location required.');const location=await db.location.findFirst({where:{id:locationId,tenantId},select:{timezone:true}});if(!location)throw Error('Location not found.');const firstBilling=nextMembershipBilling(new Date(),billingDays,location.timezone||'America/Chicago',cadence);
     await db.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM Pet WHERE id=${petId} AND tenantId=${tenantId} FOR UPDATE`;
     const duplicate=await tx.$queryRaw<any[]>`SELECT id FROM Membership WHERE tenantId=${tenantId} AND petId=${petId} AND status IN ('ACTIVE','PAUSED','PAUSE_REQUESTED','CANCELLATION_REQUESTED') LIMIT 1`;if(duplicate.length)throw new Error("This dog already has a current membership. Manage it below.");
-    await tx.$executeRaw`INSERT INTO Membership (id,tenantId,customerId,petId,name,status,startFeeCents,recurringPriceCents,billingDay,billingDaySecond,billingInArrears,startedAt) VALUES (${id},${tenantId},${customerId},${petId},${name},'ACTIVE',100,${recurringPriceCents},${billingDays[0]||1},${billingDays[1]||null},true,NOW(3))`;
+    await tx.$executeRaw`INSERT INTO Membership (id,tenantId,customerId,petId,name,status,startFeeCents,recurringPriceCents,billingDay,billingDaySecond,billingInArrears,startedAt) VALUES (${id},${tenantId},${customerId},${petId},${name},'ACTIVE',100,${recurringPriceCents},${cadence==='MONTHLY'?day:1},${billingDays[1]||null},true,NOW(3))`;
     if(enrollmentTicketId){await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${enrollmentTicketId} AND tenantId=${tenantId} FOR UPDATE`;const ticket=await tx.ticket.findFirst({where:{id:enrollmentTicketId,tenantId,customerId,status:{notIn:['CLOSED','CANCELLED','NO_SHOW']}}});if(!ticket)throw Error('Choose an open POS ticket for this customer.');}
     else{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;const draft=b.draftId?await tx.posDraft.findFirst({where:{id:String(b.draftId),tenantId,locationId,promotedAt:null}}):null;if(b.draftId&&!draft)throw Error('Draft not found.');const number=draft?.orderNumber||await nextTicketNumber(tx,tenantId);const ticket=await tx.ticket.create({data:{...(draft?{id:draft.id,createdAt:draft.createdAt}:{}),tenantId,locationId,customerId,orderNumber:number,status:'OPEN',pets:{create:{petId}}}});enrollmentTicketId=ticket.id;if(draft)await tx.posDraft.update({where:{id:draft.id},data:{promotedAt:new Date()}});}
     await tx.ticketPet.upsert({where:{ticketId_petId:{ticketId:enrollmentTicketId,petId}},create:{ticketId:enrollmentTicketId,petId},update:{}});
     await tx.ticketLine.create({data:{ticketId:enrollmentTicketId,petId,lineType:'SERVICE',role:'ADD_ON',description:name+' — VIP activation',quantity:1,unitPriceCents:100,totalCents:100,durationMin:0,assignedUserId:session.user.id,assignedAt:new Date(),sourceKey:'MEMBERSHIP_START:'+id}});
     await tx.pet.update({where:{id:petId},data:{vipEligible:false}});
     await tx.$executeRaw`INSERT INTO MembershipPayment (id,tenantId,membershipId,amountCents,taxCents,paymentType,status,scheduledFor) VALUES (${randomUUID()},${tenantId},${id},${recurringPriceCents},0,'CARD_ON_FILE','PENDING',${firstBilling})`;
+    await tx.tenantSetting.create({data:{tenantId,settingKey:'MEMBERSHIP_BILLING:'+id,value:{cadence,days:billingDays,timezone:location.timezone||'America/Chicago',monthEndPolicy:'LAST_DAY'}}});
     if(planSnapshot)await tx.tenantSetting.create({data:{tenantId,settingKey:"MEMBERSHIP_PLAN:"+id,value:{...planSnapshot,planId:String(b.planId)}}});
     });
-    await writeAudit({tenantId,actorUserId:session.user.id,entityType:"MEMBERSHIP",entityId:id,customerId,action:"MEMBERSHIP_STARTED",summary:`Started ${name} for ${pet.name}.`,details:{petId,recurringPriceCents,firstBilling:firstBilling.toISOString(),billingDays}});
-    return NextResponse.json({ticketId:enrollmentTicketId,membershipId:id,benefitsActiveImmediately:true,startFeeCents:100,firstBillingAt:firstBilling.toISOString()},{status:201});
+    await writeAudit({tenantId,actorUserId:session.user.id,entityType:"MEMBERSHIP",entityId:id,customerId,action:"MEMBERSHIP_STARTED",summary:`Started ${name} for ${pet.name}.`,details:{petId,recurringPriceCents,firstBilling:firstBilling.toISOString(),billingDays,billingCadence:cadence}});
+    return NextResponse.json({ticketId:enrollmentTicketId,membershipId:id,benefitsActiveImmediately:true,startFeeCents:100,firstBillingAt:firstBilling.toISOString(),billingCadence:cadence,billingDays},{status:201});
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Unable to start membership."},{status:400});}
 }
 

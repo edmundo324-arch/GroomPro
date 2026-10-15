@@ -1,3 +1,4 @@
+import {onlineBlockError,resourceBlocked} from '@/src/lib/calendar-blocks';
 import {nextTicketNumber} from '@/src/lib/ticket-number';
 import {employeeAvailable,reconcileEmployeeAssignments,syncActualGroomers} from '@/src/lib/groomer-assignment';
 import {ticketDuration,timingMode} from '@/src/lib/ticket-timing';
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
   const hoursMessage=scheduledStart?await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin):null;if(hoursMessage)return NextResponse.json({error:hoursMessage},{status:400});
   const source = body.bookingSource === "ONLINE" ? "ONLINE" : "STAFF";
   if(source === "ONLINE" && !scheduledStart) return NextResponse.json({error:"Online appointments require a scheduled date and time."},{status:400});
+  if(source==='ONLINE'&&scheduledStart){const blocked=await onlineBlockError(tenantId,locationId,scheduledStart,durationMin,body.onlineCategory);if(blocked)return NextResponse.json({error:blocked},{status:409});}
   const rules = scheduledStart?await checkCustomerBookingRules(tenantId, customer.id, scheduledStart, durationMin):{hardOverlap:false,conflicts:[]};
   if (source === "ONLINE" && rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at this time. Online booking cannot double-book a customer.", conflicts: rules.conflicts }, { status: 409 });
   const customerWarnings = rules.conflicts;
@@ -75,17 +77,25 @@ export async function PATCH(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return NextResponse.json({ error: "Employee PIN is required before changing an appointment." }, { status: 401 });
-  let body: { ticketId?: string; scheduledStart?: string };
+  let body: { ticketId?: string; scheduledStart?: string; groomerId?:string|null; expectedStart?:string };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if (!body.ticketId || !body.scheduledStart) return NextResponse.json({ error: "Ticket and new appointment time are required." }, { status: 400 });
   const newStart = new Date(body.scheduledStart);
   if (Number.isNaN(newStart.getTime())) return NextResponse.json({ error: "Invalid appointment time." }, { status: 400 });
   const ticket = await db.ticket.findFirst({ where: { id: body.ticketId, tenantId, locationId }, include: { customer: true, pets: { include: { pet: true } } } });
   if (!ticket) return NextResponse.json({ error: "Appointment could not be found." }, { status: 404 });
+  if(['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status))return NextResponse.json({error:'This appointment is closed.'},{status:409});
+  if(body.groomerId!==undefined&&ticket.checkedInAt)return NextResponse.json({error:'Change actual employee assignments in the POS Ticket or Whiteboard after check-in.'},{status:409});
+  if(body.groomerId&&!await employeeAvailable(tenantId,body.groomerId,locationId,newStart,ticket.durationMin))return NextResponse.json({error:'The selected employee is unavailable at this time.'},{status:409});
+  if(body.groomerId===undefined){const assigned=await db.ticketAssignment.findMany({where:{ticketId:ticket.id,role:'GROOMER'}});for(const a of assigned)if(await resourceBlocked(tenantId,locationId,'employee',a.userId,newStart,ticket.durationMin))return NextResponse.json({error:'This employee has a time block at the selected time.'},{status:409});}
   const hoursMessage=await appointmentHoursError(tenantId,locationId,newStart,ticket.durationMin);if(hoursMessage)return NextResponse.json({error:hoursMessage},{status:400});
-  if (ticket.scheduledStart?.getTime() === newStart.getTime()) return NextResponse.json({ ticket, moved: false });
+  if (body.groomerId===undefined&&ticket.scheduledStart?.getTime() === newStart.getTime()) return NextResponse.json({ ticket, moved: false });
   const previousStart = ticket.scheduledStart;
   const updated = await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;
+    const live=await tx.ticket.findUnique({where:{id:ticket.id}});
+    if(body.expectedStart&&live?.scheduledStart?.toISOString()!==body.expectedStart)throw Error('Appointment changed elsewhere. Refresh before moving.');
+    if(body.groomerId!==undefined){await tx.ticketAssignment.deleteMany({where:{ticketId:ticket.id,role:{in:['GROOMER','PLANNED_GROOMER']}}});if(body.groomerId)await tx.ticketAssignment.createMany({data:[{ticketId:ticket.id,userId:body.groomerId,role:'GROOMER'},{ticketId:ticket.id,userId:body.groomerId,role:'PLANNED_GROOMER'}]});}
     const changed = await tx.ticket.update({ where: { id: ticket.id }, data: { scheduledStart: newStart } });
     await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "MOVED", previousStart, newStart } });
     return changed;

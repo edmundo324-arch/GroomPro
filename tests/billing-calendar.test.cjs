@@ -1,0 +1,6 @@
+require('./load-ts.cjs');
+const test=require('node:test'),assert=require('node:assert/strict');
+const {nextMembershipBilling}=require('../src/lib/membership-billing.ts');
+test('monthly dates 29–31 clamp to February month end',()=>{for(const day of [29,30,31])assert.equal(nextMembershipBilling(new Date('2027-02-01T12:00:00Z'),[day],'America/Chicago').toISOString(),'2027-02-28T06:00:00.000Z');assert.equal(nextMembershipBilling(new Date('2028-02-01T12:00:00Z'),[31],'America/Chicago').toISOString(),'2028-02-29T06:00:00.000Z')});
+test('weekly schedule supports Sunday zero, all weekdays, and DST',()=>{const now=new Date('2026-10-31T20:00:00Z');assert.equal(nextMembershipBilling(now,[0],'America/Chicago','WEEKLY').toISOString(),'2026-11-01T05:00:00.000Z');assert.equal(nextMembershipBilling(now,[1],'America/Chicago','WEEKLY').toISOString(),'2026-11-02T06:00:00.000Z');assert.equal(+nextMembershipBilling(now,[6],'America/Chicago','WEEKLY'),+now);for(let day=0;day<7;day++)assert.ok(nextMembershipBilling(now,[day],'America/Chicago','WEEKLY')>=now)});
+test('invalid schedules are rejected',()=>{for(const days of [[],[0],[32],[1.5]])assert.throws(()=>nextMembershipBilling(new Date(),days,'America/Chicago'));for(const days of [[-1],[7]])assert.throws(()=>nextMembershipBilling(new Date(),days,'America/Chicago','WEEKLY'))});

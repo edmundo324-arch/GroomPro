@@ -1,10 +1,12 @@
+import {resourceBlocked} from './calendar-blocks';
 import {db} from './db';
 import {zonedParts} from './operating-hours';
 
 // Planned assignments never write service lines. Actual assignments live on lines.
-export async function employeeAvailable(tenantId:string,userId:string,locationId:string,start:Date,durationMin:number){
+export async function employeeAvailable(tenantId:string,userId:string,locationId:string,start:Date,durationMin:number,ignoreBlocks=false){
  const user=await db.user.findFirst({where:{id:userId,tenantId,active:true,OR:[{locationId},{locationId:null}]}});
  if(!user)return false;
+ if(!ignoreBlocks&&await resourceBlocked(tenantId,locationId,"employee",userId,start,durationMin))return false;
  const location=await db.location.findFirst({where:{id:locationId,tenantId}});
  const zone=location?.timezone||'America/Chicago',a=zonedParts(start,zone),b=zonedParts(new Date(+start+Math.max(1,durationMin)*60000),zone);
  if(a.date!==b.date)return false;
@@ -40,7 +42,7 @@ export async function reconcileEmployeeAssignments(tenantId:string,scope:{locati
  for(const ticket of tickets){
   const candidates=new Set([...ticket.assignments.filter(a=>a.role==='GROOMER').map(a=>a.userId),...ticket.lines.map(l=>l.assignedUserId).filter((id):id is string=>!!id)]);
   const unavailable:string[]=[];
-  for(const userId of candidates)if(!await employeeAvailable(tenantId,userId,ticket.locationId,ticket.scheduledStart!,ticket.durationMin))unavailable.push(userId);
+  for(const userId of candidates)if(!await employeeAvailable(tenantId,userId,ticket.locationId,ticket.scheduledStart!,ticket.durationMin,true))unavailable.push(userId);
   if(!unavailable.length)continue;
   await db.$transaction(async tx=>{
    const removed=await tx.ticketAssignment.deleteMany({where:{ticketId:ticket.id,role:'GROOMER',userId:{in:unavailable}}});
