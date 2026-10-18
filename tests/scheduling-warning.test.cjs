@@ -1,0 +1,7 @@
+require('./load-ts.cjs');
+const test=require('node:test'),assert=require('node:assert/strict');
+const {schedulingApproved,schedulingWarning,schedulingException,warningDetails}=require('../src/lib/scheduling-warning.ts');
+const req=messages=>({headers:{get:()=>encodeURIComponent(JSON.stringify(messages))}});
+test('override is limited to explicitly accepted scheduling warning',()=>{const a='This employee is unavailable for this appointment.',b='The selected employee is unavailable at this time.';assert.equal(schedulingApproved(req([a]),a),true);assert.equal(schedulingApproved(req([a]),b),false);assert.equal(schedulingApproved(req(['Payment failed.']),'Payment failed.'),false);assert.equal(schedulingApproved(req(['Choose a valid appointment time and duration.']),'Choose a valid appointment time and duration.'),false)});
+test('invalid input and unavailable resource identity are never overridable',()=>{for(const message of ['Booking asset is unavailable.','Permission denied.','Payment failed.','Choose a valid appointment time and duration.']){assert.equal(schedulingWarning(message).schedulingWarning,undefined);assert.deepEqual(warningDetails(schedulingException(message)),{})}});
+test('operating hours and closed days carry a resumable warning',()=>{for(const m of ['Choose an appointment that starts and finishes within 08:30–17:00 (America/Chicago).','This location is closed on Sunday. Choose an open day.'])assert.equal(warningDetails(schedulingException(m)).schedulingWarning,m)});

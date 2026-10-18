@@ -22,6 +22,21 @@ export function employeeFetch(input:string,init?:RequestInit):Promise<Response>{
  return result;
 }
 async function authorizedFetch(input:string,init?:RequestInit):Promise<Response>{
+ const epoch=contextEpoch;const approved:string[]=[];
+ for(let attempt=0;attempt<12;attempt++){
+  const response=await pinAuthorizedFetch(input,init);
+  if(response.ok)return response;
+  const body=await response.clone().json().catch(()=>({}));
+  if(!body.schedulingWarning||typeof init?.body!=='string'||approved.includes(body.schedulingWarning))return response;
+  const accepted=await new Promise<boolean>(complete=>window.dispatchEvent(new CustomEvent('groompro:scheduling-warning',{detail:{message:body.error,complete}})));
+  if(!accepted)return new Response(JSON.stringify({error:'Action cancelled.'}),{status:409,headers:{'Content-Type':'application/json'}});
+  if(epoch!==contextEpoch)throw Error('Business or employee changed. Reopen this record before saving.');
+  if(body.savedTicketId&&input==='/api/pos-operation'){const payload=JSON.parse(init.body as string);init={...init,body:JSON.stringify({...payload,ticketId:body.savedTicketId})};}
+  approved.push(body.schedulingWarning);const headers=new Headers(init?.headers);headers.set('x-groompro-scheduling-overrides',encodeURIComponent(JSON.stringify(approved)));init={...init,headers};
+ }
+ throw Error('Scheduling conditions changed. Review this appointment before trying again.');
+}
+async function pinAuthorizedFetch(input:string,init?:RequestInit):Promise<Response>{
  let response=await fetch(input,init);
  for(let attempt=0;attempt<2;attempt++){
   if(![401,403].includes(response.status))return response;

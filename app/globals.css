@@ -55,3 +55,42 @@
 .gp-wb-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;background:#4b55c7;color:white;font-size:clamp(9px,.65vw,16px);padding:2px 6px}.gp-wb-bottom button{margin-left:auto;padding:2px 14px;font-weight:bold}
 
 .gp-record-opening{position:fixed;right:24px;bottom:16px;z-index:60;display:flex;align-items:center;gap:10px;background:white;border:1px solid #cbd3d9;border-radius:6px;padding:8px 12px;box-shadow:0 2px 8px #0002}
+
+/* Compact POS chrome keeps the booking items as the primary workspace. */
+.gp-pos-window .gp-floating-head{padding:5px 10px}
+.gp-pos-header{gap:6px;padding:6px}
+.gp-pos-card{padding:6px}
+.gp-pos-window h2{margin-bottom:4px}
+.gp-pos-window .gp-btn{padding:4px 7px}
+.gp-pos-window .gp-field{margin:3px 0}
+.gp-pos-window .gp-search-input,.gp-pos-window select{padding:4px 6px}
+.gp-pos-card>small{margin:2px 0}
+.gp-pos-progress{grid-template-columns:18px auto 1fr;gap:3px;margin:4px 0}
+.gp-pos-progress time{grid-column:auto}
+.gp-pos-pets{gap:4px;margin:4px 0}
+.gp-pos-pets>span{padding:3px 5px}
+.gp-pos-tabs{padding:0 6px 4px}
+.gp-pos-body{margin:0 6px;padding:6px}
+.gp-pos-footer{gap:6px;padding:6px;margin-top:6px}
+.gp-pos-footer>section{padding:6px}
+.gp-pos-footer-general>div{margin-top:3px!important}
+.gp-pos-checkout>button{margin-top:4px!important}
+
+/* Seven compact item rows plus table headings and item search remain visible. */
+.gp-pos-adjustable .gp-pos-body{min-height:304px;flex:1 0 304px}
+.gp-pos-table{table-layout:fixed;font-size:12px}
+.gp-pos-table td,.gp-pos-table th{height:30px;box-sizing:border-box;padding:3px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gp-pos-table th:nth-child(1){width:10%}.gp-pos-table th:nth-child(2){width:34%}.gp-pos-table th:nth-child(3){width:8%}.gp-pos-table th:nth-child(4){width:13%}.gp-pos-table th:nth-child(5){width:7%}.gp-pos-table th:nth-child(6){width:5%}.gp-pos-table th:nth-child(7),.gp-pos-table th:nth-child(8){width:8%}.gp-pos-table th:nth-child(9){width:7%}
+.gp-pos-table input,.gp-pos-table select,.gp-pos-table .gp-btn{height:23px;padding:2px 4px;font-size:12px;box-sizing:border-box}
+.gp-pos-package-heading td{background:#edf1f5!important;font-weight:400}
+
+.gp-pos-header,.gp-pos-footer{line-height:16px}.gp-pos-header h2,.gp-pos-footer h2{line-height:16px;margin-bottom:2px}.gp-pos-header .gp-pos-progress{margin:2px 0}.gp-pos-header small,.gp-pos-footer small{line-height:13px}.gp-pos-header .gp-pos-card>small{margin:1px 0}.gp-pos-footer .gp-btn{padding:3px 7px}
+
+
+.gp-pos-adjustable .gp-pos-body{min-height:288px;flex-basis:288px}.gp-pos-footer{padding:3px;margin-top:3px}.gp-pos-footer>section{padding:4px}.gp-pos-totals>div{margin:4px 0!important}
+/* Keep move/close controls visible while the ticket itself scrolls. */
+.gp-pos-adjustable>.gp-floating-head{position:sticky;top:0;z-index:10;background:#e8edf2}
+.gp-pos-adjustable .gp-floating-title{min-width:0;overflow-wrap:anywhere}
+.gp-staff-week-editor .gp-schedule-weekdays{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;flex-basis:100%;order:-1}.gp-staff-week-editor .gp-schedule-weekdays label{display:flex;flex-direction:row;align-items:center;gap:5px;margin:0}.gp-staff-week-editor .gp-schedule-weekdays input{width:auto;margin:0}
+
+.gp-action-message-backdrop{position:fixed;inset:0;z-index:2147483000;background:#0005;display:flex;align-items:center;justify-content:center;padding:20px}.gp-action-message{background:white;color:#173047;border-radius:12px;box-shadow:0 12px 45px #0005;padding:24px;width:min(480px,100%)}.gp-action-message h2{font-size:18px;margin:0 0 12px}.gp-action-message p{font-size:14px;line-height:1.5}.gp-action-message>div{display:flex;justify-content:flex-end;gap:8px}

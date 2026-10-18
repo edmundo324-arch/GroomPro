@@ -1,3 +1,4 @@
+import {requestLocation} from '@/src/lib/request-location';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
@@ -21,7 +22,8 @@ export async function POST(r:NextRequest){
  if(b.action==='VALIDATE'){
  if(job.status==='COMPLETED')throw Error('Create a new staged job to reimport a completed migration.');
  const source=String(b.source||'').trim();if(!source||source.length>191)throw Error('Source namespace must contain 1-191 characters. Keep it unchanged for reimports.');
- const stored=unseal(job.encryptedData,tenantId) as Dataset[];const datasets=stored.map(d=>{const choice=b.datasets?.find((x:any)=>x.name===d.name);if(!choice)return d;return {...d,entity:choice.entity,mapping:choice.mapping,idColumn:choice.idColumn,matches:choice.matches,dateFormat:choice.dateFormat,sourceTimezone:choice.sourceTimezone,selected:choice.selected!==false};});
+ const locationId=await requestLocation(r,tenantId);
+ const stored=unseal(job.encryptedData,tenantId) as Dataset[];const datasets=stored.map(d=>{const choice=b.datasets?.find((x:any)=>x.name===d.name);if(!choice)return {...d,locationId:locationId||undefined};return {...d,locationId:locationId||undefined,entity:choice.entity,mapping:choice.mapping,idColumn:choice.idColumn,matches:choice.matches,dateFormat:choice.dateFormat,sourceTimezone:choice.sourceTimezone,selected:choice.selected!==false};});
  const plan=await planImport(db,tenantId,source,datasets.filter(d=>d.selected!==false),b.mode),report=publicReport(plan),status=plan.issues.length?'NEEDS_REVIEW':'VALIDATED';
  // Keep all uploaded datasets in staging; only selected datasets are committed in the execution envelope.
  await db.importJob.update({where:{id},data:{source,mode:b.mode,status,encryptedData:seal(datasets,tenantId),fingerprint:fingerprint(report),report:report as any}});

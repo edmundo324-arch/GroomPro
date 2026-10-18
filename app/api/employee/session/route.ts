@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const session = await getActiveEmployeeSession(tenantId, sessionId);
   if (!session) return NextResponse.json({ employee: null });
 
-  return NextResponse.json({ employee: { id: session.user.id, firstName: session.user.firstName, lastName: session.user.lastName, role: session.user.role } });
+  return NextResponse.json({ employee: { id: session.user.id, displayName: session.user.displayName, firstName: session.user.firstName, lastName: session.user.lastName, role: session.user.role } });
 }
 
 export async function POST(request: NextRequest) {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({approval:approval.id});
   }
   const session = await startEmployeeSession(tenantId, user.id, deviceId);
-  const response = NextResponse.json({ employee: { id: user.id, firstName: user.firstName, lastName: user.lastName, role: user.role } });
+  const response = NextResponse.json({ employee: { id: user.id, displayName: user.displayName, firstName: user.firstName, lastName: user.lastName, role: user.role } });
   response.cookies.set(DEVICE_COOKIE, deviceId, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 365 });
   response.cookies.set(SESSION_COOKIE, session.id, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 12 });
   return response;

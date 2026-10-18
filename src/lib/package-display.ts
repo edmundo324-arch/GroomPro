@@ -1,0 +1,4 @@
+// Presentation only: package headings never become chargeable ticket lines.
+export function packageKey(line:any){return line.packageId||line.packageName?`${line.petId||''}:${line.packageGroupKey||line.packageId||line.packageName}`:''}
+export function serviceLabel(line:any){const prefix=line.packageName+' · ';return line.packageName&&line.description?.startsWith(prefix)?line.description.slice(prefix.length):line.description}
+export function packageSummaries(lines:any[]){const result:any[]=[];const groups=new Map<string,any>();for(const line of lines){const key=packageKey(line);if(!key){result.push({name:line.description,totalCents:line.totalCents||0});continue}let group=groups.get(key);if(!group){group={name:line.packageName||line.description?.split(' · ')[0],totalCents:0};groups.set(key,group);result.push(group)}group.totalCents+=Number(line.totalCents)||0}return result}

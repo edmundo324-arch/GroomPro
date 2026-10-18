@@ -1,3 +1,5 @@
+import {schedulingApproved,schedulingWarning,schedulingException,warningDetails} from '@/src/lib/scheduling-warning';
+import {bookingAssetError} from '@/src/lib/booking-asset';
 import {employeeAvailable} from '@/src/lib/groomer-assignment';
 import {nextTicketNumber} from '@/src/lib/ticket-number';
 import { appointmentHoursError } from "@/src/lib/location-hours";
@@ -39,14 +41,15 @@ export async function POST(request: NextRequest) {
     if (source.status === "CANCELLED") return NextResponse.json({ error: "A cancelled appointment cannot be rebooked." }, { status: 409 });
 
     const durationMin = Math.max(15, source.durationMin || 30);
-    const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage)return NextResponse.json({error:hoursMessage},{status:400});
+    const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage&&!schedulingApproved(request,hoursMessage))return NextResponse.json(schedulingWarning(hoursMessage),{status:409});
+    const assetMessage=await bookingAssetError(tenantId,locationId,body.bookingAssetId,scheduledStart,durationMin);if(assetMessage&&(assetMessage==='Booking asset is unavailable.'||!schedulingApproved(request,assetMessage)))return NextResponse.json(assetMessage==='Booking asset is unavailable.'?{error:assetMessage}:schedulingWarning(assetMessage),{status:409});
     const rules = await checkCustomerBookingRules(tenantId, source.customerId, scheduledStart, durationMin);
     if (rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at the selected time.", conflicts: rules.conflicts }, { status: 409 });
     if (rules.conflicts.length && !body.confirmRecentWarning) return NextResponse.json({ error: "This customer has another appointment close to the selected time.", conflicts: rules.conflicts, requiresConfirmation: true }, { status: 409 });
 
     if (groomerId) {
       const groomer = await db.user.findFirst({ where: { id: groomerId, tenantId, active: true, OR: [{ locationId }, { locationId: null }] }, select: { id: true } });
-      if(groomer&&!await employeeAvailable(tenantId,groomerId,locationId,scheduledStart,durationMin))return NextResponse.json({error:'Choose an available groomer or Assign later.'},{status:409});
+      if(groomer&&!await employeeAvailable(tenantId,groomerId,locationId,scheduledStart,durationMin))if(!schedulingApproved(request,'Choose an available groomer or Assign later.'))return NextResponse.json(schedulingWarning('Choose an available groomer or Assign later.'),{status:409});
       if (!groomer) return NextResponse.json({ error: "Selected groomer could not be found." }, { status: 404 });
     }
 
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
       const ticket = await tx.ticket.create({
         data: {
           tenantId, locationId, customerId: source.customerId, orderNumber, scheduledStart, durationMin,timingMode:source.timingMode,
-          status: "OPEN", bookingSource: "STAFF", bookingDecision: "INTERNAL", notes: source.notes,
+          bookingAssetId:body.bookingAssetId||null,status: "OPEN", bookingSource: "STAFF", bookingDecision: "INTERNAL", notes: source.notes,
           pets: { create: source.pets.map(p => ({ petId: p.petId, weightLbs: p.weightLbs, analSituation: null, vipAvailability: p.vipAvailability })) },
           lines: { create: serviceLines.map((line, index) => {
             const eligible = line.role === "GROOM" || line.role === "BATH";

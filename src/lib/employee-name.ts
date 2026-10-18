@@ -1,0 +1,1 @@
+export function employeeName(employee:{displayName?:string|null;firstName?:string;lastName?:string}|null|undefined){return employee?.displayName?.trim()||[employee?.firstName,employee?.lastName].filter(Boolean).join(' ')}

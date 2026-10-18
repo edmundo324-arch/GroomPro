@@ -16,7 +16,7 @@ export async function startEmployeeSession(tenantId: string, userId: string, dev
 
   return db.employeeSession.create({
     data: { tenantId, userId, deviceId },
-    include: { user: { select: { id: true, firstName: true, lastName: true, role: true, active: true } } },
+    include: { user: { select: { id: true, displayName: true, firstName: true, lastName: true, role: true, active: true } } },
   });
 }
 
@@ -32,7 +32,7 @@ export async function getActiveEmployeeSession(tenantId: string, sessionId: stri
   if(context?.tenantId===tenantId && context.session.id===sessionId)return context.session;
   const session=await db.employeeSession.findFirst({
     where: { id: sessionId, tenantId, endedAt: null, user: { active: true } },
-    include: { user: { select: { id: true, tenantId: true, firstName: true, lastName: true, role: true, active: true } } },
+    include: { user: { select: { id: true, tenantId: true, displayName: true, firstName: true, lastName: true, role: true, active: true } } },
   });
   if(!session)return null;const settings=await workflowSettings(tenantId);const now=new Date();
   if(+now-+session.lastActiveAt>settings.inactivityMinutes*60000)return null;
@@ -41,7 +41,7 @@ export async function getActiveEmployeeSession(tenantId: string, sessionId: stri
   if(approvalId){
     const approval=await db.actionApproval.findFirst({where:{id:approvalId,tenantId,sessionId,deviceId:session.deviceId,requestHash:requestHeaders.get('x-groompro-request-hash')||'',consumedAt:null,expiresAt:{gt:now}}});
     if(!approval)return null;
-    const manager=await db.user.findFirst({where:{id:approval.approverId,tenantId,active:true,role:{in:['ADMIN','MANAGER']}},select:{id:true,tenantId:true,firstName:true,lastName:true,role:true,active:true}});
+    const manager=await db.user.findFirst({where:{id:approval.approverId,tenantId,active:true,role:{in:['ADMIN','MANAGER']}},select:{id:true,tenantId:true,displayName:true,firstName:true,lastName:true,role:true,active:true}});
     if(!manager)return null;
     const used=await db.actionApproval.updateMany({where:{id:approval.id,consumedAt:null},data:{consumedAt:now}});
     if(!used.count)return null;
@@ -49,6 +49,6 @@ export async function getActiveEmployeeSession(tenantId: string, sessionId: stri
   }
   const method=requestHeaders.get('x-groompro-method')||'GET';
   if(settings.securityMode==='PER_ACTION'&&!['GET','HEAD','OPTIONS'].includes(method)){const claim=await db.employeeSession.updateMany({where:{id:sessionId,tenantId,endedAt:null,actionUsedAt:null},data:{actionUsedAt:now,lastActiveAt:now}});if(!claim.count)return null;}
-  else await db.employeeSession.updateMany({where:{id:sessionId,tenantId,endedAt:null},data:{lastActiveAt:now}});
+  // Reads and background polling must not extend inactivity.
   return session;
 }

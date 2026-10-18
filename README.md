@@ -35,3 +35,6 @@ The application is being built in phases with development, preview/test, and pro
 GoDaddy Node.js Hosting is the intended production hosting environment, with GoDaddy-managed MySQL as the initial database target.
 
 Deployment, database bootstrap, SQL imports, and verification: [GoDaddy deployment guide](docs/godaddy-deployment.md).
+
+### Employee activity origin
+When running behind a proxy whose public origin differs from the server request origin, set GROOMPRO_APP_ORIGIN to the exact public application origin (scheme, hostname, and port). The employee activity endpoint checks this configured origin before renewing inactivity; background polling does not renew it.

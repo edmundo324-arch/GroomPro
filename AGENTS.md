@@ -19,4 +19,4 @@
 
 - Clicking a pet inside POS adds its assigned package, or its breed default when unassigned. It does not open pet editing. Pet editing stays in the shared customer/Pets editor.
 
-- Next session: remind Edmundo to implement Choose Related Files import for customers, their pets, and their appointments, with ownership links and duplicate protection. Do not import employee profiles or the service catalog; retain booked line-item details. This is deferred work, not part of the current publication.
+- Choose Related Files supports linked customer, pet, and appointment imports. Preserve ownership, source-identifier duplicate protection, and booked line-item details without requiring employee-profile or service-catalog imports.

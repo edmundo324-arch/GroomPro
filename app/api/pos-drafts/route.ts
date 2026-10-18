@@ -18,11 +18,12 @@ export async function POST(r:NextRequest){
  if(!sid||!await getActiveEmployeeSession(tenantId,sid))return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  const body=await r.json();
  if(!/^[a-zA-Z0-9-]{16,80}$/.test(body.requestKey||''))return NextResponse.json({error:'Invalid draft request.'},{status:400});
+ const defaults=await workflowSettings(tenantId);
  const draft=await db.$transaction(async tx=>{
   await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
   const existing=await tx.posDraft.findUnique({where:{tenantId_requestKey:{tenantId,requestKey:body.requestKey}}});
   if(existing)return existing;
-  return tx.posDraft.create({data:{tenantId,locationId,requestKey:body.requestKey,orderNumber:await nextTicketNumber(tx,tenantId),payload:{}}});
+  return tx.posDraft.create({data:{tenantId,locationId,requestKey:body.requestKey,orderNumber:await nextTicketNumber(tx,tenantId),payload:{ticket:{timingMode:defaults.timingMode}}}});
  });
  return NextResponse.json({draft});
 }

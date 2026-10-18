@@ -1,3 +1,4 @@
+import {schedulingException} from './scheduling-warning';
 import {resourceBlocked} from './calendar-blocks';
 import {db} from './db';
 import {zonedParts} from './operating-hours';
@@ -23,13 +24,14 @@ export async function syncActualGroomers(tx:any,ticketId:string){
  for(const userId of new Set<string>(lines.map((l:any)=>l.assignedUserId).filter(Boolean)))await tx.ticketAssignment.create({data:{ticketId,userId,role:'GROOMER'}});
 }
 
-export async function setPlannedGroomer(tenantId:string,ticketId:string,userId:string|null){
+export async function setPlannedGroomer(tenantId:string,ticketId:string,userId:string|null,allowUnavailable=false){
  return db.$transaction(async tx=>{
   await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticketId} AND tenantId=${tenantId} FOR UPDATE`;
   const ticket=await tx.ticket.findFirst({where:{id:ticketId,tenantId},include:{assignments:{where:{role:'GROOMER'}}}});
   if(!ticket)throw Error('Appointment not found.');
   if(ticket.checkedInAt||['CHECKED_IN','IN_PROGRESS','READY','CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status))throw Error('Use the service-line assignments for a dog already in the queue.');
-  if(userId&&(!ticket.scheduledStart||!await employeeAvailable(tenantId,userId,ticket.locationId,ticket.scheduledStart,ticket.durationMin)))throw Error('Choose an available groomer or Assign later.');
+  if(userId&&!await tx.user.findFirst({where:{id:userId,tenantId,active:true,OR:[{locationId:ticket.locationId},{locationId:null}]}}))throw Error('Selected groomer not found.');
+  if(!allowUnavailable&&userId&&(!ticket.scheduledStart||!await employeeAvailable(tenantId,userId,ticket.locationId,ticket.scheduledStart,ticket.durationMin)))throw schedulingException('Choose an available groomer or Assign later.');
   await tx.ticketAssignment.deleteMany({where:{ticketId,role:{in:['GROOMER','PLANNED_GROOMER']}}});
   if(userId)await tx.ticketAssignment.createMany({data:[{ticketId,userId,role:'GROOMER'},{ticketId,userId,role:'PLANNED_GROOMER'}]});
   return ticket;

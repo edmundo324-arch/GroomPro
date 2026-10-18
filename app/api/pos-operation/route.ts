@@ -39,6 +39,11 @@ export async function POST(request:NextRequest){
    const data=await response.json();
    if(body.kind==='ENROLL'&&data.ticketId)ticketId=data.ticketId;
    const result={...data,...(ticketId?{savedTicketId:ticketId}:{})};
+   if(data.schedulingWarning){
+    // Scheduling rejected before the requested transaction; permit only an explicit override retry.
+    await db.posOperation.delete({where:{tenantId_requestKey:key}});
+    return NextResponse.json(result,{status:response.status});
+   }
    await db.posOperation.update({where:{tenantId_requestKey:key},data:{status:'DONE',response:result,responseStatus:response.status}});
    return NextResponse.json(result,{status:response.status});
   };

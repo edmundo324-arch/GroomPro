@@ -447,6 +447,7 @@ model Vaccination {
 }
 
 model Ticket {
+  bookingAssetId String?
   timingMode String @default("SEQUENTIAL")
 
   id String @id @default(cuid())

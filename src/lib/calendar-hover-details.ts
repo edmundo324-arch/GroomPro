@@ -1,3 +1,4 @@
+import {employeeName} from './employee-name';
 import {calendarHoverFields} from './calendar-hover-fields';
 export type HoverDetail={key:string;label:string;value:string;petId?:string;lineId?:string};
 export function friendlyHoverLabel(key:string){const field=key.split('.').pop()||key;return ({name:'Name',weightLbs:'Weight',weightDescription:'Weight',packageName:'Services',description:'Services',unitPriceCents:'Price',totalCents:'Total',balanceCents:'Balance',creditCents:'Credit',durationMin:'Duration'} as Record<string,string>)[field]||(calendarHoverFields[key]||field).replace(/^(Ticket|Customer|Pet|Service line) — /,'').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/ Cents$/i,'').replace(/^./,s=>s.toUpperCase());}
@@ -23,6 +24,6 @@ export function buildHoverDetails(ticket:any,fields:string[]):HoverDetail[]{
  if(group==='pet')for(const {pet} of ticket.pets)add(key,field==='vaccinations'?pet.vaccinations.map((v:any)=>v.vaccineName+(v.expiresAt?' ('+hoverValue('date',v.expiresAt)+')':'')).join(', '):pet[field],pet.id);
  if(group==='line')for(const line of ticket.lines)add(key,line[field],line.petId||undefined,line.id);
  if(key==='payments')add(key,ticket.payments.map((p:any)=>p.paymentType+' $'+Number(p.amount).toFixed(2)).join(' · '));
- if(key==='assignments')add(key,ticket.assignments.map((a:any)=>a.user.firstName+' '+a.user.lastName).join(' · '));
+ if(key==='assignments')add(key,ticket.assignments.map((a:any)=>employeeName(a.user)).join(' · '));
  }return result;
 }
