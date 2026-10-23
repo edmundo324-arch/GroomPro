@@ -2,6 +2,7 @@ export const calendarHoverFields:Record<string,string>={
   "time": "Appointment time",
   "pet": "Pet name",
   "package": "Packages",
+  "todayNotes": "Today's grooming notes",
   "notes": "Grooming notes",
   "customer": "Customer name",
   "ticket.timingMode": "Ticket — timing Mode",

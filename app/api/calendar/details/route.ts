@@ -1,3 +1,5 @@
+import {employeeAppearance} from '@/src/lib/appearance-settings';
+import {platformSession} from '@/src/lib/platform-access';
 import {buildHoverDetails} from '@/src/lib/calendar-hover-details';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -9,7 +11,7 @@ export async function GET(r:NextRequest){
  if(!tenantId||!locationId)return NextResponse.json({error:'Business context required.'},{status:401});
  const ticket=await db.ticket.findFirst({where:{id:r.nextUrl.searchParams.get('id')||'',tenantId,locationId},include:{customer:{include:{phones:true}},pets:{include:{pet:{include:{vaccinations:true}}}},lines:true,payments:true,assignments:{include:{user:{select:{displayName:true,firstName:true,lastName:true}}}}}});
  if(!ticket)return NextResponse.json({error:'Appointment not found.'},{status:404});
- const fields=(await workflowSettings(tenantId)).hoverFields;
+ const session=await platformSession(r);const fields=(await employeeAppearance(tenantId,session?.user)).hoverFields;
  const details=buildHoverDetails(ticket,fields);
  return NextResponse.json({details},{headers:{'Cache-Control':'no-store'}});
 }

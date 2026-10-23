@@ -94,3 +94,21 @@
 .gp-staff-week-editor .gp-schedule-weekdays{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;flex-basis:100%;order:-1}.gp-staff-week-editor .gp-schedule-weekdays label{display:flex;flex-direction:row;align-items:center;gap:5px;margin:0}.gp-staff-week-editor .gp-schedule-weekdays input{width:auto;margin:0}
 
 .gp-action-message-backdrop{position:fixed;inset:0;z-index:2147483000;background:#0005;display:flex;align-items:center;justify-content:center;padding:20px}.gp-action-message{background:white;color:#173047;border-radius:12px;box-shadow:0 12px 45px #0005;padding:24px;width:min(480px,100%)}.gp-action-message h2{font-size:18px;margin:0 0 12px}.gp-action-message p{font-size:14px;line-height:1.5}.gp-action-message>div{display:flex;justify-content:flex-end;gap:8px}
+
+.gp-grooming-boxes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.gp-grooming-notes label{display:block;font-size:13px;font-weight:400}.gp-grooming-notes textarea,.gp-grooming-notes select{display:block;width:100%;box-sizing:border-box;font:inherit}.gp-grooming-notes h4{margin:10px 0 4px;font-size:14px}.gp-grooming-notes article{margin-bottom:10px}.gp-permanent-notes{border-left:3px solid #b98a39;padding-left:8px}.gp-grooming-notes nav{display:flex;gap:4px;flex-wrap:wrap}@media(max-width:600px){.gp-grooming-boxes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.gp-history-appointment{display:block;width:100%;text-align:left;padding:7px;margin:5px 0;border-radius:5px;font-size:12px}.gp-history-appointment span{display:block;font-weight:normal}.gp-floating-sample{position:sticky;bottom:12px;float:right;z-index:3;padding:12px;border-radius:6px;width:230px;box-shadow:0 4px 15px #0003;font-size:13px}.gp-popup-preview{position:relative;margin-top:12px}.gp-popup-preview .gp-appointment-hover{position:relative!important;left:auto!important;top:auto!important;z-index:auto;max-width:100%!important}.gp-workflow-section>label{display:block;margin:8px 0}.gp-workflow-section details>label{display:inline-block;margin:5px 10px 5px 0}
+
+/* Settings previews share the live calendar renderer and remain within reach. */
+.gp-preview-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,320px);gap:18px;align-items:start}
+.gp-preview-layout>div>label{display:block;margin:8px 0}
+.gp-preview-anchor{position:sticky;top:12px;align-self:start;z-index:20;min-width:0}
+.gp-movable-preview{width:320px;max-width:calc(100vw - 24px);background:white;border:1px solid #bac8d3;border-radius:7px;box-shadow:0 4px 15px #0003;z-index:1200;overflow:hidden}
+.gp-preview-handle{display:flex;justify-content:space-between;gap:8px;padding:8px;background:#eaf0f5;color:#17324d;cursor:move;touch-action:none;font-size:12px}.gp-preview-handle small{font-size:11px;font-weight:normal}.gp-preview-handle:focus-visible{outline:2px solid #2874a6;outline-offset:-2px}
+.gp-preview-reset{display:block;margin:5px auto;font-size:12px}.gp-appearance-sample{padding:12px;border-radius:4px;font-size:13px}
+.gp-popup-preview{margin:0;padding:8px;max-height:70vh;overflow:auto}.gp-popup-preview .gp-appointment-hover{box-sizing:border-box;width:100%!important;box-shadow:none}
+.gp-appearance-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}.gp-appearance-controls label{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.gp-border-controls{grid-column:1/-1;display:flex;gap:16px;flex-wrap:wrap}.gp-border-controls input[type=number]{width:65px}.gp-copy-appearance{margin:12px 0;padding:8px;display:flex;gap:8px;flex-wrap:wrap}.gp-copy-appearance label{display:flex;flex-direction:column;gap:4px}
+@media(max-width:720px){.gp-preview-layout{grid-template-columns:minmax(0,1fr)}.gp-preview-anchor{grid-row:1;justify-self:end;max-width:100%}.gp-movable-preview{width:280px}}
+.gp-customer-result[style] span,.gp-day-appointment[style] span,.gp-week-appointment[style] span{color:inherit}
+
+.gp-preview-handle{user-select:none}

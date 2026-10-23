@@ -1,4 +1,4 @@
-export function isSchedulingWarning(message:string){return /^(Choose an appointment that starts and finishes within |This location is closed on |Choose a time within the booking asset|This booking asset has a time block|Choose an available groomer or Assign later\.|This employee is unavailable for this appointment\.|The selected employee is unavailable at this time\.|This employee has a time block)/.test(message)}
+export function isSchedulingWarning(message:string){return /^(Nearby appointment warning:|Choose an appointment that starts and finishes within |This location is closed on |Choose a time within the booking asset|This booking asset has a time block|Choose an available groomer or Assign later\.|This employee is unavailable for this appointment\.|The selected employee is unavailable at this time\.|This employee has a time block)/.test(message)}
 // Only explicitly identified scheduling checks may use this override.
 export function schedulingApproved(request:{headers:{get:(key:string)=>string|null}},message:string){
  if(!isSchedulingWarning(message))return false;

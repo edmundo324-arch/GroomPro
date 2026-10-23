@@ -7,3 +7,6 @@ test('packages require distinct services and positive integer quantities',()=>{c
 
 
 test('VIP plans have package items and validated recurring billing dates',()=>{const plan={kind:'plans',name:'VIP',priceCents:4500,active:true,items:[{serviceId:'bath',quantity:2,role:'BATH'}],billingDay:1,billingDaySecond:15};const result=catalogInput(plan);assert.equal(result.items[0].role,'BATH');assert.equal(result.billingDaySecond,15);for(const day of [29,30,31])assert.equal(catalogInput({...plan,billingDay:day}).billingDay,day);for(const change of [{billingDay:0},{billingDay:32},{billingDaySecond:1},{items:[]}])assert.throws(()=>catalogInput({...plan,...change}))});
+
+test('service workflow defaults validate without overwriting omitted legacy values',()=>{for(const workflowRole of ['PREP','BATH','DRY','GROOM','ADD_ON'])assert.equal(catalogInput({...service,workflowRole}).workflowRole,workflowRole);assert.equal(catalogInput(service).workflowRole,undefined);assert.throws(()=>catalogInput({...service,workflowRole:'PRODUCT'}));});
+test('packages and VIP plans retain explicit Dry and other assignments',()=>{for(const kind of ['packages','plans'])for(const role of ['PREP','BATH','DRY','GROOM','ADD_ON'])assert.equal(catalogInput({kind,name:'Bundle',priceCents:100,active:true,items:[{serviceId:'a',quantity:1,role}]}).items[0].role,role);});

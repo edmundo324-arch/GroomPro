@@ -75,6 +75,7 @@ enum TicketLineRole {
   GROOM
   ADD_ON
   PRODUCT
+  DRY
 }
 enum BookingSource {
   STAFF
@@ -447,6 +448,8 @@ model Vaccination {
 }
 
 model Ticket {
+  displayStatus String?
+  presentationServiceType String?
   bookingAssetId String?
   timingMode String @default("SEQUENTIAL")
 
@@ -527,6 +530,30 @@ model TicketPet {
   pet Pet @relation(fields: [petId], references: [id], onDelete: Restrict)
   @@unique([ticketId, petId])
   @@index([petId])
+}
+
+// A pet's appointment instructions survive removal of its ticket line or TicketPet.
+// ticketId also identifies the reserved POS draft before promotion to a Ticket.
+model GroomingNote {
+  id String @id @default(cuid())
+  tenantId String
+  customerId String
+  petId String
+  ticketId String
+  locationId String
+  appointmentAt DateTime?
+  instructions Json
+  usual Boolean @default(false)
+  usualAt DateTime?
+  revision Int @default(0)
+  lockedAt DateTime?
+  closureSnapshot Json?
+  finalSnapshot Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId, ticketId, petId])
+  @@index([tenantId, petId, appointmentAt])
+  @@index([tenantId, customerId, appointmentAt])
 }
 
 model TicketAssignment {
@@ -667,6 +694,7 @@ model PosDraft {
 }
 
 model Service {
+  workflowRole TicketLineRole @default(ADD_ON)
   importSourceId String?
   favorite Boolean @default(false)
   aliases Json?
@@ -947,4 +975,19 @@ model PosOperation {
   responseStatus Int?
   createdAt DateTime @default(now())
   @@unique([tenantId, requestKey])
+}
+
+model PlanFeature {
+ id String @id @default(cuid())
+ planCode String
+ featureCode String
+ @@unique([planCode, featureCode])
+}
+model StarterPackage {
+ id String @id @default(cuid())
+ name String
+ collection String
+ contents Json
+ active Boolean @default(true)
+ updatedAt DateTime @updatedAt
 }

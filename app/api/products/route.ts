@@ -1,3 +1,4 @@
+import {moduleDenial} from '@/src/lib/module-entitlement';
 import {managerAction} from '@/src/lib/protected-action';
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
@@ -9,7 +10,7 @@ async function tenantFrom(request: NextRequest) {
   return first?.id||"";
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {const denial=await moduleDenial(request,'INVENTORY');if(denial)return denial;
   const tenantId = await tenantFrom(request);
   if (!tenantId) return NextResponse.json({ error: "Business setup is not complete yet." }, { status: 503 });
   const products = await db.product.findMany({ where: { tenantId, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, sku: true, priceCents: true, quantity: true } });

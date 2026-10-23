@@ -1,3 +1,5 @@
+import {approvedScheduling} from '@/src/lib/scheduling-authorization';
+import {ensureGroomingNotes} from '@/src/lib/grooming-notes-store';
 import {schedulingApproved,schedulingWarning,schedulingException,warningDetails} from '@/src/lib/scheduling-warning';
 import {bookingAssetError} from '@/src/lib/booking-asset';
 import {employeeAvailable} from '@/src/lib/groomer-assignment';
@@ -41,15 +43,15 @@ export async function POST(request: NextRequest) {
     if (source.status === "CANCELLED") return NextResponse.json({ error: "A cancelled appointment cannot be rebooked." }, { status: 409 });
 
     const durationMin = Math.max(15, source.durationMin || 30);
-    const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage&&!schedulingApproved(request,hoursMessage))return NextResponse.json(schedulingWarning(hoursMessage),{status:409});
-    const assetMessage=await bookingAssetError(tenantId,locationId,body.bookingAssetId,scheduledStart,durationMin);if(assetMessage&&(assetMessage==='Booking asset is unavailable.'||!schedulingApproved(request,assetMessage)))return NextResponse.json(assetMessage==='Booking asset is unavailable.'?{error:assetMessage}:schedulingWarning(assetMessage),{status:409});
-    const rules = await checkCustomerBookingRules(tenantId, source.customerId, scheduledStart, durationMin);
-    if (rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at the selected time.", conflicts: rules.conflicts }, { status: 409 });
-    if (rules.conflicts.length && !body.confirmRecentWarning) return NextResponse.json({ error: "This customer has another appointment close to the selected time.", conflicts: rules.conflicts, requiresConfirmation: true }, { status: 409 });
+    const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage&&!await approvedScheduling(request,hoursMessage))return NextResponse.json(schedulingWarning(hoursMessage),{status:409});
+    const assetMessage=await bookingAssetError(tenantId,locationId,body.bookingAssetId,scheduledStart,durationMin);if(assetMessage&&(assetMessage==='Booking asset is unavailable.'||!await approvedScheduling(request,assetMessage)))return NextResponse.json(assetMessage==='Booking asset is unavailable.'?{error:assetMessage}:schedulingWarning(assetMessage),{status:409});
+    const rules = await checkCustomerBookingRules(tenantId, source.customerId, scheduledStart, durationMin,source.pets.map(p=>p.petId));
+    const nearby=rules.conflicts.length?'Nearby appointment warning: '+rules.conflicts.map(c=>c.message).join(' '):'';
+    if(nearby&&!await approvedScheduling(request,nearby))return NextResponse.json(schedulingWarning(nearby),{status:409});
 
     if (groomerId) {
       const groomer = await db.user.findFirst({ where: { id: groomerId, tenantId, active: true, OR: [{ locationId }, { locationId: null }] }, select: { id: true } });
-      if(groomer&&!await employeeAvailable(tenantId,groomerId,locationId,scheduledStart,durationMin))if(!schedulingApproved(request,'Choose an available groomer or Assign later.'))return NextResponse.json(schedulingWarning('Choose an available groomer or Assign later.'),{status:409});
+      if(groomer&&!await employeeAvailable(tenantId,groomerId,locationId,scheduledStart,durationMin))if(!await approvedScheduling(request,'Choose an available groomer or Assign later.'))return NextResponse.json(schedulingWarning('Choose an available groomer or Assign later.'),{status:409});
       if (!groomer) return NextResponse.json({ error: "Selected groomer could not be found." }, { status: 404 });
     }
 
@@ -87,6 +89,7 @@ export async function POST(request: NextRequest) {
         include: { customer: true, pets: { include: { pet: true } }, lines: { include: { pet: true, service: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } }
       });
       await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
+      await ensureGroomingNotes(tx,ticket,session.user.id);
       return ticket;
     });
 

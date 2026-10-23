@@ -1,3 +1,5 @@
+import {customerStates} from '@/src/lib/appointment-customer-state';
+import {groomingSummary} from '@/src/lib/grooming-notes-rules';
 import {calendarBlocks} from '@/src/lib/calendar-blocks';
 import {reconcileEmployeeAssignments} from '@/src/lib/groomer-assignment';
 import {NextRequest,NextResponse} from "next/server";
@@ -21,8 +23,9 @@ export async function GET(request:NextRequest){
  ticketId?Promise.resolve([]):db.$queryRaw<any[]>`SELECT s.userId,s.dayOfWeek,s.startTime,s.endTime FROM EmployeeSchedule s JOIN User u ON u.id=s.userId WHERE s.tenantId=${tenantId} AND (u.locationId=${locationId} OR u.locationId IS NULL) AND s.active=1`,
  ticketId?Promise.resolve([]):db.$queryRaw<any[]>`SELECT s.assetId,s.dayOfWeek,s.startTime,s.endTime FROM BookingAssetSchedule s JOIN BookingAsset a ON a.id=s.assetId WHERE a.tenantId=${tenantId} AND a.locationId=${locationId} AND s.active=1`
  ]);
+ const grooming=await db.groomingNote.findMany({where:{tenantId,ticketId:{in:tickets.map(t=>t.id)}},select:{ticketId:true,petId:true,instructions:true}});
  const scheduleOverrides=ticketId?[]:await db.scheduleOverride.findMany({where:{tenantId,date:{gte:new Date(+start-86400000).toISOString().slice(0,10),lte:new Date(+end+86400000).toISOString().slice(0,10)}}});
- return NextResponse.json({blocks:ticketId?undefined:await calendarBlocks(tenantId,locationId),employees,tickets:tickets.map(t=>({...t,needsAssignment:t.lines.some(l=>l.assignmentUnavailable&&l.role==='GROOM')})),assets,employeeSchedules,assetSchedules,scheduleOverrides,locationId},{headers:{"Cache-Control":"no-store"}});
+ return NextResponse.json({blocks:ticketId?undefined:await calendarBlocks(tenantId,locationId),employees,tickets:(await customerStates(tenantId,tickets)).map(t=>({...t,pets:t.pets.map((p:any)=>({...p,pet:{...p.pet,todaysGroomingNotes:groomingSummary(grooming.find(n=>n.ticketId===t.id&&n.petId===p.pet.id)?.instructions)}})),needsAssignment:t.lines.some((l:any)=>l.assignmentUnavailable&&l.role==='GROOM')})),assets,employeeSchedules,assetSchedules,scheduleOverrides,locationId},{headers:{"Cache-Control":"no-store"}});
  }catch(error){console.error("Calendar load failed",error);return NextResponse.json({error:"Calendar could not load. Retry to see your appointments."},{status:503})}
 }
 

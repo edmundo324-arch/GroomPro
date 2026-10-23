@@ -5,7 +5,7 @@ import {HoverDetail} from '../lib/calendar-hover-details';
 import {useModuleRefresh} from "./module-view";
 import {createPortal} from "react-dom";
 import {popupPosition,slotMinute,CalendarBlock} from '../lib/calendar-interaction';
-import {presentationKey} from "../lib/calendar-presentation";
+import {appointmentStyle,presentationKey} from "../lib/calendar-presentation";
 import {useEffect,useMemo,useState,useRef} from "react";
 import {DateOverride,effectiveShift} from "../lib/schedule-dates";
 import {employeeFetch} from "../lib/employee-fetch";
@@ -27,7 +27,8 @@ export function CalendarWorkspace({onSlot,onNewTicket,onOpenTicket,refreshKey=0,
  useEffect(()=>{if(!visible)return;employeeFetch('/api/workflow-settings').then(r=>r.json()).then(d=>{if(d.settings)setPresentation(d.settings)}).catch(()=>{})},[visible,moduleRevision]);
  const[hoverDetails,setHoverDetails]=useState<HoverDetail[]>([]);
  useEffect(()=>{setHoverDetails([]);if(!hover||!visible||!presentation.hoverFields.some((f:string)=>f.includes(".")||["payments","assignments"].includes(f)))return;const c=new AbortController();employeeFetch(`/api/calendar/details?id=${encodeURIComponent(hover.ticket.id)}`,{signal:c.signal}).then(r=>r.json()).then(d=>{if(!c.signal.aborted)setHoverDetails(d.details||[])}).catch(()=>{});return()=>c.abort()},[hover?.ticket.id,visible,presentation]);
- function cardStyle(t:Ticket){const s=presentation.statusStyles[presentationKey(t)];return s?{background:s.gradient?`linear-gradient(135deg,${s.color},#ffffff)`:s.color,border:`2px solid ${s.border}`}:{};}
+ useEffect(()=>{const refresh=()=>employeeFetch('/api/workflow-settings').then(r=>r.json()).then(d=>setPresentation(d.settings));window.addEventListener('groompro:appearance-changed',refresh);return()=>window.removeEventListener('groompro:appearance-changed',refresh)},[]);
+ function cardStyle(t:Ticket){return appointmentStyle(t,presentation)}
  function showHover(t:Ticket,el:HTMLElement){const pos=popupPosition(el.getBoundingClientRect(),window.innerWidth,window.innerHeight);setHoverDetails([]);setHover({ticket:t,x:pos.left,y:pos.top,width:pos.width})}
  const[blocks,setBlocks]=useState<CalendarBlock[]>([]),[blockMode,setBlockMode]=useState(false),[blockEdit,setBlockEdit]=useState<CalendarBlock|null>(null),[blockBusy,setBlockBusy]=useState(false);
  const drag=useRef<{ticket?:Ticket;block?:CalendarBlock}|null>(null),movingIds=useRef(new Set<string>());

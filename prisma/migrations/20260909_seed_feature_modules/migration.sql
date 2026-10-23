@@ -11,3 +11,5 @@ INSERT IGNORE INTO FeatureModule (id, code, name, description, active, createdAt
   (UUID(), 'DAYCARE', 'Daycare', 'Daycare workflow and ticket-level daycare tracking.', true, NOW(), NOW()),
   (UUID(), 'BOARDING', 'Boarding', 'Boarding reservations and occupancy management.', true, NOW(), NOW()),
   (UUID(), 'SETTINGS', 'Settings', 'Business, location, pricing, permissions, and personalization controls.', true, NOW(), NOW());
+
+INSERT IGNORE INTO FeatureModule (id, code, name, description, active, createdAt, updatedAt) VALUES (UUID(), 'STARTER_PACKAGES', 'Starter package imports', 'Optional self-service access to the working starter package library.', true, NOW(), NOW());

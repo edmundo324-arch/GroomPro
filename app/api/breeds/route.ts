@@ -5,8 +5,9 @@ import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {writeAudit} from '@/src/lib/audit';
 import {breedKey,findBreed,petBreedData,Breed} from '@/src/lib/breed-classification';
 import {loadBreeds,breedSettingKey} from '@/src/lib/breed-store';
+import {breedGroomingDefault} from '@/src/lib/grooming-note-defaults';
 const tenant=(r:NextRequest)=>r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
-export async function GET(r:NextRequest){const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});const breeds=await loadBreeds(db,tenantId);return NextResponse.json({breeds});}
+export async function GET(r:NextRequest){const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});const breeds=await loadBreeds(db,tenantId);return NextResponse.json({breeds:breeds.map(b=>({...b,groomingNotesDefault:breedGroomingDefault({breedId:b.id},breeds)}))});}
 export async function POST(r:NextRequest){
  const tenantId=tenant(r),sid=r.cookies.get('groompro_session')?.value;const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager authorization is required.'},{status:403});

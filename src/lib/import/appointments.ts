@@ -20,7 +20,7 @@ export function appointmentData(data:any,locationId:string|undefined,resolve:(en
   const petId=line.petId?resolve('PET',String(line.petId))?.id:petIds.length===1?petIds[0]:null;
   if(!petId||!petIds.includes(petId))throw Error('Each booked service must identify a pet on this appointment.');
   const employee=line.employeeId?resolve('EMPLOYEE',String(line.employeeId)):null;if(line.employeeId&&!employee)throw Error('Service employee identifier cannot be resolved.');
-  const role=line.role||'GROOM';if(!['PREP','BATH','GROOM','ADD_ON'].includes(role))throw Error('Invalid booked service role.');
+  const role=line.role||'GROOM';if(!['PREP','BATH','DRY','GROOM','ADD_ON'].includes(role))throw Error('Invalid booked service role.');
   const quantity=integer(line.quantity??1,'quantity',1),unitPriceCents=integer(line.unitPriceCents??service?.priceCents??0,'price'),discountCents=integer(line.discountCents??0,'discount');
   const totalCents=quantity*unitPriceCents-discountCents;integer(totalCents,'line total');
   return {lineType:'SERVICE',role,description,petId,serviceId:service?.id||null,assignedUserId:employee?.id||null,quantity,unitPriceCents,discountCents,totalCents,durationMin:integer(line.durationMin??service?.durationMin??data.durationMin??0,'service duration'),sortOrder:index};

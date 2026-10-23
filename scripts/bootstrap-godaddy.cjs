@@ -54,6 +54,14 @@ async function bootstrap(db, plan) {
       if (status[0]?.columnType === "enum('OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED','CANCELLED')") {
         await tx.$executeRawUnsafe("ALTER TABLE `Ticket` MODIFY COLUMN `status` ENUM('OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED','CANCELLED','NO_SHOW') NOT NULL DEFAULT 'OPEN'");
       }
+      for (const table of ["TicketLine", "PackageItem"]) {
+        const roles = await tx.$queryRaw`SELECT COLUMN_TYPE AS columnType FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${table} AND COLUMN_NAME='role'`;
+        const type = roles[0]?.columnType;
+        if (type && !type.includes("'DRY'")) {
+          if (type !== "enum('PREP','BATH','GROOM','ADD_ON','PRODUCT')") throw Error("Unexpected workflow enum; migration review required.");
+          await tx.$executeRawUnsafe("ALTER TABLE `" + table + "` MODIFY COLUMN `role` ENUM('PREP','BATH','GROOM','ADD_ON','PRODUCT','DRY') NOT NULL DEFAULT 'ADD_ON'");
+        }
+      }
       await require("./import-foundation-migration.cjs").migrateImportFoundation(tx);
       return await verify(tx, plan);
     } finally {

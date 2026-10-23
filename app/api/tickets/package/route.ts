@@ -1,3 +1,5 @@
+import {approvedScheduling} from '@/src/lib/scheduling-authorization';
+import {ensureGroomingNotes} from '@/src/lib/grooming-notes-store';
 import {schedulingApproved,schedulingWarning,schedulingException,warningDetails} from '@/src/lib/scheduling-warning';
 import {identifyPackageLines} from '@/src/lib/package-identification';
 import {NextRequest,NextResponse} from 'next/server';
@@ -20,8 +22,9 @@ export async function POST(r:NextRequest){
  const remaining=ticket.lines.filter(l=>!existing.some(e=>e.id===l.id));
  const addition=b.present?await resolveSaleLines(tx,tenantId,[{type:'PACKAGE',id:b.packageId,petId:b.petId}],[...new Set([...ticket.pets.map(p=>p.petId),pet.id])],ticket.locationId):{lines:[]};
  const durationMin=ticketDuration([...remaining,...addition.lines],ticket.timingMode);
- if(ticket.scheduledStart){const error=await appointmentHoursError(tenantId,ticket.locationId,ticket.scheduledStart,durationMin);if(error&&!schedulingApproved(r,error))throw schedulingException(error)}
+ if(ticket.scheduledStart){const error=await appointmentHoursError(tenantId,ticket.locationId,ticket.scheduledStart,durationMin);if(error&&!await approvedScheduling(r,error))throw schedulingException(error)}
  if(b.present)await tx.ticketPet.upsert({where:{ticketId_petId:{ticketId:ticket.id,petId:pet.id}},create:{ticketId:ticket.id,petId:pet.id},update:{}});
+ if(b.present)await ensureGroomingNotes(tx,{...ticket,pets:[{petId:pet.id}]},session.user.id);
  if(!b.present)await tx.ticketLine.deleteMany({where:{ticketId:ticket.id,id:{in:existing.map(l=>l.id)}}});
  for(const line of addition.lines)await tx.ticketLine.create({data:{...line,ticketId:ticket.id,sortOrder:remaining.length+line.sortOrder}});
  await tx.ticket.update({where:{id:ticket.id},data:{durationMin}});return{changed:true};});

@@ -1,3 +1,4 @@
+import {workflowSettings} from '@/src/lib/workflow-settings';
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 import { writeAudit } from "@/src/lib/audit";
@@ -8,7 +9,7 @@ const ALLOWED = ["OPEN", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "READY", "CLO
 type Status = typeof ALLOWED[number];
 function tenantFrom(r: NextRequest) { return r.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID || ""; }
 
-export async function PATCH(request: NextRequest) {
+async function updateStatus(request: NextRequest) {
   const tenantId = tenantFrom(request);
   const sid = request.cookies.get(COOKIE)?.value || "";
   const session = tenantId && sid ? await getActiveEmployeeSession(tenantId, sid) : null;
@@ -74,3 +75,5 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to change ticket status." }, { status: 400 });
   }
 }
+
+export async function PATCH(request:NextRequest){const tenantId=tenantFrom(request);const body=await request.clone().json().catch(()=>null);if(!body)return NextResponse.json({error:'Invalid status request.'},{status:400});const settings=await workflowSettings(tenantId),custom=settings.customStatuses.includes(body.status);const payload=custom?{...body,status:settings.customStatusStages[body.status]||'OPEN'}:body;const response=await updateStatus(new NextRequest(request.url,{method:'PATCH',headers:request.headers,body:JSON.stringify(payload)}));if(response.ok){await db.ticket.updateMany({where:{id:body.ticketId,tenantId},data:{displayStatus:custom?body.status:null}});const data=await response.json();return NextResponse.json({...data,...(data.ticket?{ticket:{...data.ticket,displayStatus:custom?body.status:null}}:{})},{status:response.status})}return response}
