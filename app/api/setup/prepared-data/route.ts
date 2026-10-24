@@ -13,7 +13,7 @@ export async function POST(r:NextRequest){
  try{
   const body=await r.json();if(!['PREVIEW','LOAD'].includes(body.action))throw Error('Choose preview or load.');
   const locationId=await requestLocation(r,tenantId);if(!locationId)throw Error('Select a business location first.');
-  const result=await preparedTestData(db,tenantId,locationId,session.user.id,body.action==='LOAD');
+  const result=await preparedTestData(db,tenantId,locationId,session.user.id,body.action==='LOAD',body.scope==='CUSTOMERS_PETS');
   return NextResponse.json(result);
  }catch(e){console.error('Prepared test-data load failed',e);return NextResponse.json({error:(e as Error).message},{status:400})}
 }
