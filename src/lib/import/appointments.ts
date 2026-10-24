@@ -1,3 +1,4 @@
+import {historyData} from './appointment-history';
 import {nextTicketNumber} from '../ticket-number';
 import {ticketDuration} from '../ticket-timing';
 export const appointmentInclude={pets:true,lines:{orderBy:{sortOrder:'asc'}},assignments:true,scheduleHistory:true,payments:true} as const;
@@ -23,15 +24,24 @@ export function appointmentData(data:any,locationId:string|undefined,resolve:(en
   const role=line.role||'GROOM';if(!['PREP','BATH','DRY','GROOM','ADD_ON'].includes(role))throw Error('Invalid booked service role.');
   const quantity=integer(line.quantity??1,'quantity',1),unitPriceCents=integer(line.unitPriceCents??service?.priceCents??0,'price'),discountCents=integer(line.discountCents??0,'discount');
   const totalCents=quantity*unitPriceCents-discountCents;integer(totalCents,'line total');
-  return {lineType:'SERVICE',role,description,petId,serviceId:service?.id||null,assignedUserId:employee?.id||null,quantity,unitPriceCents,discountCents,totalCents,durationMin:integer(line.durationMin??service?.durationMin??data.durationMin??0,'service duration'),sortOrder:index};
+  const assignedAt=line.assignedAt?new Date(line.assignedAt):null;if(assignedAt&&(!Number.isFinite(+assignedAt)||!/(Z|[+-]\d{2}:\d{2})$/.test(String(line.assignedAt))))throw Error('Assignment date requires a timezone.');
+  return {assignedAt,...(line.packageName?{packageName:String(line.packageName).slice(0,191),packageGroupKey:petId+':'+String(line.packageGroupKey||line.packageName).slice(0,100)}:{}),lineType:'SERVICE',role,description,petId,serviceId:service?.id||null,assignedUserId:employee?.id||null,quantity,unitPriceCents,discountCents,totalCents,durationMin:integer(line.durationMin??service?.durationMin??data.durationMin??0,'service duration'),sortOrder:index};
  });
  const durationMin=data.durationMin===undefined?ticketDuration(lines,mode):integer(data.durationMin,'appointment duration',1);
  if(durationMin<1)throw Error('Appointment duration must be positive.');
- return {locationId,customerId:data.customerId,scheduledStart:data.scheduledStart,durationMin,timingMode:mode,status,notes:data.notes||null,totalCents:integer(lines.reduce((n:number,l:any)=>n+l.totalCents,0),'appointment total'),pets:{create:petIds.map(petId=>({petId}))},lines:{create:lines},...(data.employeeId?{assignments:{create:[{userId:data.employeeId,role:'GROOMER'},{userId:data.employeeId,role:'PLANNED_GROOMER'}]}}:{})};
+ const tipCents=integer(data.tipCents||0,'tip'),salesTaxCents=integer(data.salesTaxCents||0,'tax'),total=integer(lines.reduce((n:number,l:any)=>n+l.totalCents,0)+tipCents+salesTaxCents,'total');
+ const history=historyData(data.bookingHistory,petIds,resolve,total,status);
+ return {tipCents,salesTaxCents,...(history?{_history:history,...history.timestamps}:{}),locationId,customerId:data.customerId,scheduledStart:data.scheduledStart,durationMin,timingMode:mode,status,notes:data.notes||null,totalCents:total,pets:{create:petIds.map(petId=>({petId}))},lines:{create:lines},...(data.employeeId?{assignments:{create:[{userId:data.employeeId,role:'GROOMER'},{userId:data.employeeId,role:'PLANNED_GROOMER'}]}}:{})};
 }
 export async function insertAppointment(tx:any,tenantId:string,id:string,data:any){
  const orderNumber=await nextTicketNumber(tx,tenantId);
- const ticket=await tx.ticket.create({data:{...data,id,tenantId,orderNumber}});
- await tx.ticketScheduleHistory.create({data:{tenantId,ticketId:id,changeType:'CREATED',newStart:data.scheduledStart}});
+ const {_history:history,...record}=data;
+ const ticket=await tx.ticket.create({data:{...record,id,tenantId,orderNumber,...(history?{assignments:{create:history.assignments},payments:{create:history.payments.map((p:any)=>({...p,tenantId}))}}:{})}});
+ if(history){for(const note of history.notes){const {closureSnapshot,finalSnapshot,...fields}=note;await tx.groomingNote.create({data:{...fields,tenantId,ticketId:id,customerId:ticket.customerId,locationId:ticket.locationId,appointmentAt:ticket.scheduledStart,...(closureSnapshot?{closureSnapshot}:{}),...(finalSnapshot?{finalSnapshot}:{})}})}
+ await tx.auditEntry.create({data:{tenantId,actorType:'SYSTEM',entityType:'TICKET',entityId:id,customerId:ticket.customerId,action:'IMPORTED_TICKET_HISTORY',summary:'Imported booked services and history; no payment was processed.',details:{sourceTicketNumber:history?.sourceTicketNumber||null}}});}
+ if(history?.scheduleHistory.length){for(const event of history.scheduleHistory)await tx.ticketScheduleHistory.create({data:{...event,tenantId,ticketId:id}})}else await tx.ticketScheduleHistory.create({data:{tenantId,ticketId:id,changeType:'CREATED',newStart:data.scheduledStart}});
+ if(history)for(const event of history.auditHistory)await tx.auditEntry.create({data:{...event,tenantId,actorType:'SYSTEM',entityType:'TICKET',entityId:id,customerId:ticket.customerId,action:'IMPORTED_SOURCE_AUDIT'}});
  return ticket;
 }
+
+

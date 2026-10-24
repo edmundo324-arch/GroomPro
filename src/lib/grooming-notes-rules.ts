@@ -1,7 +1,7 @@
 import {DayHours,localToInstant,zonedParts} from './operating-hours';
 import {GroomingInstructions,groomingChoiceLabels} from './grooming-note-defaults';
 export const noteFields=['classification','body','tbf','ears','tail','specialNotes'] as const;
-export const noteLabels={classification:'Grooming type',body:'Body',tbf:'TBF',ears:'Ears',tail:'Tail',specialNotes:'Special notes'};
+export const noteLabels={classification:'Grooming type',body:'Body',tbf:'Face/TBF',ears:'Ears',tail:'Tail',specialNotes:'Special notes'};
 export type SpecialHours={date:string;closed:boolean;open:string;close:string};
 export function parseSpecialHours(value:unknown):SpecialHours[]{
  if(!Array.isArray(value)||value.length>1000)throw Error('Choose valid holiday or special hours.');
