@@ -20,3 +20,10 @@
 - Clicking a pet inside POS adds its assigned package, or its breed default when unassigned. It does not open pet editing. Pet editing stays in the shared customer/Pets editor.
 
 - Choose Related Files supports linked customer, pet, and appointment imports. Preserve ownership, source-identifier duplicate protection, and booked line-item details without requiring employee-profile or service-catalog imports.
+
+## Future Training & Sales Studio compatibility (no implementation authorized)
+- Preserve stable, identifiable interface elements and accessible names for future Playwright workflow recording.
+- Reuse centralized feature definitions, tenant settings, subscription permissions, and role-based access controls wherever practical.
+- Keep future development-team-only Training Studio and personalized AI Sales Studio compatible with the architecture. Proposed tooling includes OpenAI services, Playwright, and FFmpeg; do not add dependencies or functionality for these modules yet.
+- Future automation must use a dedicated demonstration tenant with fictional data and retain tenant isolation and permission checks.
+- Prioritize current functionality and approved appearance. Do not rebuild or interfere with working features solely for future Studio compatibility.
