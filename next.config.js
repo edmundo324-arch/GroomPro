@@ -4,6 +4,7 @@ const path = require('node:path');
 module.exports = {
   distDir: process.env.GROOMPRO_BUILD_DIR || ".next",
   experimental: { cpus: 2 },
+  outputFileTracingIncludes: { '/api/setup/prepared-data': ['./transfer-data/GroomPro-Full-Customer-and-Ticket-History.zip'] },
   onDemandEntries: { maxInactiveAge: 600000, pagesBufferLength: 100 },
   webpack: (config, { dev }) => {
     if (process.platform === "win32") { config.parallelism = 1; config.cache = dev ? { type: 'memory' } : false; }
