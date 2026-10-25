@@ -64,6 +64,8 @@ async function bootstrap(db, plan) {
       }
       await require("./developer-role-migration.cjs").migrateDeveloperRole(tx);
       await require("./import-foundation-migration.cjs").migrateImportFoundation(tx);
+      const promoted=await require("./promote-development-admins.cjs").promoteDevelopmentAdmins(tx);
+      if(promoted)console.log(`GroomPro: converted ${promoted} existing development Admin accounts to Developer.`);
       return await verify(tx, plan);
     } finally {
       await tx.$queryRaw`SELECT RELEASE_LOCK(CONCAT('groompro:', LEFT(SHA2(DATABASE(), 256), 48))) AS released`;
