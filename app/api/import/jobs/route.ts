@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {requestLocation} from '@/src/lib/request-location';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -8,9 +9,9 @@ import {fingerprint,seal,unseal} from '@/src/lib/import/crypto';
 import {planImport,publicReport,executeImport,rollbackImport} from '@/src/lib/import/engine';
 export const runtime='nodejs';
 async function access(r:NextRequest){const tenantId=r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'',sid=r.cookies.get('groompro_session')?.value;const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;return {tenantId,session};}
-export async function GET(r:NextRequest){const {tenantId,session}=await access(r);if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});const id=r.nextUrl.searchParams.get('id');if(!id)return NextResponse.json({jobs:await db.importJob.findMany({where:{tenantId},select:{id:true,source:true,status:true,mode:true,createdAt:true,completedAt:true},orderBy:{createdAt:'desc'},take:100})});const job=await db.importJob.findFirst({where:{id,tenantId}});if(!job)return NextResponse.json({error:'Import not found.'},{status:404});const datasets=unseal(job.encryptedData,tenantId) as Dataset[];return NextResponse.json({id:job.id,source:job.source,mode:job.mode,status:job.status,report:job.report,datasets:datasets.map(d=>({...d,rows:undefined,sourceCells:undefined,rowCount:d.rows.length}))});}
-export async function POST(r:NextRequest){
- const {tenantId,session}=await access(r);if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});
+async function handlePolicyGET(r:NextRequest){const {tenantId,session}=await access(r);if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});const id=r.nextUrl.searchParams.get('id');if(!id)return NextResponse.json({jobs:await db.importJob.findMany({where:{tenantId},select:{id:true,source:true,status:true,mode:true,createdAt:true,completedAt:true},orderBy:{createdAt:'desc'},take:100})});const job=await db.importJob.findFirst({where:{id,tenantId}});if(!job)return NextResponse.json({error:'Import not found.'},{status:404});const datasets=unseal(job.encryptedData,tenantId) as Dataset[];return NextResponse.json({id:job.id,source:job.source,mode:job.mode,status:job.status,report:job.report,datasets:datasets.map(d=>({...d,rows:undefined,sourceCells:undefined,rowCount:d.rows.length}))});}
+async function handlePolicyPOST(r:NextRequest){
+ const {tenantId,session}=await access(r);if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});
  try{
  if(r.headers.get('content-type')?.includes('multipart/form-data')){const form=await r.formData(),files=form.getAll('files') as File[];if(!files.length||files.length>30||files.reduce((n,f)=>n+f.size,0)>40*1024*1024)throw Error('Upload up to 30 files totaling 40 MB.');const datasets=(await Promise.all(files.map(async f=>parseFile(f.name,new Uint8Array(await f.arrayBuffer()))))).flat();
  // Parsing is read-only. Sensitive fields are masked in the preview, while originals stay encrypted server-side.
@@ -32,3 +33,6 @@ export async function POST(r:NextRequest){
  throw Error('Unknown import action.');
  }catch(e){const message=(e as Error).message;return NextResponse.json({error:(/Prisma|Invalid .*invocation|Foreign key|Transaction|Unique constraint/.test(message))?'Import could not commit. No operational changes were committed; validate and retry.':message},{status:400});}
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {});
+export const POST=withRequestPolicy(handlePolicyPOST, {});

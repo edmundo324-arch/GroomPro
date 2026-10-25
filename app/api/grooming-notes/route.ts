@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
@@ -6,7 +7,7 @@ import {initialGroomingInstructions} from '@/src/lib/grooming-note-defaults';
 import {noteFields,noteLabels,validInstructions} from '@/src/lib/grooming-notes-rules';
 import {loadBreeds} from '@/src/lib/breed-store';
 const tenant=(r:NextRequest)=>r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
-export async function GET(r:NextRequest){
+async function handlePolicyGET(r:NextRequest){
  const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});
  try{const customerId=r.nextUrl.searchParams.get('customerId')||'',ticketId=r.nextUrl.searchParams.get('ticketId')||'';
  const result=await db.$transaction(async tx=>{
@@ -21,17 +22,17 @@ export async function GET(r:NextRequest){
  },{timeout:30000});return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});
  }catch(e){return NextResponse.json({error:(e as Error).message},{status:400})}
 }
-export async function PATCH(r:NextRequest){
+async function handlePolicyPATCH(r:NextRequest){
  const tenantId=tenant(r),sid=r.cookies.get('groompro_session')?.value,session=sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  try{const b=await r.json();const result=await db.$transaction(async tx=>{
  if(b.permanent){
-  if(!['PET','CUSTOMER'].includes(b.permanent)||typeof b.value!=='string'||b.value.length>20000)throw Error('Enter valid permanent notes.');
-  const model=b.permanent==='PET'?tx.pet:tx.customer;
+  if(!['PET','CUSTOMER','LEGACY'].includes(b.permanent)||typeof b.value!=='string'||b.value.length>20000)throw Error('Enter valid permanent notes.');
+  const field=b.permanent==='LEGACY'?'groomingNotes':'notes';const petNote=b.permanent!=='CUSTOMER';const model=petNote?tx.pet:tx.customer;
   const entity=await (model as any).findFirst({where:{id:String(b.entityId),tenantId}});if(!entity)throw Error('Record not found.');
-  const previous=entity.notes||'';if(previous!==b.previous)throw Error('These notes changed in another window. Your text is retained; reload the notes before saving again.');
-  const changed=await (model as any).updateMany({where:{id:entity.id,tenantId,notes:entity.notes},data:{notes:b.value}});if(changed.count!==1)throw Error('Notes changed in another window. Please reload.');
-  await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:b.permanent,entityId:entity.id,customerId:b.permanent==='PET'?entity.customerId:entity.id,action:'PERMANENT_NOTES',summary:'Updated permanent notes.',details:{previous,value:b.value}}});return {ok:true};
+  const previous=entity[field]||'';if(previous!==b.previous)throw Error('These notes changed in another window. Your text is retained; reload the notes before saving again.');
+  const changed=await (model as any).updateMany({where:{id:entity.id,tenantId,[field]:entity[field]},data:{[field]:b.value}});if(changed.count!==1)throw Error('Notes changed in another window. Please reload.');
+  await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:petNote?'PET':'CUSTOMER',entityId:entity.id,customerId:petNote?entity.customerId:entity.id,action:b.permanent==='LEGACY'?'LEGACY_GROOMING_NOTES':'PERMANENT_NOTES',summary:b.permanent==='LEGACY'?'Updated original grooming notes.':'Updated permanent notes.',details:{field,previous,value:b.value}}});return {ok:true};
  }
  const candidate=await tx.groomingNote.findFirst({where:{id:String(b.id),tenantId}});if(!candidate)throw Error('Grooming record not found.');
  await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${candidate.ticketId} AND tenantId=${tenantId} FOR UPDATE`;
@@ -54,3 +55,6 @@ export async function PATCH(r:NextRequest){
  },{timeout:30000});return NextResponse.json(result);
  }catch(e){return NextResponse.json({error:(e as Error).message},{status:409})}
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'PETS'});
+export const PATCH=withRequestPolicy(handlePolicyPATCH, {feature:'PETS'});

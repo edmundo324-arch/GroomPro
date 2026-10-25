@@ -1,11 +1,12 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomerLedgerForProfile } from "@/src/lib/customer-ledger";
 import { getActiveEmployeeSession } from "@/src/lib/employee-session";
 
 const SESSION_COOKIE = "groompro_session";
-const MANAGER_ROLES = new Set(["ADMIN", "MANAGER", "FLOOR_MANAGER"]);
+const MANAGER_ROLES = new Set(['DEVELOPER','ADMIN','MANAGER', "FLOOR_MANAGER"]);
 
-export async function GET(
+async function handlePolicyGET(
   request: NextRequest,
   { params }: { params: Promise<{ customerId: string }> },
 ) {
@@ -21,3 +22,5 @@ export async function GET(
   const entries = await getCustomerLedgerForProfile(tenantId, customerId);
   return NextResponse.json({ entries });
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'CUSTOMERS'});

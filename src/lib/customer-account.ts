@@ -16,7 +16,7 @@ export async function getCustomerAccount(tenantId: string, customerId: string) {
 }
 
 export async function addAccountEntry(params: {tenantId:string;customerId:string;ticketId?:string|null;actorUserId?:string|null;entryType:AccountEntryType;amountCents:number;reason:string;referenceId?:string|null}) {
-  if (!Number.isInteger(params.amountCents) || params.amountCents <= 0) throw new Error("Account amount must be a positive whole number of cents.");
+  if (!Number.isInteger(params.amountCents) || params.amountCents <= 0) throw new Error("Account amount must be a positive dollar amount with no more than two decimal places.");
   return db.$transaction(async tx => {
     const id=randomUUID();
     await tx.$executeRaw`INSERT INTO CustomerAccountLedger (id,tenantId,customerId,ticketId,actorUserId,entryType,amountCents,reason,referenceId) VALUES (${id},${params.tenantId},${params.customerId},${params.ticketId||null},${params.actorUserId||null},${params.entryType},${params.amountCents},${params.reason},${params.referenceId||null})`;
@@ -27,7 +27,7 @@ export async function addAccountEntry(params: {tenantId:string;customerId:string
 }
 
 export async function adjustAccountEntry(params:{tenantId:string;customerId:string;actorUserId?:string|null;entryType:AccountEntryType;amountCents:number;reason:string;ticketId?:string|null}) {
-  if(!Number.isInteger(params.amountCents)||params.amountCents===0) throw new Error("Adjustment must be a non-zero whole number of cents.");
+  if(!Number.isInteger(params.amountCents)||params.amountCents===0) throw new Error("Adjustment must be a non-zero dollar amount with no more than two decimal places.");
   return db.$transaction(async tx=>{
     const field=params.entryType==="OWED"?"balanceCents":"creditCents";
     // SQL parameters represent values, not identifiers. The column comes only
@@ -44,7 +44,7 @@ export async function adjustAccountEntry(params:{tenantId:string;customerId:stri
 }
 
 export async function settleOwedBalance(params:{tenantId:string;customerId:string;ticketId?:string|null;actorUserId?:string|null;amountCents:number;reason:string;referenceId?:string|null}) {
-  if(!Number.isInteger(params.amountCents)||params.amountCents<=0) throw new Error("Settlement amount must be a positive whole number of cents.");
+  if(!Number.isInteger(params.amountCents)||params.amountCents<=0) throw new Error("Settlement amount must be a positive dollar amount with no more than two decimal places.");
   return db.$transaction(async tx=>{
     const customer=await tx.$queryRaw<any[]>`SELECT balanceCents FROM Customer WHERE id=${params.customerId} AND tenantId=${params.tenantId} FOR UPDATE`;
     if(!customer.length) throw new Error("Customer could not be found.");
@@ -57,7 +57,7 @@ export async function settleOwedBalance(params:{tenantId:string;customerId:strin
 }
 
 export async function settleCustomerCredit(params:{tenantId:string;customerId:string;ticketId?:string|null;actorUserId?:string|null;amountCents:number;reason:string}) {
-  if(!Number.isInteger(params.amountCents)||params.amountCents<=0) throw new Error("Credit application must be a positive whole number of cents.");
+  if(!Number.isInteger(params.amountCents)||params.amountCents<=0) throw new Error("Credit application must be a positive dollar amount with no more than two decimal places.");
   return adjustAccountEntry({tenantId:params.tenantId,customerId:params.customerId,actorUserId:params.actorUserId,entryType:"CREDIT",amountCents:-params.amountCents,reason:params.reason,ticketId:params.ticketId});
 }
 

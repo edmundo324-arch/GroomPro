@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {customerDetails} from "@/src/lib/customer-details";
 import {saveCustomerPhones} from '@/src/lib/customer-phones';
 import { NextRequest, NextResponse } from "next/server";
@@ -8,7 +9,7 @@ import { getActiveEmployeeSession } from "@/src/lib/employee-session";
 
 const SESSION_COOKIE = "groompro_session";
 
-export async function POST(request: NextRequest) {
+async function handlePolicyPOST(request: NextRequest) {
   const tenantId = request.headers.get("x-tenant-id") || request.cookies.get("groompro_tenant")?.value || process.env.GROOMPRO_DEV_TENANT_ID;
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
 
@@ -46,3 +47,5 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ customer }, { status: 201 });
   }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Could not save customer."},{status:400});}
 }
+
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'CUSTOMERS'});

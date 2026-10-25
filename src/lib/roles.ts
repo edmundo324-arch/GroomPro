@@ -1,4 +1,5 @@
 export const GROOMPRO_ROLES = [
+  "DEVELOPER",
   "ADMIN",
   "MANAGER",
   "FLOOR_MANAGER",

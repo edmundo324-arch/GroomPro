@@ -11,8 +11,10 @@ export async function hashPin(pin: string): Promise<string> {
   return `${salt}:${derived.toString("hex")}`;
 }
 
+export function hasUsablePinHash(value:unknown):value is string { return typeof value==='string' && /^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(value); }
+
 export async function verifyPin(pin: string, storedHash: string): Promise<boolean> {
-  if (!/^\d{3,10}$/.test(pin)) return false;
+  if (!/^\d{3,10}$/.test(pin)||!hasUsablePinHash(storedHash)) return false;
   const [salt, stored] = storedHash.split(":");
   if (!salt || !stored) return false;
   const expected = Buffer.from(stored, "hex");
@@ -36,6 +38,7 @@ export async function hashPinPrefixes(pin: string): Promise<string[]> {
 
 export async function pinAssignmentError(pin: string, users: {pinHash: string; pinPrefixHashes: unknown}[]): Promise<string | null> {
   validatePin(pin);
+  users=users.filter(user=>hasUsablePinHash(user.pinHash));
   if (users.some(user => !Array.isArray(user.pinPrefixHashes))) {
     return 'Existing employees must sign in once to finish the PIN security upgrade before another PIN can be assigned.';
   }

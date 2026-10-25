@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import { NextRequest, NextResponse } from "next/server";
 import { getActiveEmployeeSession } from "@/src/lib/employee-session";
 import { addAccountEntry, adjustAccountEntry, adjustRewardPoints, getCustomerAccount } from "@/src/lib/customer-account";
@@ -6,7 +7,7 @@ import { writeAudit } from "@/src/lib/audit";
 const COOKIE="groompro_session";
 const tenantFrom=(r:NextRequest)=>r.headers.get("x-tenant-id")||process.env.GROOMPRO_DEV_TENANT_ID||"";
 
-export async function GET(request:NextRequest){
+async function handlePolicyGET(request:NextRequest){
  const tenantId=tenantFrom(request);const customerId=request.nextUrl.searchParams.get("customerId")||"";
  if(!tenantId||!customerId)return NextResponse.json({error:"Tenant and customer are required."},{status:400});
  const account=await getCustomerAccount(tenantId,customerId);
@@ -14,10 +15,10 @@ export async function GET(request:NextRequest){
  return NextResponse.json(account);
 }
 
-export async function POST(request:NextRequest){
+async function handlePolicyPOST(request:NextRequest){
  const tenantId=tenantFrom(request);const sid=request.cookies.get(COOKIE)?.value||"";const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});
- if(!["ADMIN","MANAGER"].includes(session.user.role))return NextResponse.json({error:"Manager approval is required for customer account adjustments."},{status:403});
+ if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:"Manager approval is required for customer account adjustments."},{status:403});
  try{
   const body=await request.json();const customerId=String(body.customerId||"");const reason=String(body.reason||"").trim();const action=String(body.action||"ACCOUNT");
   if(!customerId||!reason)return NextResponse.json({error:"Customer and reason are required."},{status:400});
@@ -34,3 +35,6 @@ export async function POST(request:NextRequest){
   return NextResponse.json(await getCustomerAccount(tenantId,customerId));
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Unable to adjust customer account."},{status:400});}
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'CUSTOMERS'});
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'CUSTOMERS'});

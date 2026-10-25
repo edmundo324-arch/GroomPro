@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {NextRequest,NextResponse} from 'next/server';
 import {randomUUID} from 'node:crypto';
 import {db} from '@/src/lib/db';
@@ -7,10 +8,10 @@ import {breedKey,findBreed,petBreedData,Breed} from '@/src/lib/breed-classificat
 import {loadBreeds,breedSettingKey} from '@/src/lib/breed-store';
 import {breedGroomingDefault} from '@/src/lib/grooming-note-defaults';
 const tenant=(r:NextRequest)=>r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
-export async function GET(r:NextRequest){const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});const breeds=await loadBreeds(db,tenantId);return NextResponse.json({breeds:breeds.map(b=>({...b,groomingNotesDefault:breedGroomingDefault({breedId:b.id},breeds)}))});}
-export async function POST(r:NextRequest){
+async function handlePolicyGET(r:NextRequest){const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});const breeds=await loadBreeds(db,tenantId);return NextResponse.json({breeds:breeds.map(b=>({...b,groomingNotesDefault:breedGroomingDefault({breedId:b.id},breeds)}))});}
+async function handlePolicyPOST(r:NextRequest){
  const tenantId=tenant(r),sid=r.cookies.get('groompro_session')?.value;const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
- if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager authorization is required.'},{status:403});
+ if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager authorization is required.'},{status:403});
  try{const b=await r.json();const result=await db.$transaction(async tx=>{
  await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
  const breeds=await loadBreeds(tx,tenantId);
@@ -30,3 +31,6 @@ export async function POST(r:NextRequest){
  },{timeout:120000});await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TENANT',entityId:tenantId,action:'BREED_DICTIONARY',summary:b.action==='RECONCILE'?'Linked recognized pet breeds; preserved original descriptions.':'Updated breed dictionary.'});return NextResponse.json(result);
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Breed update failed.'},{status:400});}
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {});
+export const POST=withRequestPolicy(handlePolicyPOST, {});

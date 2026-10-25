@@ -1,14 +1,15 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {calendarBlocks} from '@/src/lib/calendar-blocks';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {requestLocation} from '@/src/lib/request-location';
 import {writeAudit} from '@/src/lib/audit';
-export async function POST(r:NextRequest){
+async function handlePolicyPOST(r:NextRequest){
  const tenantId=r.headers.get('x-tenant-id')||process.env.GROOMPRO_DEV_TENANT_ID||'',locationId=await requestLocation(r,tenantId),sid=r.cookies.get('groompro_session')?.value;
  const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
- if(!['ADMIN','MANAGER','FLOOR_MANAGER','FRONT'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});
+ if(!['DEVELOPER','ADMIN','MANAGER','FLOOR_MANAGER','FRONT'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});
  if(!locationId)return NextResponse.json({error:'Select a location.'},{status:400});
  try{
  const b=await r.json();if(!/^[a-zA-Z0-9-]{16,80}$/.test(b.id||''))throw Error('A valid block ID is required.');
@@ -26,3 +27,5 @@ export async function POST(r:NextRequest){
  return NextResponse.json({blocks});
  }catch(e){return NextResponse.json({error:(e as Error).message},{status:409})}
 }
+
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'CALENDAR'});

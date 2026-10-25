@@ -1,3 +1,4 @@
+import {withRequestPolicy,catalogFeature} from '@/src/lib/request-policy';
 import {loadBreeds} from '@/src/lib/breed-store';
 import {writeAudit} from '@/src/lib/audit';
 import {NextRequest,NextResponse} from "next/server";
@@ -7,7 +8,7 @@ import {getActiveEmployeeSession} from "@/src/lib/employee-session";
 import {catalogInput} from "@/src/lib/catalog-input";
 const tenant=(r:NextRequest)=>r.headers.get("x-tenant-id")||r.cookies.get("groompro_tenant")?.value||process.env.GROOMPRO_DEV_TENANT_ID||"";
 const prefix="VIP_PLAN:";
-export async function GET(r:NextRequest){
+async function handlePolicyGET(r:NextRequest){
  const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:"Business context is required."},{status:401});
  try{const[services,products,packages,plans]=await Promise.all([
  db.service.findMany({where:{tenantId},orderBy:{name:"asc"}}),db.product.findMany({where:{tenantId},orderBy:{name:"asc"}}),
@@ -20,7 +21,7 @@ async function save(r:NextRequest){
  const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:"Business context is required."},{status:401});
  const sid=r.cookies.get("groompro_session")?.value;const session=sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});
- if(!["ADMIN","MANAGER"].includes(session.user.role))return NextResponse.json({error:"An administrator or manager must sign in to edit the catalog."},{status:403});
+ if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:"An administrator or manager must sign in to edit the catalog."},{status:403});
  try{
  const body=await r.json(),data=catalogInput(body),id=r.method==="PATCH"?String(body.id||""):randomUUID();
  if(data.groomingRules){const breeds=await loadBreeds(db,tenantId);if([...(data.groomingRules.breedIds||[]),...(data.groomingRules.excludedBreedIds||[])].some(id=>!breeds.some(b=>b.id===id)))throw Error('Choose breeds from this business’s dictionary.');}
@@ -64,5 +65,9 @@ async function save(r:NextRequest){
  });await writeAudit({tenantId,actorUserId:session.user.id,entityType:"TENANT",entityId:tenantId,action:"CATALOG_"+(r.method==="POST"?"CREATE":"EDIT"),summary:`Updated ${data.kind}: ${data.name}.`,details:{kind:data.kind,itemId:id}});return NextResponse.json({item},{status:r.method==="POST"?201:200});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Unable to save catalog item."},{status:400})}
 }
-export const POST=save;export const PATCH=save;
+const handlePolicyPOST=save;const handlePolicyPATCH=save;
 
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:catalogFeature});
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:catalogFeature});
+export const PATCH=withRequestPolicy(handlePolicyPATCH, {feature:catalogFeature});

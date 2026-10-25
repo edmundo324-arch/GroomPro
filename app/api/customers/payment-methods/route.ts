@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { db } from "@/src/lib/db";
@@ -6,14 +7,14 @@ import { getActiveEmployeeSession } from "@/src/lib/employee-session";
 const COOKIE="groompro_session";
 const tenantFrom=(r:NextRequest)=>r.headers.get("x-tenant-id")||process.env.GROOMPRO_DEV_TENANT_ID||"";
 
-export async function GET(request:NextRequest){
+async function handlePolicyGET(request:NextRequest){
  const tenantId=tenantFrom(request);const customerId=request.nextUrl.searchParams.get("customerId")||"";
  if(!tenantId||!customerId)return NextResponse.json({error:"Tenant and customer are required."},{status:400});
  const methods=await db.$queryRaw<any[]>`SELECT id,provider,brand,last4,expMonth,expYear,isDefault,active,createdAt FROM CustomerPaymentMethod WHERE tenantId=${tenantId} AND customerId=${customerId} AND active=true ORDER BY isDefault DESC,createdAt DESC`;
  return NextResponse.json({paymentMethods:methods});
 }
 
-export async function POST(request:NextRequest){
+async function handlePolicyPOST(request:NextRequest){
  const tenantId=tenantFrom(request);const sid=request.cookies.get(COOKIE)?.value||"";const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});
  try{
@@ -28,10 +29,14 @@ export async function POST(request:NextRequest){
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Unable to save payment method."},{status:400});}
 }
 
-export async function DELETE(request:NextRequest){
+async function handlePolicyDELETE(request:NextRequest){
  const tenantId=tenantFrom(request);const sid=request.cookies.get(COOKIE)?.value||"";const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});
  const id=request.nextUrl.searchParams.get("id")||"";if(!id)return NextResponse.json({error:"Payment method is required."},{status:400});
  await db.$executeRaw`UPDATE CustomerPaymentMethod SET active=false,isDefault=false WHERE id=${id} AND tenantId=${tenantId}`;
  return NextResponse.json({success:true});
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'CUSTOMERS'});
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'CUSTOMERS'});
+export const DELETE=withRequestPolicy(handlePolicyDELETE, {feature:'CUSTOMERS'});

@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {approvedScheduling} from '@/src/lib/scheduling-authorization';
 import {schedulingApproved,schedulingWarning,schedulingException,warningDetails} from '@/src/lib/scheduling-warning';
 import {employeeAvailable,syncActualGroomers} from '@/src/lib/groomer-assignment';
@@ -21,7 +22,7 @@ async function getSession(request: NextRequest, tenantId: string) {
   return sessionId ? getActiveEmployeeSession(tenantId, sessionId) : null;
 }
 
-export async function GET(request: NextRequest) {
+async function handlePolicyGET(request: NextRequest) {
   const tenantId = tenantFrom(request);
   const ticketId = request.nextUrl.searchParams.get("ticketId") || "";
   if (!tenantId || !ticketId) return NextResponse.json({ error: "Tenant and ticket are required." }, { status: 400 });
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ lines });
 }
 
-export async function POST(request: NextRequest) {
+async function handlePolicyPOST(request: NextRequest) {
   const tenantId = tenantFrom(request);
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
   const session = await getSession(request, tenantId);
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ line });
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePolicyPATCH(request: NextRequest) {
   const tenantId = tenantFrom(request);
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
   const session = await getSession(request, tenantId);
@@ -89,7 +90,7 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ line: changed });
 }
 
-export async function DELETE(request: NextRequest) {
+async function handlePolicyDELETE(request: NextRequest) {
   const tenantId = tenantFrom(request);
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
   const session = await getSession(request, tenantId);
@@ -104,3 +105,8 @@ export async function DELETE(request: NextRequest) {
   await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: line.ticketId, customerId: line.ticket.customerId, action: "REMOVE_LINE", summary: `Removed ${line.description} from ticket #${line.ticket.orderNumber}.`, details: { lineId: line.id, petId: line.petId, role: line.role } });
   return NextResponse.json({ removed: true, lineId });
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'TICKETS'});
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'TICKETS'});
+export const PATCH=withRequestPolicy(handlePolicyPATCH, {feature:'TICKETS'});
+export const DELETE=withRequestPolicy(handlePolicyDELETE, {feature:'TICKETS'});

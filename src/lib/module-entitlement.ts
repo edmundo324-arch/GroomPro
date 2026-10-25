@@ -1,2 +1,7 @@
-import {NextRequest,NextResponse} from 'next/server';import {db} from './db';import {entitled,hasConfiguredPlan} from './platform-access';
-export async function moduleDenial(r:NextRequest,featureCode:string){const tenantId=r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';if(!tenantId)return null;const [sub,override]=await Promise.all([db.subscription.findUnique({where:{tenantId}}),db.tenantFeature.findUnique({where:{tenantId_featureCode:{tenantId,featureCode}}})]);if(override?.enabled===false||sub&&await hasConfiguredPlan(tenantId)&&!await entitled(tenantId,featureCode))return NextResponse.json({error:'This module is not enabled for this business.'},{status:403});return null}
+import {NextRequest,NextResponse} from 'next/server';
+import {isFeatureEnabled} from './feature-access';
+export async function moduleDenial(r:NextRequest,featureCode:string){
+ const tenantId=r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
+ if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});
+ return await isFeatureEnabled(tenantId,featureCode)?null:NextResponse.json({error:'This module is not enabled for this business.'},{status:403});
+}

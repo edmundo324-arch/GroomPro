@@ -1,8 +1,10 @@
+import {pinVaultKey,sealPin} from '@/src/lib/pin-vault';
+import {platformRestriction} from '@/src/lib/platform-restrictions';
 import {randomBytes} from 'node:crypto';
 import {writeAudit} from '@/src/lib/audit';
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
-import { verifyPin, hashPinPrefixes } from "@/src/lib/pin";
+import { verifyPin, hashPinPrefixes, hasUsablePinHash } from "@/src/lib/pin";
 import { createDeviceId, endEmployeeSession, getActiveEmployeeSession, startEmployeeSession } from "@/src/lib/employee-session";
 
 import {allowPinAttempt} from "@/src/lib/pin-attempts";
@@ -41,10 +43,12 @@ export async function POST(request: NextRequest) {
   if (!/^\d{3,10}$/.test(pin)) return NextResponse.json({ error: "PIN must contain 3–10 digits." }, { status: 400 });
 
   if(!await allowPinAttempt(tenantId))return NextResponse.json({error:"Too many PIN attempts. Wait a minute and try again."},{status:429});
-  const users = await db.user.findMany({ where: { tenantId, active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] });
+  const users = (await db.user.findMany({ where: { tenantId, active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] })).filter(candidate=>hasUsablePinHash(candidate.pinHash));
   const user = (await Promise.all(users.map(async (candidate) => (await verifyPin(pin, candidate.pinHash)) ? candidate : null))).find(Boolean);
   if (!user) return NextResponse.json({ error: "Employee PIN not recognized." }, { status: 401 });
 
+  const restriction=await platformRestriction(tenantId,user.id);
+  if(restriction&&user.role!=='DEVELOPER')return NextResponse.json({error:restriction},{status:403});
   if(body.automatic){
     // Old records must be upgraded explicitly; do not recognize a prefix of another PIN.
     if(users.some(candidate=>!Array.isArray(candidate.pinPrefixHashes)))return NextResponse.json({pending:true,message:'An older PIN record needs verification. Press Continue to sign in securely.'},{status:202});
@@ -55,8 +59,14 @@ export async function POST(request: NextRequest) {
     }
   }
   if(!Array.isArray(user.pinPrefixHashes))await db.user.updateMany({where:{id:user.id,tenantId,pinHash:user.pinHash},data:{pinPrefixHashes:await hashPinPrefixes(pin)}});
+  if(process.env.GROOMPRO_PIN_VAULT_KEY)await db.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
+    if(!await tx.user.findFirst({where:{id:user.id,tenantId,pinHash:user.pinHash}}))throw Error('PIN changed. Please sign in again.');
+    const settingKey=pinVaultKey(user.id),value=sealPin(pin,tenantId,user.id);
+    await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value},update:{value}});
+  });
   if(body.mode==='APPROVAL'){
-    if(!['ADMIN','MANAGER'].includes(user.role))return NextResponse.json({error:'Enter an administrator or manager PIN.'},{status:403});
+    if(!['DEVELOPER','ADMIN','MANAGER'].includes(user.role))return NextResponse.json({error:'Enter an administrator or manager PIN.'},{status:403});
     const working=await db.employeeSession.findFirst({where:{id:sessionId,tenantId,deviceId,endedAt:null,user:{active:true}}});
     if(!working || !/^[a-f0-9]{64}$/.test(body.requestHash||''))return NextResponse.json({error:'Your working session changed. Sign in and try the action again.'},{status:401});
     const approval=await db.actionApproval.create({data:{id:randomBytes(32).toString('hex'),tenantId,sessionId,deviceId,approverId:user.id,requestHash:body.requestHash!,expiresAt:new Date(Date.now()+120000)}});

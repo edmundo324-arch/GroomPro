@@ -1,8 +1,9 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {writeAudit} from '@/src/lib/audit';
-export async function PATCH(r:NextRequest){
+async function handlePolicyPATCH(r:NextRequest){
  const tenantId=r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
  const sid=r.cookies.get('groompro_session')?.value;const session=sid&&tenantId?await getActiveEmployeeSession(tenantId,sid):null;if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  try{const b=await r.json();const ticketId=String(b.ticketId||''),customerId=String(b.customerId||''),petId=String(b.petId||'');
@@ -19,3 +20,5 @@ export async function PATCH(r:NextRequest){
  });await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:ticketId,customerId,action:'CHANGE_CUSTOMER',summary:`Changed customer on ticket #${ticket.orderNumber}.`,details:{petId}});return NextResponse.json({ticket});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Customer could not change.'},{status:400})}
 }
+
+export const PATCH=withRequestPolicy(handlePolicyPATCH, {feature:'TICKETS'});

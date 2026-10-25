@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { db } from "@/src/lib/db";
@@ -7,7 +8,7 @@ import { writeAudit } from "@/src/lib/audit";
 const COOKIE="groompro_session";
 const tenantFrom=(r:NextRequest)=>r.headers.get("x-tenant-id")||process.env.GROOMPRO_DEV_TENANT_ID||"";
 
-export async function GET(request:NextRequest){
+async function handlePolicyGET(request:NextRequest){
   const tenantId=tenantFrom(request); const customerId=request.nextUrl.searchParams.get("customerId"); const membershipId=request.nextUrl.searchParams.get("membershipId");
   if(!tenantId)return NextResponse.json({error:"Tenant context is required."},{status:401});
   if(customerId){const documents=await db.$queryRaw<any[]>`SELECT id,customerId,petId,membershipId,documentType,title,version,status,signedAt,signedByName,customerEmail,sentCopy,createdAt FROM SignedDocument WHERE tenantId=${tenantId} AND customerId=${customerId} ORDER BY createdAt DESC`;return NextResponse.json({documents});}
@@ -15,7 +16,7 @@ export async function GET(request:NextRequest){
   return NextResponse.json({error:"customerId or membershipId is required."},{status:400});
 }
 
-export async function POST(request:NextRequest){
+async function handlePolicyPOST(request:NextRequest){
   const tenantId=tenantFrom(request); const sid=request.cookies.get(COOKIE)?.value||""; const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
   if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});
   try{
@@ -28,3 +29,6 @@ export async function POST(request:NextRequest){
     return NextResponse.json({documentId:id,signedAt:now.toISOString()},{status:201});
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Unable to save signed document."},{status:400});}
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {});
+export const POST=withRequestPolicy(handlePolicyPOST, {});

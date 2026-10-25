@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {approvedScheduling} from '@/src/lib/scheduling-authorization';
 import {ensureGroomingNotes} from '@/src/lib/grooming-notes-store';
 import {schedulingApproved,schedulingWarning,schedulingException,warningDetails} from '@/src/lib/scheduling-warning';
@@ -9,7 +10,7 @@ import {resolveSaleLines} from '@/src/lib/pos-lines';
 import {ticketDuration} from '@/src/lib/ticket-timing';
 import {appointmentHoursError} from '@/src/lib/location-hours';
 import {writeAudit} from '@/src/lib/audit';
-export async function POST(r:NextRequest){
+async function handlePolicyPOST(r:NextRequest){
  const tenantId=r.headers.get('x-tenant-id')||process.env.GROOMPRO_DEV_TENANT_ID||'',sid=r.cookies.get('groompro_session')?.value;
  const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  try{const b=await r.json();if(typeof b.present!=='boolean'||!b.packageId||!b.petId||!b.ticketId)throw Error('Ticket, dog, package and desired selection are required.');
@@ -32,3 +33,5 @@ export async function POST(r:NextRequest){
  return NextResponse.json(result);
  }catch(e){return NextResponse.json({...warningDetails(e),error:e instanceof Error?e.message:'Package could not update.'},{status:400})}
 }
+
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'TICKETS'});

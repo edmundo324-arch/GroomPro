@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {employeeAppearance} from '@/src/lib/appearance-settings';
 import {platformSession} from '@/src/lib/platform-access';
 import {buildHoverDetails} from '@/src/lib/calendar-hover-details';
@@ -6,7 +7,7 @@ import {db} from '@/src/lib/db';
 import {requestLocation} from '@/src/lib/request-location';
 import {workflowSettings} from '@/src/lib/workflow-settings';
 import {calendarHoverFields} from '@/src/lib/calendar-hover-fields';
-export async function GET(r:NextRequest){
+async function handlePolicyGET(r:NextRequest){
  const tenantId=r.headers.get('x-tenant-id')||process.env.GROOMPRO_DEV_TENANT_ID||'',locationId=tenantId?await requestLocation(r,tenantId):null;
  if(!tenantId||!locationId)return NextResponse.json({error:'Business context required.'},{status:401});
  const ticket=await db.ticket.findFirst({where:{id:r.nextUrl.searchParams.get('id')||'',tenantId,locationId},include:{customer:{include:{phones:true}},pets:{include:{pet:{include:{vaccinations:true}}}},lines:true,payments:true,assignments:{include:{user:{select:{displayName:true,firstName:true,lastName:true}}}}}});
@@ -15,3 +16,5 @@ export async function GET(r:NextRequest){
  const details=buildHoverDetails(ticket,fields);
  return NextResponse.json({details},{headers:{'Cache-Control':'no-store'}});
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'CALENDAR'});

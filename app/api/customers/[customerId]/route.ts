@@ -1,10 +1,11 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {customerDetails} from "@/src/lib/customer-details";
 import {writeAudit} from '@/src/lib/audit';
 import {saveCustomerPhones} from '@/src/lib/customer-phones';
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomerProfile } from "@/src/lib/customer";
 
-export async function GET(
+async function handlePolicyGET(
   request: NextRequest,
   { params }: { params: Promise<{ customerId: string }> },
 ) {
@@ -19,7 +20,7 @@ export async function GET(
   return NextResponse.json({ customer });
 }
 
-export async function PATCH(request:NextRequest,{params}:{params:Promise<{customerId:string}>}){
+async function handlePolicyPATCH(request:NextRequest,{params}:{params:Promise<{customerId:string}>}){
  const tenantId=request.headers.get("x-tenant-id")||request.cookies.get("groompro_tenant")?.value||process.env.GROOMPRO_DEV_TENANT_ID;
  if(!tenantId)return NextResponse.json({error:"Business context is required."},{status:401});
  const {db}=await import("@/src/lib/db");const {getActiveEmployeeSession}=await import("@/src/lib/employee-session");
@@ -36,3 +37,6 @@ export async function PATCH(request:NextRequest,{params}:{params:Promise<{custom
  return NextResponse.json({customer:await getCustomerProfile(tenantId,customerId)});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Could not save customer. Please retry."},{status:400})}
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'CUSTOMERS'});
+export const PATCH=withRequestPolicy(handlePolicyPATCH, {feature:'CUSTOMERS'});

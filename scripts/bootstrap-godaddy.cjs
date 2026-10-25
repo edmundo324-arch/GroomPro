@@ -62,6 +62,7 @@ async function bootstrap(db, plan) {
           await tx.$executeRawUnsafe("ALTER TABLE `" + table + "` MODIFY COLUMN `role` ENUM('PREP','BATH','GROOM','ADD_ON','PRODUCT','DRY') NOT NULL DEFAULT 'ADD_ON'");
         }
       }
+      await require("./developer-role-migration.cjs").migrateDeveloperRole(tx);
       await require("./import-foundation-migration.cjs").migrateImportFoundation(tx);
       return await verify(tx, plan);
     } finally {

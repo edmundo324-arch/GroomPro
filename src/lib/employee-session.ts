@@ -1,4 +1,5 @@
 import {actionContext} from './action-context';
+import {requestAuthorization} from './request-authorization';
 import {headers} from 'next/headers';
 import {workflowSettings} from './workflow-settings';
 import { randomBytes } from "node:crypto";
@@ -30,6 +31,14 @@ export async function endEmployeeSession(tenantId: string, sessionId: string) {
 export async function getActiveEmployeeSession(tenantId: string, sessionId: string) {
   const context=actionContext.getStore();
   if(context?.tenantId===tenantId && context.session.id===sessionId)return context.session;
+  const cache=requestAuthorization.getStore(),key=JSON.stringify([tenantId,sessionId]);
+  if(!cache)return verifyEmployeeSession(tenantId,sessionId);
+  let pending=cache.get(key);
+  if(!pending){pending=verifyEmployeeSession(tenantId,sessionId);cache.set(key,pending);}
+  return pending;
+}
+
+async function verifyEmployeeSession(tenantId:string,sessionId:string){
   const session=await db.employeeSession.findFirst({
     where: { id: sessionId, tenantId, endedAt: null, user: { active: true } },
     include: { user: { select: { id: true, tenantId: true, displayName: true, firstName: true, lastName: true, role: true, active: true } } },
@@ -41,7 +50,7 @@ export async function getActiveEmployeeSession(tenantId: string, sessionId: stri
   if(approvalId){
     const approval=await db.actionApproval.findFirst({where:{id:approvalId,tenantId,sessionId,deviceId:session.deviceId,requestHash:requestHeaders.get('x-groompro-request-hash')||'',consumedAt:null,expiresAt:{gt:now}}});
     if(!approval)return null;
-    const manager=await db.user.findFirst({where:{id:approval.approverId,tenantId,active:true,role:{in:['ADMIN','MANAGER']}},select:{id:true,tenantId:true,displayName:true,firstName:true,lastName:true,role:true,active:true}});
+    const manager=await db.user.findFirst({where:{id:approval.approverId,tenantId,active:true,role:{in:['DEVELOPER','ADMIN','MANAGER']}},select:{id:true,tenantId:true,displayName:true,firstName:true,lastName:true,role:true,active:true}});
     if(!manager)return null;
     const used=await db.actionApproval.updateMany({where:{id:approval.id,consumedAt:null},data:{consumedAt:now}});
     if(!used.count)return null;

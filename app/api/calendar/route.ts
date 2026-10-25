@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {customerStates} from '@/src/lib/appointment-customer-state';
 import {groomingSummary} from '@/src/lib/grooming-notes-rules';
 import {calendarBlocks} from '@/src/lib/calendar-blocks';
@@ -6,7 +7,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {db} from "@/src/lib/db";
 import {requestLocation} from "@/src/lib/request-location";
 export const dynamic="force-dynamic";
-export async function GET(request:NextRequest){
+async function handlePolicyGET(request:NextRequest){
  const start=new Date(request.nextUrl.searchParams.get("start")||""),end=new Date(request.nextUrl.searchParams.get("end")||"");
  if(!Number.isFinite(+start)||!Number.isFinite(+end)||end<=start||+end-+start>32*86400000)return NextResponse.json({error:"A valid calendar range of up to 31 days is required."},{status:400});
  const tenantId=request.headers.get("x-tenant-id")||request.cookies.get("groompro_tenant")?.value||process.env.GROOMPRO_DEV_TENANT_ID||"";
@@ -29,3 +30,5 @@ export async function GET(request:NextRequest){
  }catch(error){console.error("Calendar load failed",error);return NextResponse.json({error:"Calendar could not load. Retry to see your appointments."},{status:503})}
 }
 
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'CALENDAR'});

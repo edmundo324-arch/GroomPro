@@ -16,6 +16,7 @@ enum UserRole {
   MASTER_GROOMER
   GROOMER
   SALES
+  DEVELOPER
 }
 
 enum TicketStatus {

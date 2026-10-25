@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {petBreedData} from '@/src/lib/breed-classification';
 import {loadBreeds} from '@/src/lib/breed-store';
 import {writeAudit} from '@/src/lib/audit';
@@ -5,7 +6,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 const tenant=(r:NextRequest)=>r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID;
-export async function GET(r:NextRequest){
+async function handlePolicyGET(r:NextRequest){
  const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});
  const q=(r.nextUrl.searchParams.get('q')||'').trim();
  const pets=await db.pet.findMany({where:{tenantId,active:true,customer:{tenantId,active:true},...(q?{OR:[{name:{contains:q}},{breed:{contains:q}},{customer:{firstName:{contains:q}}},{customer:{lastName:{contains:q}}}]}:{})},include:{customer:{select:{id:true,firstName:true,lastName:true}},vaccinations:true},orderBy:{name:'asc'},take:100});
@@ -30,5 +31,9 @@ async function save(r:NextRequest,editing:boolean){
  const pet=await db.pet.create({data:{...data,tenantId,customerId},include:{vaccinations:true}});await writeAudit({tenantId,actorUserId:session.user.id,entityType:'PET',entityId:pet.id,customerId,action:'CREATE',summary:'Added pet '+name+'.'});return NextResponse.json({pet},{status:201});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Could not save pet. Please retry.'},{status:400})}
 }
-export const POST=(r:NextRequest)=>save(r,false);
-export const PATCH=(r:NextRequest)=>save(r,true);
+const handlePolicyPOST=(r:NextRequest)=>save(r,false);
+const handlePolicyPATCH=(r:NextRequest)=>save(r,true);
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'PETS'});
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'PETS'});
+export const PATCH=withRequestPolicy(handlePolicyPATCH, {feature:'PETS'});

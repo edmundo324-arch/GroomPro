@@ -1,9 +1,10 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {ensureGroomingNotes} from '@/src/lib/grooming-notes-store';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {writeAudit} from '@/src/lib/audit';
-export async function PATCH(r:NextRequest){
+async function handlePolicyPATCH(r:NextRequest){
  const tenantId=r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'',sid=r.cookies.get('groompro_session')?.value;
  const session=sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
@@ -22,3 +23,5 @@ export async function PATCH(r:NextRequest){
  return NextResponse.json({ok:true});
  }catch(e){return NextResponse.json({error:(e as Error).message},{status:409})}
 }
+
+export const PATCH=withRequestPolicy(handlePolicyPATCH, {feature:'TICKETS'});

@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {managerAction} from '@/src/lib/protected-action';
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -7,7 +8,7 @@ function tenantFrom(request: NextRequest) {
   return request.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID;
 }
 
-export async function GET(request: NextRequest) {
+async function handlePolicyGET(request: NextRequest) {
   const tenantId = tenantFrom(request);
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
   const customerId = request.nextUrl.searchParams.get("customerId");
@@ -51,4 +52,7 @@ async function handlePUT(request: NextRequest) {
   }
 }
 
-export const PUT=managerAction(handlePUT);
+const handlePolicyPUT=managerAction(handlePUT);
+
+export const GET=withRequestPolicy(handlePolicyGET, {});
+export const PUT=withRequestPolicy(handlePolicyPUT, {});

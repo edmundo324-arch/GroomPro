@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {requestLocation} from '@/src/lib/request-location';
@@ -5,14 +6,14 @@ import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {workflowSettings} from '@/src/lib/workflow-settings';
 import {nextTicketNumber} from '@/src/lib/ticket-number';
 const tenant=(r:NextRequest)=>r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
-export async function GET(r:NextRequest){
+async function handlePolicyGET(r:NextRequest){
  const tenantId=tenant(r),locationId=await requestLocation(r,tenantId);
  if(!tenantId||!locationId)return NextResponse.json({error:'Business context required.'},{status:401});
  const id=r.nextUrl.searchParams.get('id');
  const drafts=await db.posDraft.findMany({where:{tenantId,locationId,promotedAt:null,...(id?{id}:{})},orderBy:{updatedAt:'desc'}});
  return NextResponse.json({drafts},{headers:{'Cache-Control':'no-store'}});
 }
-export async function POST(r:NextRequest){
+async function handlePolicyPOST(r:NextRequest){
  const tenantId=tenant(r),locationId=await requestLocation(r,tenantId),sid=r.cookies.get('groompro_session')?.value;
  if(!tenantId||!locationId)return NextResponse.json({error:'Business context required.'},{status:401});
  if(!sid||!await getActiveEmployeeSession(tenantId,sid))return NextResponse.json({error:'Employee PIN is required.'},{status:401});
@@ -27,7 +28,7 @@ export async function POST(r:NextRequest){
  });
  return NextResponse.json({draft});
 }
-export async function PUT(r:NextRequest){
+async function handlePolicyPUT(r:NextRequest){
  const tenantId=tenant(r),sid=r.cookies.get('groompro_session')?.value;
  const session=sid?await db.employeeSession.findFirst({where:{id:sid,tenantId,endedAt:null,user:{active:true}}}):null;
  const policy=await workflowSettings(tenantId);
@@ -37,3 +38,7 @@ export async function PUT(r:NextRequest){
  const result=await db.posDraft.updateMany({where:{id:String(body.id||''),tenantId,promotedAt:null},data:{payload:body.payload}});
  return NextResponse.json({saved:!!result.count},{status:result.count?200:409});
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'TICKETS'});
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'TICKETS'});
+export const PUT=withRequestPolicy(handlePolicyPUT, {feature:'TICKETS'});

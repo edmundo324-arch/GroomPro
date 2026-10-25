@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {moduleDenial} from '@/src/lib/module-entitlement';
 import {managerAction} from '@/src/lib/protected-action';
 import { NextRequest, NextResponse } from "next/server";
@@ -10,7 +11,7 @@ async function tenantFrom(request: NextRequest) {
   return first?.id||"";
 }
 
-export async function GET(request: NextRequest) {const denial=await moduleDenial(request,'INVENTORY');if(denial)return denial;
+async function handlePolicyGET(request: NextRequest) {const denial=await moduleDenial(request,'INVENTORY');if(denial)return denial;
   const tenantId = await tenantFrom(request);
   if (!tenantId) return NextResponse.json({ error: "Business setup is not complete yet." }, { status: 503 });
   const products = await db.product.findMany({ where: { tenantId, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, sku: true, priceCents: true, quantity: true } });
@@ -34,6 +35,10 @@ async function handlePATCH(request: NextRequest) {
   const product=await db.product.update({where:{id},data,select:{id:true,name:true,sku:true,priceCents:true,quantity:true}}); return NextResponse.json({product});
 }
 
-export const POST=managerAction(handlePOST);
+const handlePolicyPOST=managerAction(handlePOST);
 
-export const PATCH=managerAction(handlePATCH);
+const handlePolicyPATCH=managerAction(handlePATCH);
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'INVENTORY'});
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'INVENTORY'});
+export const PATCH=withRequestPolicy(handlePolicyPATCH, {feature:'INVENTORY'});

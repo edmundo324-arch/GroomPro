@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/src/lib/db";
@@ -10,10 +11,10 @@ async function authorize(request: NextRequest, tenantId: string) {
   const sessionId = request.cookies.get(COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return null;
-  return ["ADMIN", "MANAGER"].includes(session.user.role) ? session.user : null;
+  return ['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role) ? session.user : null;
 }
 
-export async function GET(request: NextRequest) {
+async function handlePolicyGET(request: NextRequest) {
   const tenantId = tenantFrom(request);
   const customerId = request.nextUrl.searchParams.get("customerId") || "";
   if (!tenantId || !customerId) return NextResponse.json({ error: "Tenant and customer are required." }, { status: 400 });
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ locations: rows.map(r => ({ ...r, assigned: Number(r.assigned) === 1 })) });
 }
 
-export async function PUT(request: NextRequest) {
+async function handlePolicyPUT(request: NextRequest) {
   const tenantId = tenantFrom(request);
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
   const actor = await authorize(request, tenantId);
@@ -50,3 +51,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update customer location access." }, { status: 400 });
   }
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'CUSTOMERS'});
+export const PUT=withRequestPolicy(handlePolicyPUT, {feature:'CUSTOMERS'});

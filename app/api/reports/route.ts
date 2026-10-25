@@ -1,8 +1,9 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {moduleDenial} from '@/src/lib/module-entitlement';
 import {NextRequest,NextResponse} from "next/server";
 import {db} from "@/src/lib/db";
 function tenant(r:NextRequest){return r.headers.get("x-tenant-id")||r.cookies.get("groompro_tenant")?.value||process.env.GROOMPRO_DEV_TENANT_ID||""}
-export async function GET(r:NextRequest){const denial=await moduleDenial(r,'REPORTS');if(denial)return denial;
+async function handlePolicyGET(r:NextRequest){const denial=await moduleDenial(r,'REPORTS');if(denial)return denial;
  const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:"Tenant context is required."},{status:401});
  const requestedLocation=r.nextUrl.searchParams.get("locationId")||process.env.GROOMPRO_DEV_LOCATION_ID||"";
  const locationId=requestedLocation||(await db.location.findFirst({where:{tenantId},orderBy:{createdAt:"asc"},select:{id:true}}))?.id||"";
@@ -11,3 +12,5 @@ export async function GET(r:NextRequest){const denial=await moduleDenial(r,'REPO
  if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime())||end<=start)return NextResponse.json({error:"Invalid report range."},{status:400});
  const tickets=await db.ticket.findMany({where:{tenantId,locationId,scheduledStart:{gte:start,lt:end},status:{not:"CANCELLED"}},select:{id:true,status:true,totalCents:true,lines:{select:{totalCents:true}}}});const projectedSalesCents=tickets.reduce((sum,t)=>sum+(t.totalCents||t.lines.reduce((lineSum,l)=>lineSum+l.totalCents,0)),0);const statusCounts=tickets.reduce<Record<string,number>>((out,t)=>{out[t.status]=(out[t.status]||0)+1;return out},{});return NextResponse.json({start,end,appointments:tickets.length,projectedSalesCents,statusCounts,locationId});
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'REPORTS'});

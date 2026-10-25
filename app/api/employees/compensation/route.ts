@@ -1,3 +1,4 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {Prisma} from '@prisma/client';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -8,9 +9,9 @@ import {writeAudit} from '@/src/lib/audit';
 const tenant=(r:NextRequest)=>r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||'';
 async function access(r:NextRequest){const tenantId=tenant(r),sid=r.cookies.get('groompro_session')?.value;const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;return {tenantId,session}}
 function visible(result:Awaited<ReturnType<typeof employeeQualification>>){const {employee,...rest}=result;return{...rest,dateOfHire:employee.dateOfHire}}
-export async function GET(r:NextRequest){const {tenantId,session}=await access(r);if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});try{return NextResponse.json(visible(await employeeQualification(tenantId,r.nextUrl.searchParams.get('userId')||'')))}catch(e){return NextResponse.json({error:(e as Error).message},{status:400})}}
-export async function POST(r:NextRequest){
- const {tenantId,session}=await access(r);if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});
+async function handlePolicyGET(r:NextRequest){const {tenantId,session}=await access(r);if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});try{return NextResponse.json(visible(await employeeQualification(tenantId,r.nextUrl.searchParams.get('userId')||'')))}catch(e){return NextResponse.json({error:(e as Error).message},{status:400})}}
+async function handlePolicyPOST(r:NextRequest){
+ const {tenantId,session}=await access(r);if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});
  try{const b=await r.json(),id=String(b.userId||'');const current=await employeeQualification(tenantId,id);if(b.action==='VIEW')return NextResponse.json(visible(current));
   const rules=b.rules===null?null:validateCompensation(b.rules);if(rules){delete rules.approvedPercent;if(current.rules?.approvedPercent!==undefined)rules.approvedPercent=current.rules.approvedPercent;}
   const dates=Array.isArray(b.workedDates)?[...new Set<string>(b.workedDates)]:current.workedDates;
@@ -21,3 +22,6 @@ export async function POST(r:NextRequest){
   return NextResponse.json(visible(await employeeQualification(tenantId,id)));
  }catch(e){return NextResponse.json({error:(e as Error).message},{status:400})}
 }
+
+export const GET=withRequestPolicy(handlePolicyGET, {configure:true});
+export const POST=withRequestPolicy(handlePolicyPOST, {configure:true});

@@ -9,7 +9,7 @@ export async function POST(r:NextRequest){
  const sid=r.cookies.get('groompro_session')?.value;
  const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
- if(session.user.role!=='ADMIN')return NextResponse.json({error:'Administrator access required.'},{status:403});
+ if(!['DEVELOPER','ADMIN'].includes(session.user.role))return NextResponse.json({error:'Administrator access required.'},{status:403});
  try{
   const body=await r.json();if(!['PREVIEW','LOAD'].includes(body.action))throw Error('Choose preview or load.');
   const locationId=await requestLocation(r,tenantId);if(!locationId)throw Error('Select a business location first.');

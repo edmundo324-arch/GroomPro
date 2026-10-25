@@ -1,17 +1,18 @@
+import {withRequestPolicy} from '@/src/lib/request-policy';
 import {createHash,randomUUID} from 'node:crypto';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {actionContext} from '@/src/lib/action-context';
-import {POST as createTicket} from '../tickets/route';
-import {POST as checkout} from '../tickets/checkout/route';
-import {POST as rebook} from '../tickets/rebook/route';
-import {POST as enroll} from '../memberships/route';
-import {PATCH as changeStatus} from '../tickets/status/route';
-import {POST as noShow} from '../tickets/no-show/route';
-import {POST as rewards} from '../customers/rewards/route';
+import {POST as createTicket} from '@/src/lib/actions/ticket-booking';
+import {POST as checkout} from '@/src/lib/actions/ticket-checkout';
+import {POST as rebook} from '@/src/lib/actions/ticket-rebooking';
+import {POST as enroll} from '@/src/lib/actions/membership-actions';
+import {PATCH as changeStatus} from '@/src/lib/actions/ticket-status';
+import {POST as noShow} from '@/src/lib/actions/ticket-no-show';
+import {POST as rewards} from '@/src/lib/actions/customer-rewards';
 
-export async function POST(request:NextRequest){
+async function handlePolicyPOST(request:NextRequest){
  const tenantId=request.headers.get('x-tenant-id')||request.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
  const sid=request.cookies.get('groompro_session')?.value||'';
  const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
@@ -72,7 +73,7 @@ export async function POST(request:NextRequest){
  });
 }
 
-export async function GET(request:NextRequest){
+async function handlePolicyGET(request:NextRequest){
  const tenantId=request.headers.get('x-tenant-id')||request.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
  const sid=request.cookies.get('groompro_session')?.value||'';
  if(!tenantId||!sid||!await getActiveEmployeeSession(tenantId,sid))return NextResponse.json({error:'Employee PIN is required.'},{status:401});
@@ -80,3 +81,6 @@ export async function GET(request:NextRequest){
  const operation=await db.posOperation.findUnique({where:{tenantId_requestKey:{tenantId,requestKey}}});
  return NextResponse.json(operation?{status:operation.status,response:operation.response,responseStatus:operation.responseStatus}:{status:'UNKNOWN'},{headers:{'Cache-Control':'no-store'}});
 }
+
+export const POST=withRequestPolicy(handlePolicyPOST, {feature:'TICKETS'});
+export const GET=withRequestPolicy(handlePolicyGET, {feature:'TICKETS'});
