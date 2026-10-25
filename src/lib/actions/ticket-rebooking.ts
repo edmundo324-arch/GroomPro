@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const requestedOverride = body.discountOverridePct == null ? null : Number(body.discountOverridePct);
     if (requestedOverride != null) {
       if (!Number.isFinite(requestedOverride) || requestedOverride < 0 || requestedOverride > 100) return NextResponse.json({ error: "Invalid rebooking discount." }, { status: 400 });
-      if (!['DEVELOPER','ADMIN'].includes(session.user.role) && session.user.role !== "MANAGER") return NextResponse.json({ error: "Only a manager can extend or change the rebooking discount." }, { status: 403 });
+      if (!['PLATFORM_OWNER','DEVELOPER','ADMIN'].includes(session.user.role) && session.user.role !== "MANAGER") return NextResponse.json({ error: "Only a manager can extend or change the rebooking discount." }, { status: 403 });
       discountPct = requestedOverride;
       discountLabel = requestedOverride === 20 && automatic.weeks <= 3 ? "Manager-Extended Touchup Groom/Bath" : "Manager Rebooking Discount";
     }

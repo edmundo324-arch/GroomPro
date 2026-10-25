@@ -50,7 +50,7 @@ async function verifyEmployeeSession(tenantId:string,sessionId:string){
   if(approvalId){
     const approval=await db.actionApproval.findFirst({where:{id:approvalId,tenantId,sessionId,deviceId:session.deviceId,requestHash:requestHeaders.get('x-groompro-request-hash')||'',consumedAt:null,expiresAt:{gt:now}}});
     if(!approval)return null;
-    const manager=await db.user.findFirst({where:{id:approval.approverId,tenantId,active:true,role:{in:['DEVELOPER','ADMIN','MANAGER']}},select:{id:true,tenantId:true,displayName:true,firstName:true,lastName:true,role:true,active:true}});
+    const manager=await db.user.findFirst({where:{id:approval.approverId,tenantId,active:true,role:{in:['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER']}},select:{id:true,tenantId:true,displayName:true,firstName:true,lastName:true,role:true,active:true}});
     if(!manager)return null;
     const used=await db.actionApproval.updateMany({where:{id:approval.id,consumedAt:null},data:{consumedAt:now}});
     if(!used.count)return null;

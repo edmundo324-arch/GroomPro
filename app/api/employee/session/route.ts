@@ -1,3 +1,4 @@
+import {isPlatformRole} from '@/src/lib/roles';
 import {pinVaultKey,sealPin} from '@/src/lib/pin-vault';
 import {platformRestriction} from '@/src/lib/platform-restrictions';
 import {randomBytes} from 'node:crypto';
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Employee PIN not recognized." }, { status: 401 });
 
   const restriction=await platformRestriction(tenantId,user.id);
-  if(restriction&&user.role!=='DEVELOPER')return NextResponse.json({error:restriction},{status:403});
+  if(restriction&&!isPlatformRole(user.role))return NextResponse.json({error:restriction},{status:403});
   if(body.automatic){
     // Old records must be upgraded explicitly; do not recognize a prefix of another PIN.
     if(users.some(candidate=>!Array.isArray(candidate.pinPrefixHashes)))return NextResponse.json({pending:true,message:'An older PIN record needs verification. Press Continue to sign in securely.'},{status:202});
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value},update:{value}});
   });
   if(body.mode==='APPROVAL'){
-    if(!['DEVELOPER','ADMIN','MANAGER'].includes(user.role))return NextResponse.json({error:'Enter an administrator or manager PIN.'},{status:403});
+    if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(user.role))return NextResponse.json({error:'Enter an administrator or manager PIN.'},{status:403});
     const working=await db.employeeSession.findFirst({where:{id:sessionId,tenantId,deviceId,endedAt:null,user:{active:true}}});
     if(!working || !/^[a-f0-9]{64}$/.test(body.requestHash||''))return NextResponse.json({error:'Your working session changed. Sign in and try the action again.'},{status:401});
     const approval=await db.actionApproval.create({data:{id:randomBytes(32).toString('hex'),tenantId,sessionId,deviceId,approverId:user.id,requestHash:body.requestHash!,expiresAt:new Date(Date.now()+120000)}});

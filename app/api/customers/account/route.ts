@@ -18,7 +18,7 @@ async function handlePolicyGET(request:NextRequest){
 async function handlePolicyPOST(request:NextRequest){
  const tenantId=tenantFrom(request);const sid=request.cookies.get(COOKIE)?.value||"";const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});
- if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:"Manager approval is required for customer account adjustments."},{status:403});
+ if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:"Manager approval is required for customer account adjustments."},{status:403});
  try{
   const body=await request.json();const customerId=String(body.customerId||"");const reason=String(body.reason||"").trim();const action=String(body.action||"ACCOUNT");
   if(!customerId||!reason)return NextResponse.json({error:"Customer and reason are required."},{status:400});

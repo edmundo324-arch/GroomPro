@@ -9,7 +9,7 @@ async function handlePolicyPOST(r:NextRequest){
  const tenantId=r.headers.get('x-tenant-id')||process.env.GROOMPRO_DEV_TENANT_ID||'',locationId=await requestLocation(r,tenantId),sid=r.cookies.get('groompro_session')?.value;
  const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
- if(!['DEVELOPER','ADMIN','MANAGER','FLOOR_MANAGER','FRONT'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});
+ if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER','FLOOR_MANAGER','FRONT'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});
  if(!locationId)return NextResponse.json({error:'Select a location.'},{status:400});
  try{
  const b=await r.json();if(!/^[a-zA-Z0-9-]{16,80}$/.test(b.id||''))throw Error('A valid block ID is required.');

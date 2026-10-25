@@ -21,7 +21,7 @@ async function save(r:NextRequest){
  const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:"Business context is required."},{status:401});
  const sid=r.cookies.get("groompro_session")?.value;const session=sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});
- if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:"An administrator or manager must sign in to edit the catalog."},{status:403});
+ if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:"An administrator or manager must sign in to edit the catalog."},{status:403});
  try{
  const body=await r.json(),data=catalogInput(body),id=r.method==="PATCH"?String(body.id||""):randomUUID();
  if(data.groomingRules){const breeds=await loadBreeds(db,tenantId);if([...(data.groomingRules.breedIds||[]),...(data.groomingRules.excludedBreedIds||[])].some(id=>!breeds.some(b=>b.id===id)))throw Error('Choose breeds from this business’s dictionary.');}

@@ -11,7 +11,7 @@ async function authorize(request: NextRequest, tenantId: string) {
   const sessionId = request.cookies.get(COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return null;
-  return ['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role) ? session.user : null;
+  return ['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(session.user.role) ? session.user : null;
 }
 
 async function handlePolicyGET(request: NextRequest) {

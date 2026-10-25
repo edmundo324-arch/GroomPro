@@ -4,7 +4,7 @@ import { getCustomerLedgerForProfile } from "@/src/lib/customer-ledger";
 import { getActiveEmployeeSession } from "@/src/lib/employee-session";
 
 const SESSION_COOKIE = "groompro_session";
-const MANAGER_ROLES = new Set(['DEVELOPER','ADMIN','MANAGER', "FLOOR_MANAGER"]);
+const MANAGER_ROLES = new Set(['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER', "FLOOR_MANAGER"]);
 
 async function handlePolicyGET(
   request: NextRequest,

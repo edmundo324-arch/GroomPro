@@ -22,10 +22,10 @@ async function handlePolicyGET(request: NextRequest) {
 async function handlePolicyPUT(request: NextRequest) {
   const session = await sessionFor(request);
   if (!session) return NextResponse.json({ error: "Employee session required" }, { status: 401 });
-  if (!['DEVELOPER','ADMIN'].includes(session.user.role) && session.user.role !== "MANAGER") return NextResponse.json({ error: "Manager access required" }, { status: 403 });
+  if (!['PLATFORM_OWNER','DEVELOPER','ADMIN'].includes(session.user.role) && session.user.role !== "MANAGER") return NextResponse.json({ error: "Manager access required" }, { status: 403 });
   const body = await request.json();
   if (!body.role || !body.permissionCode) return NextResponse.json({ error: "Role and permission are required" }, { status: 400 });
-  if(body.role==='DEVELOPER')return NextResponse.json({error:'Developer authority cannot be changed through tenant permissions.'},{status:403});
+  if(['PLATFORM_OWNER','DEVELOPER'].includes(body.role))return NextResponse.json({error:'Platform authority cannot be changed through tenant permissions.'},{status:403});
   const permission = await db.rolePermission.upsert({
     where: { tenantId_role_permissionCode: { tenantId: session.tenantId, role: body.role, permissionCode: body.permissionCode } },
     update: { enabled: Boolean(body.enabled) },

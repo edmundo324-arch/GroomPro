@@ -1,3 +1,4 @@
+import {isPlatformRole} from '@/src/lib/roles';
 import {platformRestriction} from './platform-restrictions';
 import {requestAuthorization} from './request-authorization';
 import {NextRequest,NextResponse} from 'next/server';
@@ -32,11 +33,11 @@ export function withRequestPolicy<A extends unknown[]>(handler:(request:NextRequ
   const sid=request.cookies.get('groompro_session')?.value;
   const session=sid?await getActiveEmployeeSession(tenantId,sid):null;
   const restriction=await platformRestriction(tenantId,session?.user.id);
-  if(restriction&&session?.user.role!=='DEVELOPER')return NextResponse.json({error:restriction},{status:403});
+  if(restriction&&!isPlatformRole(session?.user.role))return NextResponse.json({error:restriction},{status:403});
   // Preserve existing public/read-only workflows; their handlers retain any
   // stronger checks. All internal mutations require an authenticated employee.
   if(!read&&!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
-  if(session && session.user.role!=='DEVELOPER'){
+  if(session && !isPlatformRole(session.user.role)){
    const codes=await actionPermissions(request,policy.configure);
    const permissions=await Promise.all(codes.map(permissionCode=>db.rolePermission.findUnique({where:{tenantId_role_permissionCode:{tenantId,role:session.user.role,permissionCode}}})));
    // Unconfigured permissions keep existing route defaults; an explicit denial

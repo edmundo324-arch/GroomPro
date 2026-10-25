@@ -17,6 +17,7 @@ enum UserRole {
   GROOMER
   SALES
   DEVELOPER
+  PLATFORM_OWNER
 }
 
 enum TicketStatus {

@@ -4,10 +4,10 @@ import {platformSession,isPlatformAdmin} from '@/src/lib/platform-access';
 import {platformAccessKey} from '@/src/lib/platform-restrictions';
 import {db} from '@/src/lib/db';
 import {saveWithPin} from '@/src/lib/employee-pin-assignment';
-import {GROOMPRO_ROLES} from '@/src/lib/roles';
+import {GROOMPRO_ROLES,canManageRole} from '@/src/lib/roles';
 import {reconcileEmployeeAssignments} from '@/src/lib/groomer-assignment';
 
-// Only the explicit Developer role may manage access across businesses.
+// Only explicit Platform Owner and Developer roles may manage access across businesses.
 async function handle(r:NextRequest){
  const actor=await platformSession(r);
  if(!actor)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
@@ -15,10 +15,10 @@ async function handle(r:NextRequest){
  if(r.method==='GET'){
   const tenantId=r.nextUrl.searchParams.get('tenantId');
   const tenants=await db.tenant.findMany({select:{id:true,name:true},orderBy:{name:'asc'}});
-  if(!tenantId)return NextResponse.json({tenants});
+  if(!tenantId)return NextResponse.json({tenants,canManageOwners:actor.user.role==='PLATFORM_OWNER'});
   const employees=await db.user.findMany({where:{tenantId},select:{id:true,firstName:true,lastName:true,displayName:true,role:true,active:true}});
   const row=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:platformAccessKey}}});
-  return NextResponse.json({tenants,employees,access:row?.value||{suspended:false,blockedUserIds:[]}});
+  return NextResponse.json({tenants,employees,canManageOwners:actor.user.role==='PLATFORM_OWNER',access:row?.value||{suspended:false,blockedUserIds:[]}});
  }
  try{
   const b=await r.json(),tenantId=String(b.tenantId||''),reason=String(b.reason||'').trim();
@@ -29,7 +29,8 @@ async function handle(r:NextRequest){
   if(b.action==='EMPLOYEE'){
    const employee=await tx.user.findFirst({where:{tenantId,id:String(b.userId||'')}});
    if(!employee)throw Error('Employee not found.');
-   if(employee.id===actor.user.id&&(b.role!=='DEVELOPER'||!b.active))throw Error('Another Developer must change your Developer authority.');
+   if(!canManageRole(actor.user.role,employee.role)||!canManageRole(actor.user.role,b.role))throw Error('Only a Platform Owner can change Owner access.');
+   if(employee.id===actor.user.id&&(b.role!==employee.role||!b.active))throw Error('Another authorized platform administrator must change your own authority.');
    if(!GROOMPRO_ROLES.includes(b.role)||typeof b.active!=='boolean')throw Error('Choose a role and access status.');
    const data={role:b.role,active:b.active};
    if(b.pin)await saveWithPin(tenantId,String(b.pin),employee.id,data,tx);else await tx.user.update({where:{id:employee.id},data});

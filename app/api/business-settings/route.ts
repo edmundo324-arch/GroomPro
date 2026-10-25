@@ -20,7 +20,7 @@ async function handlePolicyGET(request: NextRequest) {
 async function handlePolicyPUT(request: NextRequest) {
   const session = await sessionFor(request);
   if (!session) return NextResponse.json({ error: "Employee session required" }, { status: 401 });
-  if (!['DEVELOPER','ADMIN'].includes(session.user.role) && session.user.role !== "MANAGER") return NextResponse.json({ error: "Manager access required" }, { status: 403 });
+  if (!['PLATFORM_OWNER','DEVELOPER','ADMIN'].includes(session.user.role) && session.user.role !== "MANAGER") return NextResponse.json({ error: "Manager access required" }, { status: 403 });
   const body = await request.json();
   if (!body.key) return NextResponse.json({ error: "Setting key is required" }, { status: 400 });
   const allowed = new Set(["primaryColor", "secondaryColor", "readyColor", "vipAvailableEmoji", "vipNotAvailableEmoji", "readyMessageVipGrooming", "readyMessageVipFullWash", "readyMessageNonVip"]);

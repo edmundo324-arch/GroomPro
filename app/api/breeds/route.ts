@@ -11,7 +11,7 @@ const tenant=(r:NextRequest)=>r.headers.get('x-tenant-id')||r.cookies.get('groom
 async function handlePolicyGET(r:NextRequest){const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});const breeds=await loadBreeds(db,tenantId);return NextResponse.json({breeds:breeds.map(b=>({...b,groomingNotesDefault:breedGroomingDefault({breedId:b.id},breeds)}))});}
 async function handlePolicyPOST(r:NextRequest){
  const tenantId=tenant(r),sid=r.cookies.get('groompro_session')?.value;const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
- if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager authorization is required.'},{status:403});
+ if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:'Manager authorization is required.'},{status:403});
  try{const b=await r.json();const result=await db.$transaction(async tx=>{
  await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
  const breeds=await loadBreeds(tx,tenantId);
