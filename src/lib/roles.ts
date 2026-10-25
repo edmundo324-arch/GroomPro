@@ -22,3 +22,11 @@ export function canManageRole(actor:unknown,target:unknown){
   if(target==='DEVELOPER')return isPlatformRole(actor);
   return true;
 }
+
+// Preserve the edited account's existing role; platform staff may also assign Developer.
+export function employeeEditorRoles(actor:unknown,current:string):string[]{
+ const roles:string[]=GROOMPRO_ROLES.filter(role=>!isPlatformRole(role));
+ if(isPlatformRole(actor))roles.unshift('DEVELOPER');
+ if(isPlatformRole(current)&&!roles.includes(current))roles.unshift(current);
+ return roles;
+}

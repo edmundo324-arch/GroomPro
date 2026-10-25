@@ -33,3 +33,11 @@ test('Role enum migration appends Owner without changing existing roles and is r
  await migrateOwnerRole(db);assert.equal(statements.length,2);assert.ok(statements.every(s=>s.includes("enum('ADMIN','DEVELOPER','PLATFORM_OWNER')")));
  db.$queryRawUnsafe=async()=>[{columnType:"enum('ADMIN','DEVELOPER','PLATFORM_OWNER')"}];await migrateOwnerRole(db);assert.equal(statements.length,2);
 });
+
+test('Employee editor offers Developer to Owners for new and existing employees',()=>{
+ for(const current of ['FRONT','ADMIN','GROOMER'])assert.ok(roles.employeeEditorRoles('PLATFORM_OWNER',current).includes('DEVELOPER'));
+ assert.equal(roles.employeeEditorRoles('ADMIN','FRONT').includes('DEVELOPER'),false);
+ assert.equal(roles.employeeEditorRoles('MANAGER','FRONT').includes('DEVELOPER'),false);
+ assert.equal(roles.employeeEditorRoles('DEVELOPER','FRONT').includes('PLATFORM_OWNER'),false);
+ assert.ok(roles.employeeEditorRoles('PLATFORM_OWNER','PLATFORM_OWNER').includes('PLATFORM_OWNER'));
+});
