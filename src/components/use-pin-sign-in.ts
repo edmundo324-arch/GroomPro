@@ -18,6 +18,7 @@ export function usePinSignIn(open:boolean,onSignedIn:(result:any)=>void, options
    if(current.current!==value||!visible.current)return;
    if(result.pending){setNotice(result.message||'Press Continue to verify this PIN.');return}
    if(!response.ok){setError(result.error||'PIN not recognized.');return}
+   if(result.employee)window.dispatchEvent(new CustomEvent('groompro:identity-changed'));
    if(result.employee||result.approval){setPin('');setError('');callback.current(result)}
   }catch{if(!automatic)setError('Sign-in could not complete. Try again.')}
   finally{inFlight.current=false;setBusy(false)}
