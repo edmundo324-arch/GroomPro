@@ -11,6 +11,7 @@ export function ModuleView({active,children}:{active:boolean;children:React.Reac
 // Visible retained screens refresh on return/focus and relevant confirmed writes.
 export function useModuleRefresh(paths:string[]){
  const visible=useModuleVisible(),[revision,setRevision]=useState(0),pathKey=paths.join('|');
+ useEffect(()=>{if(!visible)return;const refresh=()=>setRevision(v=>v+1);window.addEventListener('groompro:integration-changed',refresh);return()=>window.removeEventListener('groompro:integration-changed',refresh)},[visible]);
  useEffect(()=>{if(!visible)return;const refresh=()=>setRevision(v=>v+1);const changed=(event:Event)=>{const url=(event as CustomEvent).detail?.url||'';if(pathKey.split('|').some(p=>url.startsWith(p)))refresh()};window.addEventListener('focus',refresh);window.addEventListener('groompro:data-changed',changed);return()=>{window.removeEventListener('focus',refresh);window.removeEventListener('groompro:data-changed',changed)}},[visible,pathKey]);
  return {visible,revision};
 }

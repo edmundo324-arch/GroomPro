@@ -1,10 +1,7 @@
 import { db } from "./db";
 
-export function normalizePhone(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
-  return digits;
-}
+import {normalizePhone} from './phone-normalization';
+export {normalizePhone} from './phone-normalization';
 
 export function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, " ");

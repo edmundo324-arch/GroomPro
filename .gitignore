@@ -11,3 +11,10 @@ godaddy-groompro-schema.json
 
 .npm-cache/
 test-results/
+connectors/123pet/123pet-schema.json
+connectors/123pet/123pet-profile.json
+connectors/123pet/*.credential.xml
+connectors/123pet/123pet-demo-backup.json
+
+connectors/123pet/connection.local.json
+connectors/123pet/initial-setup-*/
