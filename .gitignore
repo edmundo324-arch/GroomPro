@@ -18,3 +18,5 @@ connectors/123pet/123pet-demo-backup.json
 
 connectors/123pet/connection.local.json
 connectors/123pet/initial-setup-*/
+
+connectors/123pet/*.local.json

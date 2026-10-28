@@ -2,6 +2,8 @@ $ErrorActionPreference='Stop'
 $origin=Read-Host 'Paste your GoDaddy GroomPro address (https://...)'
 $uri=[Uri]$origin
 if(-not $uri.IsAbsoluteUri -or $uri.Scheme -ne 'https' -or $uri.UserInfo){throw 'Enter the HTTPS address of your GroomPro site.'}
+$share=$null
+foreach($part in $uri.Query.TrimStart('?').Split('&')){if($part.StartsWith('airoShareToken=')){$share=[Uri]::UnescapeDataString($part.Substring(15))}}
 $origin=$uri.GetLeftPart([UriPartial]::Authority)
 $server=Read-Host 'SQL Server (Enter for DESKTOP-L2J4TSD\DSI)'
 if([string]::IsNullOrWhiteSpace($server)){$server='DESKTOP-L2J4TSD\DSI'}
@@ -12,6 +14,8 @@ $null=New-Item -ItemType Directory -Path $folder
 $path=Join-Path $folder 'connector.credential.xml'
 $secret=Read-Host 'Paste the connector credential created in GoDaddy GroomPro Settings (hidden)' -AsSecureString
 (New-Object System.Management.Automation.PSCredential($origin,$secret)) | Export-Clixml -LiteralPath $path
-[ordered]@{GroomProUrl=$origin;Server=$server;Database=$database;CredentialPath=$path} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'connection.local.json') -Encoding UTF8
+$previewPath=$null
+if($share){$previewPath=Join-Path $folder 'preview-access.xml';(ConvertTo-SecureString $share -AsPlainText -Force)|Export-Clixml -LiteralPath $previewPath;$share=$null}
+[ordered]@{PreviewAccessPath=$previewPath;GroomProUrl=$origin;Server=$server;Database=$database;CredentialPath=$path} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'connection.local.json') -Encoding UTF8
 Write-Host ('Configured GroomPro at '+$origin+'. No records have been transferred.')
 Write-Host 'Run Start-Connector.cmd to connect. Read/write permissions are controlled in GroomPro Settings.'

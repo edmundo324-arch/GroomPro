@@ -112,3 +112,8 @@
 .gp-customer-result[style] span,.gp-day-appointment[style] span,.gp-week-appointment[style] span{color:inherit}
 
 .gp-preview-handle{user-select:none}
+
+/* Keep connector administration usable on small screens without changing desktop layout. */
+.gp-123pet-settings{min-width:0;overflow-wrap:anywhere}
+.gp-123pet-settings input,.gp-123pet-settings select{box-sizing:border-box;max-width:100%}
+@media(max-width:600px){.gp-123pet-settings label{display:block;min-width:0}.gp-123pet-settings select,.gp-123pet-settings input:not([type=checkbox]){width:100%}.gp-123pet-settings button{max-width:100%;white-space:normal;min-height:36px}.gp-123pet-settings input[type=checkbox]{width:auto}}

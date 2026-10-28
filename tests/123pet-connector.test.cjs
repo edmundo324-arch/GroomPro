@@ -119,3 +119,23 @@ test('cloud demo snapshots retain relationships and exclude employee access and 
  await assert.rejects(()=>setup.snapshotChunk(tx,{...config,readEnabled:true},result.jobId,0));
  assert.throws(()=>setup.validateSnapshot({locations:rows.location,customers:rows.customer,pets:[{id:'p',customerId:'other'}],employees:rows.user,tickets:rows.ticket}));
 });
+
+test('demo write authorization is sample-only, expires, and reports once without enabling production writes',async()=>{
+ const setup=load('src/lib/integrations/123pet/initial-setup.ts');
+ const {config}=control.newConnector('tenant',{name:'demo',environment:'TEST',initialSource:'GROOMPRO_DEMO',server:'DESKTOP-L2J4TSD\\DSI',database:'OneTwoThreePet'});
+ let state={jobId:'job',state:'PREPARED',counts:{customers:1},chunks:1};const audits=[];
+ const tx={tenantSetting:{findUnique:async()=>({value:state}),update:async({data})=>{state=data.value}},auditEntry:{create:async({data})=>audits.push(data)}};
+ await setup.authorizeDemoWrite(tx,config,'owner');
+ assert.equal(state.state,'AUTHORIZED');assert.equal(config.writeEnabled,false);
+ assert.equal((await setup.demoWriteAuthorization(tx,config,'job')).authorized,true);
+ await assert.rejects(()=>setup.demoWriteAuthorization(tx,config,'other'));
+ await assert.rejects(()=>setup.authorizeDemoWrite(tx,{...config,environment:'PRODUCTION'},'owner'));
+ await assert.rejects(()=>setup.authorizeDemoWrite(tx,{...config,database:'RealSalon'},'owner'));
+ state.authorizationExpires='invalid';await assert.rejects(()=>setup.demoWriteAuthorization(tx,config,'job'));
+ state.authorizationExpires='2000-01-01T00:00:00Z';await assert.rejects(()=>setup.demoWriteAuthorization(tx,config,'job'));
+ state.authorizationExpires=new Date(Date.now()+10000).toISOString();
+ await setup.recordDemoWriteResult(tx,config,{jobId:'job',state:'APPLIED',rows:7});
+ assert.equal(state.writesExecuted,7);const count=audits.length;
+ await setup.recordDemoWriteResult(tx,config,{jobId:'job',state:'APPLIED',rows:7});assert.equal(audits.length,count);
+ await assert.rejects(()=>setup.recordDemoWriteResult(tx,config,{jobId:'wrong',state:'APPLIED',rows:7}));
+});

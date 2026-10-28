@@ -31,6 +31,14 @@ reports, and compatibility profiles must remain excluded from Git.
   rejection, totals, replay, and immutable payment correction handling.
 - No 123Pet source records have been changed by the connector.
 
+## SQL rollback verification — October 28, 2026
+
+The user ran the writer under their Windows SQL identity. All 10 synthetic rows,
+including package grouping, passed SQL write/read-back verification and were rolled
+back. No imported records were retained. This does not verify a committed GoDaddy
+transfer or native 123Pet UI behavior. GoDaddy snapshot preparation still reports
+an invalid or missing GROOMPRO_IMPORT_KEY in its running environment.
+
 ## Ticket processing
 
 Only `TICKET_BUNDLE` messages can project tickets. Separate header/line scans are
@@ -75,14 +83,35 @@ separately authorized. A connection never enables outbound writes automatically.
    the GoDaddy server, including customers/pets, employees (no PINs/access roles),
    catalog/packages, tickets, payment history (no processor identifiers), and
    grooming notes. Incoming 123Pet-created records are excluded to prevent loops.
-7. The connector downloads the current snapshot into DPAPI-protected local chunks
-   for compatibility review. This does NOT insert records into 123Pet yet.
+7. The connector downloads the current snapshot into Windows-protected local chunks.
+8. On GoDaddy, choose `Write this snapshot to sample 123Pet`. This authorizes only
+   that snapshot, expires after four hours, and is restricted to the designated
+   `DESKTOP-L2J4TSD\DSI` / `OneTwoThreePet` sample. It does not enable production writes.
+9. The updated PC connector creates an explicit dependency-ordered plan, checks
+   ownership/totals, and inserts or updates within one serializable SQL transaction.
+   It verifies the saved fields and rechecks GoDaddy authorization before commit.
+   Committed-job receipts prevent a lost HTTP response from duplicating records.
+   Unmatched records stay in place; changed local imported records or missing
+   previously imported entities stop the update for review.
+10. GoDaddy displays APPLIED only after the connector reports the committed result.
+    FAILED is not success. An uncertain commit is resolved by its SQL receipt on
+    the next authorized attempt. No payment processor is invoked.
 
-The complete outbound insert/update executor, package/membership compatibility,
-financial business-rule verification and final reconciliation remain unfinished.
-This deployment is the connection/data-staging prerequisite, not completion of
-live two-way synchronization. SQL execution success alone does not verify that
-123Pet can use the imported records correctly. No source records have been written.
+Use a current full share link in Setup for a private Airo preview. Preview access
+is separately protected with Windows DPAPI and used only for the configured
+origin. Public sites do not need preview access. Do not copy credentials into Git.
+
+The update includes `Build-DemoPlan.ps1`, `Write-DemoPlan.ps1`, and
+`Import-GroomProDemo.ps1`. `Test-DemoWriter.ps1` performs a synthetic SQL
+write/read-back test and rolls it back. It requires the local checkout's test
+fixture and is not included in the downloadable end-user connector.
+
+The demo insert/update executor is implemented but real GoDaddy-to-123Pet execution
+and 123Pet UI compatibility verification remain pending. Do not call those complete
+based on unit tests. The current mapper rejects non-cash historical tenders instead
+of guessing payment mappings. Membership billing, broader live two-way operations,
+and record deletions are not enabled by this demo import. No committed 123Pet write
+has been verified in this development session.
 
 The earlier `123pet-demo-preflight.cjs` inventory was local diagnostic data only;
 its counts must not be treated as GoDaddy's current authoritative record counts.

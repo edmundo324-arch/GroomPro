@@ -27,3 +27,11 @@
 - Keep future development-team-only Training Studio and personalized AI Sales Studio compatible with the architecture. Proposed tooling includes OpenAI services, Playwright, and FFmpeg; do not add dependencies or functionality for these modules yet.
 - Future automation must use a dedicated demonstration tenant with fictional data and retain tenant isolation and permission checks.
 - Prioritize current functionality and approved appearance. Do not rebuild or interfere with working features solely for future Studio compatibility.
+
+## Desktop-first and Mobile Groomer development
+- Desktop owners/managers remain the primary audience. Preserve the approved desktop layout and workflows.
+- Mobile Groomer is a future touch-oriented staff experience, with its own navigation/layouts when appropriate; do not squeeze complex administration into a phone or start a full mobile redesign now.
+- Share server application services, database models, scheduling rules, permissions, tenant/location isolation, validation, and transaction safeguards across both experiences. Never fork business rules by screen size or user agent.
+- Build new shared controls with bounded widths, wrapping, keyboard access, and touch-compatible interactions. Address basic responsiveness in existing controls when touched, without disrupting desktop behavior.
+- Before a significant mobile-related architectural change, document desktop impact and explain material tradeoffs to the user.
+- See docs/desktop-mobile-strategy.md for the current boundaries and review criteria.

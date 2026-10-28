@@ -5,7 +5,7 @@ import {requestAuthorization} from '@/src/lib/request-authorization';
 import {ConnectorConfig,connectorPrefix,newConnector,publicConnector} from '@/src/lib/integrations/123pet/control';
 import {enqueueWrite} from '@/src/lib/integrations/123pet/outbox';
 import {connectionReview,linkReviewedRecord} from '@/src/lib/integrations/123pet/review';
-import {prepareDemoSnapshot,initialSetupStatus} from '@/src/lib/integrations/123pet/initial-setup';
+import {authorizeDemoWrite,prepareDemoSnapshot,initialSetupStatus} from '@/src/lib/integrations/123pet/initial-setup';
 export const runtime='nodejs';
 async function handle(r:NextRequest){
  const actor=await platformSession(r);
@@ -37,6 +37,7 @@ async function handle(r:NextRequest){
    const row=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:connectorPrefix+id}}});
    if(!row)throw Error('Connection not found.');
    const config=row.value as unknown as ConnectorConfig;
+   if(b.action==='AUTHORIZE_DEMO')return authorizeDemoWrite(tx,config,actor.user.id);
    if(b.action==='PREPARE_DEMO')return prepareDemoSnapshot(tx,config,actor.user.id);
    if(b.action==='INITIAL_SOURCE'){
     if(config.revoked||config.writeEnabled)throw Error('Disable writes before changing the initial source.');

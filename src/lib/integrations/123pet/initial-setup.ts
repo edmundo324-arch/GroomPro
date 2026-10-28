@@ -62,3 +62,31 @@ export async function snapshotChunk(tx:any,config:ConnectorConfig,jobId:string,i
  if(!row)throw Error('Snapshot chunk is missing. Prepare the snapshot again.');
  return {jobId,index,total:state.chunks,fingerprint:row.payload.fingerprint,...unseal(row.payload.encrypted,config.tenantId)};
 }
+
+export async function authorizeDemoWrite(tx:any,config:ConnectorConfig,actorId:string){
+ assertDemoSource(config);
+ if(config.server.toLowerCase()!=='desktop-l2j4tsd\\dsi'||config.database!=='OneTwoThreePet')throw Error('Demo writes are restricted to the designated 123Pet sample database.');
+ const state=await initialSetupStatus(tx,config);
+ if(!state||!['PREPARED','FAILED','VALIDATED'].includes(state.state))throw Error('Prepare the current GoDaddy data first.');
+ const next={...state,state:'AUTHORIZED',authorizedBy:actorId,authorizedAt:new Date().toISOString(),authorizationExpires:new Date(Date.now()+4*60*60*1000).toISOString()};
+ await tx.tenantSetting.update({where:{tenantId_settingKey:{tenantId:config.tenantId,settingKey:key(config.id)}},data:{value:next}});
+ await tx.auditEntry.create({data:{tenantId:config.tenantId,actorType:'EMPLOYEE',actorUserId:actorId,entityType:'TENANT',entityId:config.id,action:'123PET_DEMO_WRITE_AUTHORIZED',summary:'Authorized this snapshot to the designated sample 123Pet database; unmatched records retained.',details:{jobId:state.jobId}}});
+ return next;
+}
+export async function demoWriteAuthorization(tx:any,config:ConnectorConfig,jobId:string){
+ assertDemoSource(config);
+ const state=await initialSetupStatus(tx,config);
+ if(!state||state.jobId!==jobId||state.state!=='AUTHORIZED'||(!Number.isFinite(Date.parse(state.authorizationExpires))||Date.parse(state.authorizationExpires)<Date.now())||config.server.toLowerCase()!=='desktop-l2j4tsd\\dsi'||config.database!=='OneTwoThreePet')throw Error('This demo write is not currently authorized.');
+ return {jobId,authorized:true};
+}
+export async function recordDemoWriteResult(tx:any,config:ConnectorConfig,input:any){
+ assertDemoSource(config);
+ const state=await initialSetupStatus(tx,config);
+ if(!state||state.jobId!==input.jobId||!['AUTHORIZED','APPLIED','FAILED'].includes(state.state))throw Error('Demo result does not match the active job.');
+ if(!['APPLIED','FAILED'].includes(input.state)||!Number.isSafeInteger(input.rows)||input.rows<0)throw Error('Invalid demo write result.');
+ if(state.state==='APPLIED')return state;
+ const next={...state,state:input.state,writesExecuted:input.state==='APPLIED'?input.rows:0,completedAt:new Date().toISOString(),error:input.state==='FAILED'?String(input.code||'Review the connector error on the PC.').slice(0,160):null};
+ await tx.tenantSetting.update({where:{tenantId_settingKey:{tenantId:config.tenantId,settingKey:key(config.id)}},data:{value:next}});
+ await tx.auditEntry.create({data:{tenantId:config.tenantId,actorType:'SYSTEM',entityType:'TENANT',entityId:config.id,action:'123PET_DEMO_WRITE_RESULT',summary:input.state==='APPLIED'?'Connector confirmed committed demo records and read-back checks.':'Demo write did not complete; review the connector.',details:{jobId:state.jobId,state:input.state,rows:input.rows}}});
+ return next;
+}

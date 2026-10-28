@@ -3,6 +3,7 @@ param(
  [string]$Server='DESKTOP-L2J4TSD\DSI',
  [string]$Database='OneTwoThreePet',
  [Parameter(Mandatory=$true)][string]$CredentialPath,
+ [string]$PreviewAccessPath,
  [switch]$TrustLocalCertificate,
  [switch]$Once,
  [ValidateRange(10,3600)][int]$PollSeconds=30
@@ -18,12 +19,14 @@ $token=$credential.GetNetworkCredential().Password
 . (Join-Path $PSScriptRoot 'Invoke-VerifiedWrite.ps1')
 . (Join-Path $PSScriptRoot 'Read-TicketBundles.ps1')
 . (Join-Path $PSScriptRoot 'Receive-DemoSnapshot.ps1')
+. (Join-Path $PSScriptRoot 'Preview-Session.ps1')
+$previewSession=Open-GroomProPreviewSession $endpoint $PreviewAccessPath
 $uri=$GroomProUrl.TrimEnd('/')+'/api/integrations/123pet/connector'
 $instance=[Guid]::NewGuid().ToString()
 function Send-Message($Message){
  $Message.instance=$instance
  $body=$Message | ConvertTo-Json -Depth 20 -Compress
- Invoke-RestMethod -Uri $uri -Method Post -Headers @{Authorization=('Bearer '+$token)} -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 60 -MaximumRedirection 0
+ Invoke-RestMethod -Uri $uri -WebSession $previewSession -Method Post -Headers @{Authorization=('Bearer '+$token)} -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 60 -MaximumRedirection 0
 }
 function Quote-Identifier([string]$Name){
  if($Name -notmatch '^[A-Za-z_][A-Za-z0-9_]*$'){throw 'Invalid approved SQL identifier.'}
@@ -52,7 +55,20 @@ try{
      $schema=Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot '123pet-schema.json') | ConvertFrom-Json
      $null=Send-Message @{action='SCHEMA';schema=$schema};$schemaSent=$true
     }
-   Receive-DemoSnapshot $CredentialPath
+   $snapshotFolder=Receive-DemoSnapshot $CredentialPath
+   $demo=(Send-Message @{action='INITIAL_SETUP'}).batch
+   if($snapshotFolder -and $demo.state -eq 'AUTHORIZED'){
+    $demoJob=[string]$demo.jobId
+    $check={ $null=Send-Message @{action='DEMO_AUTHORIZE_CHECK';jobId=$demoJob} }
+    try{
+     $result=& (Join-Path $PSScriptRoot 'Import-GroomProDemo.ps1') -SnapshotDirectory $snapshotFolder -GroomProOrigin $endpoint.GetLeftPart([UriPartial]::Authority) -Server $Server -Database $Database -Apply -BeforeCommit $check
+     $null=Send-Message @{action='DEMO_WRITE_RESULT';jobId=$demoJob;state='APPLIED';rows=[int]$result.rows}
+    }catch{
+     # A lost commit response is resolved by the SQL job receipt on the next authorized run.
+     Write-Warning ('Demo transfer needs attention: '+$_.Exception.Message)
+     $null=Send-Message @{action='DEMO_WRITE_RESULT';jobId=$demoJob;state='FAILED';rows=0;code='Check the connector on the PC. Retry uses the committed-job receipt.'}
+    }
+   }
    if($status.writeEnabled){
     $operations=(Send-Message @{action='POLL_WRITES'}).commands
     $writeConnection=New-Object System.Data.SqlClient.SqlConnection $builder.ConnectionString
@@ -107,7 +123,7 @@ try{
    }
   }catch{
    # Do not write response bodies, source records, or bearer credentials to logs.
-   Write-Warning 'Synchronization interrupted. Source records are unchanged; the next scan will retry safely.'
+   Write-Warning 'Connection interrupted. Check the job status before retrying; committed demo transfers are protected by receipts.'
    if($Once){throw}
   }
   if(-not $Once){Start-Sleep -Seconds $PollSeconds}

@@ -6,7 +6,7 @@ import {receiveBatch} from '@/src/lib/integrations/123pet/inbox';
 import {receiveTicketBundle} from '@/src/lib/integrations/123pet/tickets';
 import {pendingWrites,acknowledgeWrite} from '@/src/lib/integrations/123pet/outbox';
 import {ConnectorConfig,connectorPrefix,tokenIdentity,acceptsToken,assertRead,validateSchema,renewLease} from '@/src/lib/integrations/123pet/control';
-import {initialSetupStatus,snapshotChunk} from '@/src/lib/integrations/123pet/initial-setup';
+import {initialSetupStatus,snapshotChunk,demoWriteAuthorization,recordDemoWriteResult} from '@/src/lib/integrations/123pet/initial-setup';
 export const runtime='nodejs';
 export async function POST(r:NextRequest){
  let stage='AUTH',authenticated:{tenantId:string;id:string}|null=null;
@@ -40,6 +40,8 @@ export async function POST(r:NextRequest){
     config.status='Receiving source records; operational mapping pending';
    }else if(b.action==='INITIAL_SETUP')batch=config.initialSource==='GROOMPRO_DEMO'&&!config.readEnabled?await initialSetupStatus(tx,config):null;
    else if(b.action==='SNAPSHOT_CHUNK')batch=await snapshotChunk(tx,config,String(b.jobId),b.index);
+   else if(b.action==='DEMO_AUTHORIZE_CHECK')batch=await demoWriteAuthorization(tx,config,String(b.jobId));
+   else if(b.action==='DEMO_WRITE_RESULT')batch=await recordDemoWriteResult(tx,config,b);
    else if(b.action==='POLL_WRITES')commands=await pendingWrites(tx,config);
    else if(b.action==='WRITE_RESULT')await acknowledgeWrite(tx,config,b);
    else if(b.action!=='HEARTBEAT')throw Error('Unsupported connector message.');
