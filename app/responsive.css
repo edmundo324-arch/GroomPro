@@ -1,0 +1,50 @@
+/* Shared presentation foundations. Business rules and retained module state are unchanged. */
+.gp-main,.gp-settings,.gp-settings-card,.gp-pos-panel,.gp-profile-body{min-width:0}
+.gp-table-scroll{max-width:100%;overflow:auto;overscroll-behavior-x:contain}
+@media(max-width:900px){
+ .gp-topbar{max-width:100%;gap:8px}
+ .gp-module-nav{order:3;flex:1 0 100%;width:100%;min-width:0;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain}
+ .gp-employee{margin-left:auto;max-width:100%;flex-wrap:wrap}
+ .gp-actions,.gp-calendar-toolbar,.gp-staff-week-toolbar,.gp-profile-footer,.gp-modal-actions{flex-wrap:wrap}
+ .gp-calendar-options .gp-search-input{max-width:100%;margin-left:0}
+ .gp-calendar-scroll,.gp-staff-week-scroll,.gp-import-table{max-width:100%;overscroll-behavior:contain}
+ .gp-floating-window{max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overscroll-behavior:contain}
+ .gp-floating-head{position:sticky;top:0;z-index:10;background:#e8edf2;gap:8px;flex-wrap:wrap}
+ .gp-floating-head>div{min-width:0;overflow-wrap:anywhere}
+ .gp-search-window,.gp-pin-window{max-height:calc(100dvh - 16px);overflow:auto}
+ .gp-search-window{top:8px}
+ .gp-pos-adjustable{left:8px!important;top:8px!important;width:calc(100vw - 16px)!important;height:calc(100dvh - 16px)!important;min-height:0;min-width:0}
+ .gp-pos-adjustable .gp-pos-header{grid-template-columns:1fr}
+ .gp-pos-adjustable .gp-pos-footer,.gp-pos-new-footer{grid-template-columns:1fr}
+ .gp-pos-adjustable>.gp-floating-head{touch-action:pan-y;cursor:default}
+ .gp-pos-resize{display:none}
+ .gp-pos-tabs,.gp-profile-tabs{max-width:100%;overflow-x:auto;flex-wrap:nowrap}
+ .gp-pos-tabs>*{flex-shrink:0}
+ .gp-pos-body{min-width:0;overscroll-behavior:contain}
+ .gp-pos-table{min-width:760px}
+ .gp-staff-week-editor{min-width:0;max-width:100%}
+ .gp-staff-week-editor>label{min-width:0;max-width:100%;flex:1 1 180px}
+ .gp-staff-week-editor input,.gp-staff-week-editor select,.gp-staff-week-editor textarea{max-width:100%;min-width:0}
+ .gp-settings-card input:not([type=checkbox]):not([type=radio]),.gp-settings-card select,.gp-settings-card textarea{max-width:100%}
+ .gp-catalog-fields{grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))}
+ .gp-color-picker{max-height:calc(100dvh - 16px);overflow:auto}
+ /* Preserve the TV board's 23 rows and two halves; pan the board on a small device. */
+ .gp-whiteboard-host{overflow:auto!important;overscroll-behavior:contain}
+ .gp-whiteboard-host>.gp-whiteboard{min-width:1100px;min-height:740px}
+}
+@media(max-width:600px){
+ .gp-responsive-form-grid{grid-template-columns:minmax(0,1fr)!important}
+ .gp-responsive-form-grid>*{min-width:0;max-width:100%}
+ .gp-responsive-form-grid input,.gp-responsive-form-grid select{max-width:100%;min-width:0}
+ .gp-phone-row>*{max-width:100%;min-width:0}
+ .gp-pos-item-tools>*{max-width:100%;min-width:0}
+ .gp-list-row{flex-wrap:wrap;overflow-wrap:anywhere}
+ .gp-settings-card{padding:12px}
+ .gp-grooming-boxes{grid-template-columns:minmax(0,1fr)}
+ .gp-pricing-row{grid-template-columns:minmax(0,1fr) 65px 80px;padding:8px;gap:5px}
+}
+@media(pointer:coarse) and (max-width:900px){
+ .gp-btn,.gp-module,.gp-switch,.gp-profile-tabs button,.gp-pos-tabs button{min-height:44px}
+ .gp-staff-week-editor input:not([type=checkbox]):not([type=radio]),.gp-staff-week-editor select,.gp-search-input{min-height:44px}
+ input,select,textarea{font-size:16px}
+}

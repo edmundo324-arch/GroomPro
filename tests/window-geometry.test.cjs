@@ -1,0 +1,4 @@
+const assert=require('node:assert/strict');const test=require('node:test');const fs=require('node:fs');const ts=require('typescript');
+const source=fs.readFileSync('src/lib/window-geometry.ts','utf8');const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;const loaded={exports:{}};new Function('exports','module',out)(loaded.exports,loaded);const {fitWindow}=loaded.exports;
+test('restored windows stay fully reachable after moving to a smaller display',()=>{for(const [w,h] of [[390,844],[844,390],[768,1024],[1440,900]]){const r=fitWindow({left:1700,top:900,width:1200,height:800},w,h);assert.ok(r.left>=8&&r.top>=8);assert.ok(r.left+r.width<=w-8);assert.ok(r.top+r.height<=h-8)}});
+test('desktop window geometry remains unchanged when it fits',()=>{const g={left:40,top:50,width:900,height:650};assert.deepEqual(fitWindow(g,1440,900),g)});
