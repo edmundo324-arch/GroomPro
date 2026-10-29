@@ -13,7 +13,7 @@
 .gp-hover-group summary small{display:block;color:#526779;font-weight:400;margin-top:5px}
 .gp-hover-group p{font-size:13px;color:#526779;line-height:1.5}
 .gp-setting-choices{display:grid;gap:9px;margin-top:12px}
-.gp-setting-choices label{display:flex;gap:9px;align-items:start;line-height:1.4;text-transform:none}
+.gp-setting-choices label{display:flex;gap:9px;align-items:flex-start;line-height:1.4;text-transform:none}
 .gp-setting-choices label span::first-letter{text-transform:uppercase}
 .gp-setting-choices input{flex:none;margin-top:4px}
 .gp-billing-dates{display:grid;grid-template-columns:repeat(7,minmax(40px,1fr));gap:8px;max-width:540px;margin:12px 0}
