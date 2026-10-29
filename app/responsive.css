@@ -13,11 +13,11 @@
  .gp-floating-head>div{min-width:0;overflow-wrap:anywhere}
  .gp-search-window,.gp-pin-window{max-height:calc(100dvh - 16px);overflow:auto}
  .gp-search-window{top:8px}
- .gp-pos-adjustable{left:8px!important;top:8px!important;width:calc(100vw - 16px)!important;height:calc(100dvh - 16px)!important;min-height:0;min-width:0}
+ .gp-pos-adjustable{left:8px;top:8px;width:calc(100vw - 16px);height:calc(100dvh - 16px);min-height:0;min-width:0}
  .gp-pos-adjustable .gp-pos-header{grid-template-columns:1fr}
  .gp-pos-adjustable .gp-pos-footer,.gp-pos-new-footer{grid-template-columns:1fr}
  .gp-pos-adjustable>.gp-floating-head{touch-action:pan-y;cursor:default}
- .gp-pos-resize{display:none}
+ .gp-pos-resize{display:flex}
  .gp-pos-tabs,.gp-profile-tabs{max-width:100%;overflow-x:auto;flex-wrap:nowrap}
  .gp-pos-tabs>*{flex-shrink:0}
  .gp-pos-body{min-width:0;overscroll-behavior:contain}

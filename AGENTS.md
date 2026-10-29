@@ -35,3 +35,9 @@
 - Build new shared controls with bounded widths, wrapping, keyboard access, and touch-compatible interactions. Address basic responsiveness in existing controls when touched, without disrupting desktop behavior.
 - Before a significant mobile-related architectural change, document desktop impact and explain material tradeoffs to the user.
 - See docs/desktop-mobile-strategy.md for the current boundaries and review criteria.
+
+## Permanent UI restore point (already completed; do not repeat)
+- Tag `GroomPro-Before-UI-Refinements` permanently identifies commit `26b06d0450bd55b886714949aa8d06a21f3c85a4`. Never move, replace or delete it.
+- Verified Git bundle, installed dependencies/build/configuration archive and rollback script live privately at `C:/Users/Edmun/Documents/Codex/GroomPro-Restore-Points/GroomPro-Before-UI-Refinements`. Never publish private runtime archives or modify these read-only artifacts.
+- UI rollback restores a separate checkout and does not restore, delete or migrate customer data. If future work needs database changes, take and verify a separate database backup first.
+- Reuse completed findings, inspect relevant code only, keep tool output concise and run focused tests with necessary verification only.

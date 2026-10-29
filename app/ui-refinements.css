@@ -1,0 +1,60 @@
+/* Targeted window chrome and scrolling; existing form fields and business behavior stay intact. */
+.gp-topbar{position:sticky;top:0;z-index:15;flex-shrink:0}
+.gp-editor-window{inset:auto;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);min-width:0;min-height:0;margin:0;display:flex;flex-direction:column;overflow:hidden;z-index:55}
+.gp-editor-window>.gp-floating-head{flex:none;cursor:move;touch-action:none;user-select:none;background:#e8edf2}
+.gp-editor-window>.gp-floating-head>.gp-floating-title{flex:1;min-width:0;overflow-wrap:anywhere}
+.gp-editor-window>.gp-floating-head>.gp-btn{flex:none}
+.gp-editor-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column}
+.gp-editor-window .gp-editor-form{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.gp-editor-content>form.gp-settings-card{margin:0!important;border:0;border-radius:0;box-shadow:none}
+.gp-editor-content>form>h2,.gp-editor-content>form>h3{display:none}
+.gp-editor-window .gp-editor-fieldset{display:flex;flex-direction:column;flex:1;min-height:0;border:0;padding:0;margin:0;min-width:0}
+.gp-editor-window .gp-editor-fields{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:2px}
+.gp-editor-window .gp-editor-actions,.gp-editor-window .gp-modal-actions{flex:none;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;background:white;width:100%;padding:10px 48px 10px 8px;margin:0;border-top:1px solid #dce1e5}
+.gp-editor-window>.gp-form-error,.gp-editor-content>.gp-form-error{flex:none}
+.gp-editor-existing>form{flex:1 1 auto;min-height:120px;overflow:auto}
+.gp-editor-existing>.gp-profile-body{flex:1 1 190px;min-height:100px;overflow:auto;overscroll-behavior:contain}
+.gp-editor-existing>.gp-profile-summary,.gp-editor-existing>.gp-profile-tabs,.gp-editor-existing>.gp-profile-footer{flex:none}
+.gp-editor-existing>.gp-profile-footer{background:white;padding-right:48px}
+.gp-editor-existing .gp-staff-week-editor{min-width:0}
+.gp-editor-resize{position:absolute;z-index:20;touch-action:none;user-select:none}
+.gp-editor-resize-n{top:0;left:12px;right:12px;height:8px;cursor:ns-resize}
+.gp-editor-resize-s{bottom:0;left:12px;right:44px;height:8px;cursor:ns-resize}
+.gp-editor-resize-e{right:0;top:12px;bottom:44px;width:8px;cursor:ew-resize}
+.gp-editor-resize-w{left:0;top:12px;bottom:12px;width:8px;cursor:ew-resize}
+.gp-editor-resize-se{bottom:0;right:0;width:44px;height:44px;display:flex;align-items:flex-end;justify-content:flex-end;padding:2px;color:#17324d;font-size:14px;cursor:nwse-resize}
+.gp-staff-navigation{position:sticky;top:calc(var(--gp-topbar-height,64px) + var(--gp-availability-nav-height,0px) + var(--gp-employee-toolbar-height,0px));z-index:8;background:white;padding:2px 0}
+/* The existing POS grip keeps its visible glyph; its hit area is now 44 by 44. */
+.gp-pos-resize{width:44px;height:44px;min-width:44px;min-height:44px;margin-top:-44px;display:flex;align-items:flex-end;justify-content:flex-end;padding:2px;touch-action:none}
+@media(pointer:coarse){.gp-editor-resize-n,.gp-editor-resize-s{height:14px}.gp-editor-resize-e,.gp-editor-resize-w{width:14px}}
+
+.gp-editor-window>.gp-floating-head>div{flex:1;min-width:0}
+.gp-editor-window>.gp-floating-head .gp-floating-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gp-editor-existing>form.gp-editor-form{flex:2 1 260px;min-height:70px;overflow:hidden;margin:0;padding:10px;border:0;border-radius:0}
+.gp-editor-existing>form.gp-editor-form>h3{display:none}
+.gp-editor-existing>.gp-profile-body{flex:1 1 120px;min-height:0}
+.gp-editor-existing>.gp-profile-summary{flex:1 1 130px;min-height:0;max-height:130px;overflow:auto}
+
+.gp-availability-navigation{position:sticky;top:var(--gp-topbar-height,64px);z-index:10;background:white}
+.gp-employee-navigation{position:sticky;top:calc(var(--gp-topbar-height,64px) + var(--gp-availability-nav-height,0px));z-index:9;background:white}
+.gp-settings>.gp-calendar-head:has(.gp-btn){position:sticky;top:var(--gp-topbar-height,64px);z-index:11;background:#eef1f4}
+.gp-customers-workspace{overflow:visible}
+.gp-customers-workspace>.gp-calendar-head{position:sticky;top:var(--gp-topbar-height,64px);z-index:11;background:white;border-radius:9px 9px 0 0}
+
+/* One reserved row of pets and one compact instruction row, for every customer. */
+.gp-pos-pet-strip{flex:none;min-width:0;padding:0 6px 6px;font-size:12px}
+.gp-pos-pet-row{display:flex;align-items:center;gap:6px;min-width:0;height:49px}
+.gp-pos-pet-scroll{display:flex;align-items:center;gap:5px;min-width:0;flex:1;overflow-x:auto;overflow-y:hidden;height:49px;scrollbar-width:thin}
+.gp-pos-pet-chip{display:flex;align-items:center;gap:4px;flex:none;height:38px;padding:2px 5px;border:1px solid #cbd3db;border-radius:5px;background:white;white-space:nowrap}
+.gp-pos-pet-chip[data-selected=true]{border-color:#8d8fe2;background:#f1effb}
+.gp-pos-pet-chip>.gp-btn{display:flex;flex-direction:column;align-items:flex-start;padding:1px 3px;border:0;background:transparent;color:inherit;font-size:12px;line-height:15px}
+.gp-pos-pet-chip small{font-size:11px;color:#546374;line-height:13px}
+.gp-pos-pet-chip input{margin:0;flex:none}
+.gp-pos-pet-instructions{display:flex;align-items:center;gap:8px;height:30px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;background:#f1eff7;border-radius:4px;padding:2px 5px;scrollbar-width:thin}
+.gp-pos-pet-instructions>*{flex:none}
+.gp-pos-pet-instructions>span[style]{flex-wrap:nowrap!important}
+.gp-pos-pet-instructions .gp-btn{font-size:12px;padding:2px 4px}
+.gp-pos-date-time{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap}
+.gp-pos-date-time label{flex:1;min-width:100px;font-size:12px}
+.gp-pos-date-time input{display:block;width:100%;min-width:0;box-sizing:border-box;padding:4px;font-size:12px}
+.gp-pos-date-time>.gp-btn{flex:none}
