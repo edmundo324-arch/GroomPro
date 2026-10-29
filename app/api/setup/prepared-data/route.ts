@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {requestLocation} from '@/src/lib/request-location';
+import {loadPreparedServices} from '@/src/lib/import/prepared-services';
 import {preparedTestData} from '@/src/lib/import/prepared-test-data';
 export const runtime='nodejs';
 export async function POST(r:NextRequest){
@@ -12,6 +13,10 @@ export async function POST(r:NextRequest){
  if(!['PLATFORM_OWNER','DEVELOPER','ADMIN'].includes(session.user.role))return NextResponse.json({error:'Administrator access required.'},{status:403});
  try{
   const body=await r.json();if(!['PREVIEW','LOAD'].includes(body.action))throw Error('Choose preview or load.');
+  if(body.scope==='SERVICES'){
+   if(!['PLATFORM_OWNER','DEVELOPER'].includes(session.user.role))return NextResponse.json({error:'Owner or Developer access is required to load this service catalog.'},{status:403});
+   return NextResponse.json(await loadPreparedServices(db,tenantId,session.user.id,body.action==='LOAD'));
+  }
   const locationId=await requestLocation(r,tenantId);if(!locationId)throw Error('Select a business location first.');
   const result=await preparedTestData(db,tenantId,locationId,session.user.id,body.action==='LOAD',body.scope==='CUSTOMERS_PETS');
   return NextResponse.json(result);
