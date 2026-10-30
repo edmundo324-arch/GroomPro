@@ -50,8 +50,8 @@
 /* Popup choices scroll independently; the preview is outside that scroller. */
 .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]){overflow:hidden;display:flex;flex-direction:column}
 .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance])>.gp-workflow-section{display:flex;flex-direction:column;flex:1;min-height:0;margin:0;padding:6px}
-.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-preview-layout{flex:1;min-height:0;overflow:hidden;grid-template-rows:minmax(0,1fr)}
-.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) [data-settings-scroll]{min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:5px;scrollbar-gutter:stable}
+.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-preview-layout{flex:1;min-height:0;height:0;overflow:hidden;grid-template-rows:minmax(0,1fr)}
+.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) [data-settings-scroll]{align-self:stretch;min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:5px;scrollbar-gutter:stable}
 .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-preview-anchor{height:100%;max-height:100%;min-height:0}
 .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-movable-preview:not(.gp-preview-expanded){max-height:100%}
 .gp-settings-sections.is-narrow .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-preview-layout{grid-template-rows:auto minmax(0,1fr)}
