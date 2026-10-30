@@ -8,6 +8,7 @@ export function fitWindow(g:{left:number;top:number;width:number;height:number},
 export type WindowGeometry={left:number;top:number;width:number;height:number};
 export function defaultPosGeometry(width:number,height:number){
  if(width<600)return fitWindow({left:8,top:8,width:width-16,height:height-16},width,height);
+ if(width>=1000&&height>=700){const w=Math.round(width*.575),h=Math.round(height*.575);return fitWindow({left:Math.round((width-w)/2),top:Math.round((height-h)/2),width:w,height:h},width,height);}
  const w=Math.min(width-16,Math.max(720,Math.round(width*.58))),h=Math.min(height-16,Math.max(600,Math.round(height*.58)));
  return fitWindow({left:Math.round((width-w)/2),top:Math.round((height-h)/2),width:w,height:h},width,height);
 }
@@ -20,4 +21,10 @@ export function resizeEditorWindow(g:WindowGeometry,edge:string,dx:number,dy:num
  if(edge.includes('s'))bottom=Math.min(height-8,Math.max(top+minH,bottom+dy));
  if(edge.includes('n'))top=Math.max(8,Math.min(bottom-minH,top+dy));
  return fitWindow({left,top,width:right-left,height:bottom-top},width,height);
+}
+
+// Intentional dragging keeps at least 20% of each dimension visible.
+export function dragWindow(g:WindowGeometry,width:number,height:number){
+ const visibleW=Math.min(g.width*.2,width),visibleH=Math.min(g.height*.2,height);
+ return {...g,left:Math.max(-g.width*.8,Math.min(width-visibleW,g.left)),top:Math.max(-g.height*.8,Math.min(height-visibleH,g.top))};
 }

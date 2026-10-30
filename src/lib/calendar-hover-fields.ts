@@ -1,3 +1,4 @@
+import {popupFields} from './calendar-popup-layout';
 export const calendarHoverFields:Record<string,string>={
   "time": "Appointment time",
   "pet": "Pet name",
@@ -88,7 +89,7 @@ export const calendarHoverFields:Record<string,string>={
   "pet.coatLength": "Pet — coat Length",
   "pet.coatTexture": "Pet — coat Texture",
   "pet.breedingStatus": "Pet — breeding Status",
-  "pet.vipEligible": "Pet — vip Eligible",
+  "pet.vipEligible": "Pet — VIP status",
   "pet.vipEligibilityNotes": "Pet — vip Eligibility Notes",
   "pet.dateOfBirth": "Pet — date Of Birth",
   "pet.species": "Pet — species",
@@ -105,7 +106,7 @@ export const calendarHoverFields:Record<string,string>={
   "pet.id": "Pet — id",
   "pet.name": "Pet — name",
   "pet.breed": "Pet — breed",
-  "pet.notes": "Pet — notes",
+  "pet.notes": "Pet — Permanent notes",
   "pet.active": "Pet — active",
   "pet.createdAt": "Pet — created At",
   "pet.updatedAt": "Pet — updated At",
@@ -138,3 +139,8 @@ export const calendarHoverFields:Record<string,string>={
   "payments": "Payments",
   "assignments": "Assigned employees"
 };
+
+// Both historical keys read the same pet record; expose one settings choice.
+export const calendarHoverChoices=Object.keys(calendarHoverFields).filter(key=>!['pet.groomingNotes','pet.name','customer.vipStatus'].includes(key));
+export function hoverChoiceSelected(fields:string[],key:string){return popupFields(fields).includes(key==='pet'?'pet.name':key)}
+export function updateHoverChoice(fields:string[],key:string,selected:boolean){const canonical=key==='pet'?'pet.name':key;const next=popupFields(fields).filter(field=>field!==canonical);return selected?[...next,canonical]:next}

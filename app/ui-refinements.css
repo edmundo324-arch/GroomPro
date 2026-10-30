@@ -58,3 +58,39 @@
 .gp-pos-date-time label{flex:1;min-width:100px;font-size:12px}
 .gp-pos-date-time input{display:block;width:100%;min-width:0;box-sizing:border-box;padding:4px;font-size:12px}
 .gp-pos-date-time>.gp-btn{flex:none}
+
+/* Compact POS rows retain the existing controls and release height to Items. */
+.gp-pos-header.gp-pos-compact-header{display:flex;flex-direction:column;gap:4px;padding:4px 6px;font-size:12px;background:white;border-bottom:1px solid #dce1e5}
+.gp-pos-compact-header>section{min-width:0;padding:2px 0}
+.gp-pos-appointment-row{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap}
+.gp-pos-appointment-row>.gp-pos-date-time{flex:2;min-width:205px;flex-wrap:nowrap}
+.gp-pos-appointment-row>label{display:flex;flex-direction:column;flex:1;min-width:105px;font-size:12px;gap:2px}
+.gp-pos-appointment-row>label:has([aria-label="Ticket status"]){flex:0 1 145px;margin-left:auto}
+.gp-pos-appointment-row select{width:100%;min-width:0;font-size:12px}
+.gp-pos-appointment-row>.gp-btn{flex:none}
+.gp-pos-move-help{cursor:help;color:#546374;align-self:center}
+.gp-pos-progress-row{display:flex;align-items:center;gap:5px 12px;flex-wrap:wrap;border-top:1px solid #edf0f3}
+.gp-pos-progress-row>.gp-pos-progress{display:inline-flex;align-items:center;gap:3px;margin:0;white-space:nowrap}
+.gp-pos-progress-row>.gp-pos-progress time{max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.gp-pos-progress-row>label:has(select){display:flex;align-items:center;gap:5px}
+.gp-pos-progress-row [aria-label="Arrival priority"]{width:44px;padding:3px;font-size:12px}
+.gp-pos-progress-row select{max-width:170px}
+.gp-pos-progress-help{font-size:10px;color:#546374}
+.gp-pos-customer-row{display:flex;align-items:center;gap:3px 9px;flex-wrap:wrap;border-top:1px solid #edf0f3}
+.gp-pos-customer-row>.gp-pos-inline{display:flex;gap:8px;justify-content:flex-start}
+.gp-pos-customer-row .gp-pos-id{font-size:10px;color:#546374}
+.gp-pos-customer-row>small{font-size:11px}
+.gp-pos-customer-row>.gp-pos-customer-search{flex-basis:100%;max-height:180px;overflow:auto}
+.gp-pos-customer-row>details{flex-basis:100%}
+.gp-pos-window .gp-pos-created{font-size:11px;white-space:nowrap}
+.gp-pos-adjustable .gp-pos-body{flex:1 1 288px;min-height:120px;max-height:none}
+.gp-pos-promotions{flex-basis:54px;min-height:54px;max-height:54px}
+.gp-pos-promotions-choices{scrollbar-width:thin}
+.gp-pos-promotions-choices .gp-btn{flex:0 0 112px;width:112px;height:43px;min-height:43px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:3px 6px;line-height:15px}
+.gp-pos-promotions-choices .gp-btn>span:first-child{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-pos-promotions-choices .gp-btn>.gp-pos-offer-price{flex:none;font-size:12px;white-space:nowrap}
+.gp-pos-promotions-choices .gp-btn[aria-pressed=true]{background:#e7eef5;border-color:#17324d;color:#17324d}
+.gp-pos-pet-chip>.gp-btn{min-width:75px}
+.gp-pos-resize{width:64px;height:64px;min-width:64px;min-height:64px;margin-top:-64px}
+.gp-pos-window:has(>[data-pos-resize]) .gp-pos-footer{padding-right:66px}
+@media(max-width:600px){.gp-pos-appointment-row>label{min-width:90px}.gp-pos-created{white-space:normal!important;max-width:125px}.gp-pos-progress-row{gap:4px 8px}}

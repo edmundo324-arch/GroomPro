@@ -1,15 +1,18 @@
+import {offerTodaySourceKey} from './service-promotion';
 import {groomingEligibility} from './breed-classification';
 import {loadBreeds} from './breed-store';
 import {allocatePackage as distributePrice} from './package-lines';
-export type SaleInput={type:"SERVICE"|"PRODUCT"|"PACKAGE";id:string;petId?:string;quantity?:number;role?:string;assignedUserId?:string;packageId?:string;durationMin?:number};
+export type SaleInput={type:"SERVICE"|"PRODUCT"|"PACKAGE";id:string;petId?:string;quantity?:number;role?:string;assignedUserId?:string;packageId?:string;durationMin?:number;offerToday?:boolean};
 export {allocatePackage as distributePrice} from './package-lines';
 export async function resolveSaleLines(db:any,tenantId:string,inputs:SaleInput[],petIds:string[],locationId?:string){
- const lines:any[]=[];let durationMin=0;
+ const lines:any[]=[];let durationMin=0;const offers=new Set<string>();
  const packageCache=new Map<string,any>(),petCache=new Map<string,any>();let breedDictionary:Awaited<ReturnType<typeof loadBreeds>>|undefined;
  for(const input of inputs){
   if(!['SERVICE','PRODUCT','PACKAGE'].includes(input.type))throw Error('Choose a valid item type.');
   const quantity=input.quantity??1;if(!Number.isInteger(quantity)||quantity<1||quantity>1000)throw Error('Quantity must be a whole number from 1 to 1000.');
   const petId=input.petId||undefined;if(input.type!=='PRODUCT'&&(!petId||!petIds.includes(petId)))throw Error('Choose a dog on this ticket for each service or package.');if(petId&&!petIds.includes(petId))throw Error('The selected dog is not on this ticket.');
+  const offerKey=input.offerToday===true&&input.type==='SERVICE'&&!input.packageId?offerTodaySourceKey(input.id):null;
+  if(offerKey){const key=petId+'\0'+offerKey;if(offers.has(key))continue;offers.add(key);}
   if(input.assignedUserId&&!await db.user.findFirst({where:{id:input.assignedUserId,tenantId,active:true}}))throw Error('Assigned employee not found.');
   let entries:any[]=[];
   if(input.type==='PACKAGE'||input.packageId){
@@ -25,7 +28,7 @@ export async function resolveSaleLines(db:any,tenantId:string,inputs:SaleInput[]
    const item=await db[input.type==='SERVICE'?'service':'product'].findFirst({where:{id:input.id,tenantId,active:true}});if(!item)throw Error('Item not found.');
    entries=[{service:input.type==='SERVICE'?item:null,product:input.type==='PRODUCT'?item:null,quantity,unitPriceCents:item.priceCents,discountCents:0,totalCents:item.priceCents*quantity,role:input.type==='PRODUCT'?'PRODUCT':input.role||'ADD_ON',description:item.name}];
   }
-  for(const entry of entries){if(!['PREP','BATH','DRY','GROOM','ADD_ON','PRODUCT'].includes(entry.role))throw Error('Invalid line role.');const commissionPct=entry.service?.commissionPct==null?null:Number(entry.service.commissionPct);const minutes=input.durationMin??entry.service?.durationMin??0;if(!Number.isInteger(minutes)||minutes<0||minutes>1440)throw Error('Duration must be 0–1440 minutes.');durationMin+=minutes*entry.quantity;lines.push({durationMin:entry.product?0:minutes,reportCardDescription:entry.service?.description||null,packageId:entry.packageId||null,packageGroupKey:entry.packageGroupKey||null,packageName:entry.packageName||null,lineType:entry.product?'PRODUCT':'SERVICE',serviceId:entry.service?.id||null,productId:entry.product?.id||null,description:entry.description,petId:petId||null,role:entry.role,quantity:entry.quantity,unitPriceCents:entry.unitPriceCents,discountCents:entry.discountCents,totalCents:entry.totalCents,commissionPct,commissionCents:commissionPct==null?0:Math.round(entry.totalCents*commissionPct/100),assignedUserId:input.assignedUserId||null,assignedAt:input.assignedUserId?new Date():null,sortOrder:lines.length})}
+  for(const entry of entries){if(!['PREP','BATH','DRY','GROOM','ADD_ON','PRODUCT'].includes(entry.role))throw Error('Invalid line role.');const commissionPct=entry.service?.commissionPct==null?null:Number(entry.service.commissionPct);const minutes=input.durationMin??entry.service?.durationMin??0;if(!Number.isInteger(minutes)||minutes<0||minutes>1440)throw Error('Duration must be 0–1440 minutes.');durationMin+=minutes*entry.quantity;lines.push({...(offerKey?{sourceKey:offerKey}:{}),durationMin:entry.product?0:minutes,reportCardDescription:entry.service?.description||null,packageId:entry.packageId||null,packageGroupKey:entry.packageGroupKey||null,packageName:entry.packageName||null,lineType:entry.product?'PRODUCT':'SERVICE',serviceId:entry.service?.id||null,productId:entry.product?.id||null,description:entry.description,petId:petId||null,role:entry.role,quantity:entry.quantity,unitPriceCents:entry.unitPriceCents,discountCents:entry.discountCents,totalCents:entry.totalCents,commissionPct,commissionCents:commissionPct==null?0:Math.round(entry.totalCents*commissionPct/100),assignedUserId:input.assignedUserId||null,assignedAt:input.assignedUserId?new Date():null,sortOrder:lines.length})}
  }
  return{lines,serviceMinutes:durationMin,durationMin:Math.max(15,durationMin||30)};
 }

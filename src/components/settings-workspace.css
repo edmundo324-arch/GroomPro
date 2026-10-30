@@ -1,0 +1,75 @@
+/* Settings navigation and actions stay outside independently scrolling tasks. */
+.gp-settings-workspace{display:flex;flex-direction:column;min-width:0;min-height:0;height:calc(100dvh - var(--gp-topbar-height,64px) - 48px)}
+.gp-settings-workspace>.gp-calendar-head{flex:none;margin-bottom:8px}
+.gp-settings-workspace>.gp-form-success{flex:none;margin:4px 0}
+.gp-settings-sections{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;height:100%}
+.gp-settings-section-tabs{display:flex;flex:none;gap:4px;overflow-x:auto;overscroll-behavior-x:contain;padding:4px 0 6px;border-bottom:1px solid #ccd8e2}
+.gp-settings-section-tabs>button{flex:none;border:1px solid transparent;border-radius:5px;background:white;color:#17324d;padding:6px 9px;white-space:nowrap;font-size:13px}
+.gp-settings-section-tabs>button[aria-selected=true]{background:#17324d;color:white;border-color:#17324d}
+.gp-settings-section-tabs>button:focus-visible{outline:2px solid #4c70b4;outline-offset:-2px}
+.gp-settings-section-select{display:none;flex:none;align-items:center;gap:8px;padding:4px 0 6px;font-size:12px}
+.gp-settings-section-select>select{min-width:0;flex:1;padding:7px;font-size:13px;border:1px solid #bdc8d1;border-radius:4px;background:white}
+.gp-settings-section-panels{flex:1;min-height:0;min-width:0;overflow:hidden;position:relative}
+.gp-settings-section-panel{height:100%;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:5px 1px}
+.gp-settings-section-panel[hidden]{display:none!important}
+.gp-settings-sections[data-settings-id=settings]>.gp-settings-section-panels>.gp-settings-section-panel:is([data-settings-panel=workflow],[data-settings-panel=data],[data-settings-panel=administration],[data-settings-panel=locations]){overflow:hidden}
+.gp-settings-section-panel:has(>.gp-settings-sections){display:flex;flex-direction:column}
+.gp-settings-subworkspace{display:flex;flex-direction:column;min-height:0;height:100%;gap:5px}
+.gp-settings-location-choice{display:flex;flex:none;gap:8px;align-items:center}
+.gp-settings-location-choice select{max-width:320px;min-width:0;padding:5px}
+.gp-settings-section-panel[data-settings-panel=pricing] .gp-settings-card-head{position:sticky;top:0;background:white;z-index:5;padding-bottom:6px}
+.gp-settings-workspace .gp-workflow-settings{display:flex;flex-direction:column;height:100%;min-height:0;min-width:0;margin:0;padding:10px}
+.gp-workflow-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;flex:none}
+.gp-workflow-heading h2{margin:0 0 5px}.gp-workflow-heading label{display:flex;gap:6px;align-items:center;font-size:12px}.gp-workflow-heading select{padding:4px;max-width:180px}
+.gp-workflow-form{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;border:0;padding:0;margin:0}
+.gp-workflow-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:none;padding:7px 0 0;border-top:1px solid #ccd8e2;background:white;position:relative;z-index:25;font-size:12px}
+.gp-workflow-actions>.gp-btn{flex:none}.gp-workflow-actions>[role=status]{flex:1;min-width:0}.gp-settings-unsaved{color:#735318}
+.gp-settings-defaults{margin-left:auto;position:relative}.gp-settings-defaults>summary{cursor:pointer;padding:5px 8px;border:1px solid #ccd8e2;border-radius:4px}
+.gp-settings-defaults>div{position:absolute;bottom:calc(100% + 6px);right:0;width:250px;max-width:calc(100vw - 32px);max-height:60dvh;overflow:auto;padding:8px;display:grid;gap:6px;background:white;border:1px solid #bdc8d1;border-radius:5px;box-shadow:0 4px 15px #0003}
+.gp-settings-sections .gp-workflow-section{margin:5px 0;min-width:0}
+.gp-settings-sections .gp-preview-layout{grid-template-columns:minmax(0,1fr) minmax(220px,320px);align-items:flex-start;gap:12px}
+.gp-settings-sections .gp-preview-anchor{position:sticky;top:0;align-self:flex-start;z-index:20}
+.gp-settings-sections .gp-movable-preview{max-height:calc(100dvh - var(--gp-topbar-height,64px) - 180px);display:flex;flex-direction:column}
+.gp-settings-sections .gp-popup-preview{min-height:0;overflow:auto;max-height:none}
+.gp-settings-sections .gp-preview-handle{flex:none;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.gp-preview-expand{margin-left:auto;padding:2px 5px!important;font-size:11px!important}
+.gp-settings-sections .gp-preview-expanded{position:fixed!important;top:calc(var(--gp-topbar-height,64px) + 8px);right:12px;left:auto;width:420px;max-width:calc(100vw - 24px);max-height:calc(100dvh - var(--gp-topbar-height,64px) - 24px);z-index:1200}
+.gp-settings-sections.is-narrow>.gp-settings-section-tabs{display:none}
+.gp-settings-sections.is-narrow>.gp-settings-section-select{display:flex}
+.gp-settings-sections.is-narrow .gp-preview-layout{grid-template-columns:minmax(0,1fr)}
+.gp-settings-sections.is-narrow .gp-preview-layout>div{grid-row:2;grid-column:1}
+.gp-settings-sections.is-narrow .gp-preview-layout>.gp-preview-anchor{grid-row:1;grid-column:1;justify-self:stretch;max-width:100%;background:white;padding-bottom:4px}
+.gp-settings-sections.is-narrow .gp-movable-preview:not(.gp-preview-expanded){width:100%;max-width:100%;max-height:min(24dvh,180px)}
+@media(max-width:900px){.gp-settings-workspace{height:calc(100dvh - var(--gp-topbar-height,64px) - 20px)}}
+@media(pointer:coarse){.gp-settings-section-tabs>button,.gp-settings-section-select select,.gp-workflow-actions>.gp-btn,.gp-preview-expand{min-height:44px}}
+
+/* Keep a usable controls area on short, narrow screens; the preview can expand. */
+.gp-settings-sections.is-narrow .gp-workflow-heading>h2{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(max-height:650px){.gp-settings-workspace>.gp-calendar-head .gp-subtitle{display:none}.gp-settings-sections.is-narrow .gp-movable-preview:not(.gp-preview-expanded){max-height:85px}}
+
+/* Popup choices scroll independently; the preview is outside that scroller. */
+.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]){overflow:hidden;display:flex;flex-direction:column}
+.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance])>.gp-workflow-section{display:flex;flex-direction:column;flex:1;min-height:0;margin:0;padding:6px}
+.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-preview-layout{flex:1;min-height:0;overflow:hidden;grid-template-rows:minmax(0,1fr)}
+.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) [data-settings-scroll]{min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:5px;scrollbar-gutter:stable}
+.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-preview-anchor{height:100%;max-height:100%;min-height:0}
+.gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-movable-preview:not(.gp-preview-expanded){max-height:100%}
+.gp-settings-sections.is-narrow .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-preview-layout{grid-template-rows:auto minmax(0,1fr)}
+.gp-settings-sections.is-narrow .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-preview-anchor{height:auto;max-height:min(24dvh,180px)}
+.gp-settings-sections.is-narrow .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-movable-preview:not(.gp-preview-expanded){max-height:min(24dvh,180px)}
+@media(max-height:650px){.gp-settings-sections.is-narrow .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-preview-anchor,.gp-settings-sections.is-narrow .gp-settings-section-panel:is([data-settings-panel=popup],[data-settings-panel=appearance]) .gp-movable-preview:not(.gp-preview-expanded){max-height:85px}}
+
+.gp-settings-sections .gp-preview-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:6px}
+.gp-settings-sections .gp-preview-content>.gp-popup-preview{overflow:visible;padding:0}
+.gp-appearance-selection>div{display:flex;gap:8px;flex-wrap:wrap}.gp-appearance-selection label{flex:1;min-width:110px}.gp-appearance-selection select{width:100%;min-width:0}
+.gp-settings-sections.is-narrow .gp-appearance-pair{grid-template-columns:minmax(0,1fr)}
+
+/* Calendar preview is the actual full-size popup, never a scrolling thumbnail. */
+.gp-settings-section-panel[data-settings-panel=popup] .gp-preview-layout{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important}
+.gp-settings-section-panel[data-settings-panel=popup] [data-settings-scroll]{grid-row:1!important;grid-column:1}
+.gp-settings-section-panel[data-settings-panel=popup] .gp-full-popup-anchor{position:static!important;height:0!important;max-height:none!important;min-height:0;grid-row:1!important;grid-column:1;align-self:start;justify-self:end;padding:0!important;pointer-events:none}
+.gp-settings-sections .gp-movable-preview.gp-full-popup-preview{position:fixed;top:calc(var(--gp-topbar-height,64px) + 100px);right:24px;width:344px!important;max-width:calc(100vw - 16px)!important;max-height:none!important;height:auto!important;overflow:visible;pointer-events:auto;z-index:1200}
+.gp-settings-sections .gp-full-popup-preview>.gp-preview-content{flex:none;overflow:visible;max-height:none;height:auto;padding:11px}
+.gp-settings-sections .gp-full-popup-preview .gp-popup-preview,.gp-settings-sections .gp-full-popup-preview .gp-appointment-hover{overflow:visible;max-height:none;height:auto}
+.gp-settings-sections .gp-full-popup-preview .gp-appointment-hover{box-shadow:0 5px 20px #0003}
+@media(max-width:600px){.gp-settings-sections .gp-movable-preview.gp-full-popup-preview{right:8px}}

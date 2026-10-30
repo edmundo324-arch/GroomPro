@@ -1,3 +1,4 @@
+import {popupPetMemberships} from '@/src/lib/popup-pet-memberships';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {employeeAppearance} from '@/src/lib/appearance-settings';
 import {platformSession} from '@/src/lib/platform-access';
@@ -13,7 +14,8 @@ async function handlePolicyGET(r:NextRequest){
  const ticket=await db.ticket.findFirst({where:{id:r.nextUrl.searchParams.get('id')||'',tenantId,locationId},include:{customer:{include:{phones:true}},pets:{include:{pet:{include:{vaccinations:true}}}},lines:true,payments:true,assignments:{include:{user:{select:{displayName:true,firstName:true,lastName:true}}}}}});
  if(!ticket)return NextResponse.json({error:'Appointment not found.'},{status:404});
  const session=await platformSession(r);const fields=(await employeeAppearance(tenantId,session?.user)).hoverFields;
- const details=buildHoverDetails(ticket,fields);
+ const showVip=fields.includes('pet.vipEligible')||fields.includes('customer.vipStatus');
+ const details=buildHoverDetails(showVip?await popupPetMemberships(db,tenantId,ticket):ticket,fields);
  return NextResponse.json({details},{headers:{'Cache-Control':'no-store'}});
 }
 

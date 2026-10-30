@@ -36,7 +36,7 @@ async function save(r:NextRequest){
  if(data.category!==previous?.category&&(categoryConfig?.value as any[]||[]).some(c=>c.name===data.category&&c.active===false))throw Error('Choose an active service category.');
  if(r.method==="PATCH"&&!await tx.service.findFirst({where:{id,tenantId}}))throw new Error("Item not found.");
  if(data.code&&await tx.service.findFirst({where:{tenantId,code:data.code,id:{not:id}}}))throw Error("Service ID is already used.");
- const values={...common,...(data.promotingServices!==undefined?{customFields:servicePromotionFields(previous?.customFields,data.promotingServices)}:{}),...(data.workflowRole!==undefined?{workflowRole:data.workflowRole as any}:{}),...(data.favorite!==undefined?{favorite:data.favorite}:{}),priceCents:data.priceCents,category:data.category,durationMin:data.durationMin,...(data.code!==undefined?{code:data.code}:{}),...(data.commissionExemptRoles!==undefined?{commissionExemptRoles:data.commissionExemptRoles}:{})};
+ const values={...common,...(data.promotingServices!==undefined||data.offerTodayLabel!==undefined?{customFields:servicePromotionFields(previous?.customFields,data.promotingServices,data.offerTodayLabel)}:{}),...(data.workflowRole!==undefined?{workflowRole:data.workflowRole as any}:{}),...(data.favorite!==undefined?{favorite:data.favorite}:{}),priceCents:data.priceCents,category:data.category,durationMin:data.durationMin,...(data.code!==undefined?{code:data.code}:{}),...(data.commissionExemptRoles!==undefined?{commissionExemptRoles:data.commissionExemptRoles}:{})};
  return r.method==="PATCH"?tx.service.update({where:{id},data:values}):tx.service.create({data:{id,tenantId,...values}});
  }
  if(data.kind==="packages"||data.kind==="plans"){

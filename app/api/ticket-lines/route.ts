@@ -1,4 +1,5 @@
 import {withRequestPolicy} from '@/src/lib/request-policy';
+import {setOfferTodayLine} from '@/src/lib/offer-today-lines';
 import {approvedScheduling} from '@/src/lib/scheduling-authorization';
 import {schedulingApproved,schedulingWarning,schedulingException,warningDetails} from '@/src/lib/scheduling-warning';
 import {employeeAvailable,syncActualGroomers} from '@/src/lib/groomer-assignment';
@@ -35,7 +36,7 @@ async function handlePolicyPOST(request: NextRequest) {
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
   const session = await getSession(request, tenantId);
   if (!session) return NextResponse.json({ error: "Employee PIN is required before changing ticket lines." }, { status: 401 });
-  let body: { ticketId?: string; petId?: string; type?: "SERVICE" | "PRODUCT" | "PACKAGE"; id?: string; quantity?: number; role?: "PREP" | "BATH" | "DRY" | "GROOM" | "ADD_ON" | "PRODUCT"; assignedUserId?: string; sortOrder?: number };
+  let body: { offerToday?:boolean;present?:boolean;ticketId?: string; petId?: string; type?: "SERVICE" | "PRODUCT" | "PACKAGE"; id?: string; quantity?: number; role?: "PREP" | "BATH" | "DRY" | "GROOM" | "ADD_ON" | "PRODUCT"; assignedUserId?: string; sortOrder?: number };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if (!body.ticketId || !body.type || !body.id) return NextResponse.json({ error: "Ticket, line type, and item are required." }, { status: 400 });
   const ticket = await db.ticket.findFirst({ where: { id: body.ticketId, tenantId }, include: { customer: true } });
@@ -45,6 +46,21 @@ async function handlePolicyPOST(request: NextRequest) {
     if (!pet) return NextResponse.json({ error: "The selected dog is not on this ticket." }, { status: 400 });
   }
   if(["CLOSED","CANCELLED","NO_SHOW"].includes(ticket.status))return NextResponse.json({error:"This ticket is closed."},{status:409});
+  if(body.offerToday===true){
+    if(body.type!=='SERVICE'||!body.petId||typeof body.present!=='boolean')return NextResponse.json({error:'Choose a dog, service, and Offer Today selection.'},{status:400});
+    try{
+      const outcome=await db.$transaction(async tx=>{
+        await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;
+        const outcome=await setOfferTodayLine(tx,tenantId,ticket.id,{id:body.id!,petId:body.petId!,present:body.present!,role:body.role},async(live,duration)=>{
+          if(live.scheduledStart){const error=await appointmentHoursError(tenantId,live.locationId,live.scheduledStart,duration);if(error&&!await approvedScheduling(request,error))throw schedulingException(error);}
+        });
+        if(outcome.removedLines.some((line:any)=>line.role==='GROOM'&&line.assignedUserId))await syncActualGroomers(tx,ticket.id);
+        return outcome;
+      });
+      if(outcome.changed)await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:outcome.removed?'REMOVE_LINE':'ADD_LINE',summary:`${outcome.removed?'Removed':'Added'} Offer Today: ${outcome.line?.description}.`,details:{lineId:outcome.line?.id,petId:body.petId,offerToday:true}});
+      return NextResponse.json(outcome);
+    }catch(error){return NextResponse.json({...warningDetails(error),error:(error as Error).message},{status:409});}
+  }
   let result;try{const ticketPets=await db.ticketPet.findMany({where:{ticketId:ticket.id}});result=await resolveSaleLines(db,tenantId,[body as any],ticketPets.map(p=>p.petId),ticket.locationId)}catch(e){return NextResponse.json({...warningDetails(e),error:e instanceof Error?e.message:"Invalid item."},{status:400})}
   const currentLines=await db.ticketLine.findMany({where:{ticketId:ticket.id},include:{service:true}});const durationMin=ticketDuration([...currentLines,...result.lines],ticket.timingMode);
   if(ticket.scheduledStart){const message=await appointmentHoursError(tenantId,ticket.locationId,ticket.scheduledStart,durationMin);if(message&&!await approvedScheduling(request,message))return NextResponse.json(schedulingWarning(message),{status:409})}
