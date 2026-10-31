@@ -41,3 +41,11 @@
 - Verified Git bundle, installed dependencies/build/configuration archive and rollback script live privately at `C:/Users/Edmun/Documents/Codex/GroomPro-Restore-Points/GroomPro-Before-UI-Refinements`. Never publish private runtime archives or modify these read-only artifacts.
 - UI rollback restores a separate checkout and does not restore, delete or migrate customer data. If future work needs database changes, take and verify a separate database backup first.
 - Reuse completed findings, inspect relevant code only, keep tool output concise and run focused tests with necessary verification only.
+
+## Agreed ticket workspace (October 31, 2026)
+- Desktop POS stays a stable paper-like form. Appointment and payment controls remain visible; only phone uses Details, package Show/Hide, compact actions, and More tabs. Retain Edit Customer, Change Customer and original line edit handlers.
+- Factory tab order: Items, Rebook, Notes, VIP Memberships, Account & Rewards, Report Card, History. Tenant layouts are in WORKFLOW.posLayout, independently for desktop/phone. Customize intentionally in Settings, not by dragging daily-use controls.
+- Planned employees belong to each dog by default, optionally each package. Separate planning metadata from actual Prep/Bath/Dry/Groom line employees. The Calendar projects matching dog/package contents and sends unavailable planned employees to Unassigned/Other.
+- Per-dog headings show actual package names and the dog's complete subtotal / tax-inclusive total, excluding tip. Never add a duplicate charge or per-dog payment ledger. Allocate the actual ticket tax with cent-accurate rounding. Existing ticket/manual tax stays unchanged; tenant-controlled new-ticket rate defaults to 8.25 percent.
+- The desktop Calendar sidebar has three months, collapse-to-icon navigation and scoped preferences; tenant settings choose visibility, available items and their order. Date navigation never silently moves a ticket.
+- Continue preparing a publication commit and PowerShell command for the user. Do not push automatically.

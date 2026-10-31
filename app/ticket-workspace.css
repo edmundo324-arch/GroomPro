@@ -1,0 +1,168 @@
+/* One ticket and the existing editors; only presentation differs by device. */
+.gp-phone-only{display:none!important}
+.gp-pos-desktop,.gp-pos-phone{display:flex;flex-direction:column;overflow:hidden}
+.gp-pos-desktop>.gp-floating-head,.gp-pos-phone>.gp-floating-head{flex:none;padding:6px 9px;gap:7px}
+.gp-pos-desktop>.gp-floating-head .gp-floating-title{font-size:15px}
+.gp-pos-desktop .gp-pos-created{font-size:11px}
+.gp-pos-header.gp-pos-compact-header{flex:none;padding:4px 7px;gap:3px;font-size:inherit;position:relative}
+.gp-ticket-control-row{display:flex;gap:5px 9px;align-items:center;flex-wrap:wrap;min-height:26px}
+.gp-ticket-control-row>[data-pos-control]{flex:none;min-width:0;max-width:100%}
+.gp-ticket-control-row label{display:flex;align-items:center;gap:4px;font-size:inherit}
+.gp-ticket-control-row input,.gp-ticket-control-row select{font:inherit;min-width:0;max-width:100%;padding:3px 4px;height:27px}
+.gp-ticket-control-row input[type=date]{width:calc(10ch + 3em)}
+.gp-ticket-control-row input[type=time]{width:calc(8ch + 3em)}
+.gp-ticket-control-row input[type=number]{width:5ch}
+.gp-ticket-control-row input[type=checkbox]{width:auto;height:auto}
+.gp-ticket-control-row .gp-search-input{display:inline-block}
+.gp-ticket-control-row .gp-btn{padding:4px 7px;font-size:inherit}
+.gp-ticket-control-row time{font-size:11px;color:#5b6b78}
+.gp-ticket-control-row .gp-pos-progress-help{display:none}
+.gp-ticket-control-row .gp-pos-inline{display:flex;gap:7px;white-space:nowrap}
+.gp-pos-customer-search{position:absolute;top:100%;left:8px;right:8px;z-index:100;background:white;border:1px solid #bac8d3;border-radius:5px;padding:8px;max-height:50dvh;overflow:auto;box-shadow:0 4px 14px #0003}
+.gp-pos-pet-strip{flex:none}
+.gp-pos-desktop .gp-pos-pet-row{padding:3px 0}
+.gp-pos-desktop .gp-pos-pet-chip .gp-btn{padding:3px 7px}
+.gp-pos-desktop .gp-pos-pet-instructions{padding:3px 6px}
+.gp-ticket-tabs{flex:none;position:relative;padding:4px 7px;gap:4px;overflow:visible}
+.gp-pos-desktop .gp-ticket-tabs .gp-btn{font-size:inherit;padding:5px 7px}
+.gp-pos-desktop>.gp-pos-body,.gp-pos-phone>.gp-pos-body{flex:1;min-height:0;overflow:auto;padding:5px 7px}
+.gp-dog-package-summary{display:flex;align-items:center;gap:5px 9px;flex-wrap:wrap;white-space:normal}
+.gp-dog-package-summary>strong{font-size:inherit;font-weight:600}
+.gp-dog-package-summary>small{font-size:11px;color:#586777}
+.gp-dog-package-summary>label{margin-left:auto;font-weight:400;display:flex;gap:5px;align-items:center;font-size:12px}
+.gp-dog-package-summary select{max-width:170px;min-width:0;font-size:inherit}
+.gp-pos-desktop>.gp-pos-footer{flex:none;gap:5px;padding:5px 7px;grid-template-columns:1fr 1.2fr 1.3fr}
+.gp-pos-desktop .gp-pos-footer>section{padding:5px;min-width:0}
+.gp-pos-desktop .gp-pos-footer h2{font-size:12px;margin:0 0 4px;font-weight:600}
+.gp-pos-desktop .gp-pos-footer .gp-btn{padding:4px 7px;font-size:inherit;margin-top:3px!important}
+.gp-pos-desktop .gp-pos-footer .gp-search-input{padding:3px 5px;font-size:inherit}
+.gp-pos-desktop .gp-pos-footer small{font-size:11px}
+.gp-pos-desktop .gp-pos-footer-general>div{margin-bottom:0!important}
+.gp-pos-desktop .gp-pos-totals>div{font-size:12px!important;gap:4px!important;margin:3px 0!important;font-weight:400!important}
+.gp-pos-desktop .gp-pos-footer-general{order:var(--gp-footer-general-order,0)}
+.gp-pos-desktop .gp-pos-totals{order:var(--gp-footer-totals-order,1)}
+.gp-pos-desktop .gp-pos-checkout{order:var(--gp-footer-payment-order,2)}
+.gp-ticket-tab-overflow{position:relative;min-width:0}
+.gp-ticket-tab-menu{position:absolute;right:0;top:100%;z-index:150;background:white;border:1px solid #bdc8d1;border-radius:5px;padding:5px;min-width:190px;box-shadow:0 5px 15px #0003}
+.gp-ticket-tab-menu>.gp-btn{display:block;width:100%;text-align:left;margin:3px 0}
+.gp-pos-phone .gp-phone-only{display:flex!important}
+.gp-pos-phone>.gp-floating-head{padding:5px 8px;flex-wrap:nowrap}
+.gp-pos-phone>.gp-floating-head>.gp-pos-created,.gp-pos-phone>.gp-floating-head>button:not(.gp-phone-only):not(:last-child){display:none}
+.gp-pos-phone>.gp-floating-head .gp-floating-title{font-size:14px;min-width:0;flex:1}
+.gp-pos-phone>.gp-floating-head .gp-floating-title small{font-size:12px;display:block}
+.gp-pos-phone>.gp-floating-head .gp-btn{min-height:44px;padding:5px 8px}
+.gp-phone-ticket-summary{flex:none;padding:5px 8px;font-size:12px;background:#f2f5f8}
+.gp-pos-phone>.gp-pos-header[data-details-open=false]{display:none}
+.gp-pos-phone>.gp-pos-header[data-details-open=true]{max-height:45dvh;overflow:auto;flex-shrink:0}
+.gp-pos-phone .gp-ticket-control-row{gap:8px;margin-bottom:5px}
+.gp-pos-phone .gp-ticket-control-row input:not([type=checkbox]),.gp-pos-phone .gp-ticket-control-row select{min-height:44px;font-size:16px}
+.gp-pos-phone .gp-pos-pet-strip{padding:3px 7px}
+.gp-pos-phone .gp-pos-pet-chip .gp-btn{padding:4px 7px;min-height:44px}
+.gp-pos-phone .gp-pos-pet-instructions{padding:3px;font-size:12px}
+.gp-pos-phone .gp-pos-pet-instructions>.gp-btn{min-height:30px;padding:3px 5px}
+.gp-pos-phone .gp-ticket-tabs{display:flex;flex-wrap:nowrap;gap:4px;overflow:visible}
+.gp-pos-phone .gp-ticket-tabs>.gp-btn,.gp-pos-phone .gp-ticket-tab-overflow{flex:1;min-width:0}
+.gp-pos-phone .gp-ticket-tabs .gp-btn{font-size:12px;min-height:44px;padding:5px}
+.gp-pos-phone .gp-ticket-tab-overflow>.gp-btn{width:100%;white-space:normal}
+.gp-pos-phone .gp-pos-table{display:block;min-width:0;width:100%;font-size:13px}
+.gp-pos-phone .gp-pos-table thead{display:none}
+.gp-pos-phone .gp-pos-table tbody{display:block;width:100%}
+.gp-pos-phone .gp-pos-package-heading{display:block;margin-top:6px}
+.gp-pos-phone .gp-pos-package-heading>td{display:block;padding:7px;width:100%}
+.gp-pos-phone .gp-dog-package-summary{gap:4px}
+.gp-pos-phone .gp-dog-package-summary>strong{flex:1 1 100%;font-size:13px}
+.gp-pos-phone .gp-dog-package-summary>small{flex:1}
+.gp-pos-phone .gp-dog-package-summary>label{margin:0;width:100%}
+.gp-pos-phone .gp-dog-package-summary select{flex:1;max-width:100%;min-height:44px}
+.gp-pos-phone .gp-pos-component-row{display:grid;grid-template-columns:minmax(0,1fr) auto;border-bottom:1px solid #d5dce2}
+.gp-pos-phone .gp-pos-component-row>td{display:none;border:0;white-space:normal;min-width:0;padding:7px 4px}
+.gp-pos-phone .gp-pos-component-row>td:nth-child(2){display:flex;align-items:center;gap:5px;grid-column:1}
+.gp-pos-phone .gp-pos-component-row>td:nth-child(8){display:block;grid-column:2;text-align:right;align-self:center}
+.gp-pos-phone .gp-line-edit-button{margin-left:auto;min-height:44px}
+.gp-pos-phone .gp-pos-component-row.gp-line-editing>td:nth-child(n+3):not(:nth-child(8)){display:block}
+.gp-pos-phone .gp-pos-component-row.gp-line-editing select,.gp-pos-phone .gp-pos-component-row.gp-line-editing input{width:100%;min-height:44px;font-size:16px}
+.gp-pos-phone .gp-pos-component-row.gp-line-editing>td:nth-child(3):before{content:'Role';display:block;font-size:11px}
+.gp-pos-phone .gp-pos-component-row.gp-line-editing>td:nth-child(4):before{content:'Employee';display:block;font-size:11px}
+.gp-pos-phone .gp-pos-component-row.gp-line-editing>td:nth-child(5):before{content:'Minutes';display:block;font-size:11px}
+.gp-pos-phone .gp-pos-component-row.gp-line-editing>td:nth-child(6):before{content:'Quantity';display:block;font-size:11px}
+.gp-pos-phone .gp-pos-component-row.gp-line-editing>td:nth-child(7):before{content:'Unit price';display:block;font-size:11px}
+.gp-pos-phone .gp-pos-component-row[data-collapsed=true]{display:none}
+.gp-pos-phone .gp-pos-footer{display:none}
+.gp-phone-ticket-actions{padding:6px 8px;flex:none;flex-direction:column;gap:4px;background:white;border-top:1px solid #ccd5df}
+.gp-phone-ticket-actions>span{font-size:12px}
+.gp-phone-ticket-actions>div{display:flex;gap:4px}
+.gp-phone-ticket-actions .gp-btn{flex:1;min-height:44px;font-size:12px;padding:4px}
+.gp-pos-phone.gp-phone-payment-open>.gp-pos-body,.gp-pos-phone.gp-phone-actions-open>.gp-pos-body{display:none}
+.gp-pos-phone.gp-phone-payment-open>.gp-pos-footer,.gp-pos-phone.gp-phone-actions-open>.gp-pos-footer{display:flex;flex:1;min-height:0;overflow:auto;flex-direction:column;padding:8px}
+.gp-pos-phone.gp-phone-payment-open .gp-pos-footer-general{display:none}
+.gp-pos-phone.gp-phone-actions-open .gp-pos-totals,.gp-pos-phone.gp-phone-actions-open .gp-pos-checkout{display:none}
+/* The full-size Calendar grid keeps its own horizontal scrolling. */
+.gp-adaptive-calendar{display:flex;min-width:0}
+.gp-calendar-primary{flex:1;min-width:0}
+.gp-calendar-sidebar{width:185px;flex:none;border-right:1px solid #d2dce4;padding:6px;max-height:calc(100dvh - var(--gp-topbar-height,64px) - 36px);overflow:auto}
+.gp-calendar-sidebar.is-collapsed{width:46px;padding:4px}
+.gp-calendar-sidebar nav{display:flex;flex-direction:column;gap:4px}
+.gp-calendar-sidebar nav .gp-btn{display:flex;gap:6px;align-items:center;text-align:left;padding:5px;font-size:12px}
+.gp-calendar-sidebar.is-collapsed nav .gp-btn{justify-content:center;min-height:36px}
+.gp-month-controls{display:flex;justify-content:space-between;gap:2px;margin-top:7px}
+.gp-month-controls .gp-btn{font-size:11px;padding:3px}
+.gp-three-month-calendar h3{font-size:12px;margin:10px 0 4px}
+.gp-mini-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px}
+.gp-mini-month>small{text-align:center;font-size:11px;color:#586b79}
+.gp-mini-month>button{border:0;background:transparent;border-radius:4px;font-size:12px;padding:4px 1px;min-width:0}
+.gp-mini-month>button[aria-pressed=true]{background:#17324d;color:white}
+.gp-calendar-more{display:none}
+@media(max-width:1100px){.gp-calendar-more{display:block}.gp-adaptive-calendar .gp-calendar-options{display:none}.gp-adaptive-calendar.gp-calendar-options-open .gp-calendar-options{display:flex;flex-wrap:wrap}}
+@media(max-width:700px),(pointer:coarse) and (max-width:1000px){.gp-calendar-sidebar{display:none}.gp-calendar-primary>.gp-calendar-head{margin:0;padding:6px 8px;gap:5px;justify-content:flex-end}.gp-calendar-primary>.gp-calendar-head .gp-title{display:none}.gp-calendar-primary>.gp-calendar-head .gp-btn{font-size:13px;padding:5px 9px;min-height:44px}.gp-calendar-primary>.gp-calendar-toolbar{padding:5px 8px;gap:4px;flex-wrap:wrap}.gp-calendar-primary>.gp-calendar-toolbar .gp-btn{padding:4px 9px;min-height:44px}.gp-calendar-primary>.gp-calendar-toolbar input[type=date]{width:calc(10ch + 4em);min-width:0;padding:4px;min-height:44px}.gp-calendar-primary .gp-date{display:none}.gp-calendar-primary .gp-calendar-push,.gp-calendar-primary .gp-view-toggle{display:none}.gp-calendar-options-open .gp-calendar-push,.gp-calendar-options-open .gp-view-toggle{display:flex}.gp-calendar-primary .gp-calendar-options{padding:5px 8px;gap:6px}.gp-calendar-primary .gp-calendar-options select{min-height:44px}.gp-calendar-primary .gp-calendar-scroll{max-height:calc(100dvh - var(--gp-topbar-height,110px) - 125px)}.gp-pos-phone .gp-pos-item-tools select,.gp-pos-phone .gp-pos-item-tools input{min-height:44px;font-size:16px}}
+/* Settings: controls on one side, a retained live layout preview on the other. */
+.gp-layout-setting-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:white;padding:6px 0}
+.gp-ticket-layout-editor{display:grid;grid-template-columns:minmax(250px,1fr) minmax(320px,1.4fr);gap:12px;align-items:start}
+.gp-layout-choice{display:flex;align-items:center;gap:4px;margin:4px 0;flex-wrap:wrap}
+.gp-layout-choice>span{flex:1;min-width:100px;font-size:12px}
+.gp-layout-choice select{max-width:150px;min-width:0}
+.gp-layout-choice .gp-btn{padding:4px 8px}
+.gp-ticket-layout-live{position:sticky;top:52px;min-width:0}
+.gp-ticket-layout-phone{max-width:390px;width:100%;justify-self:center}
+.gp-layout-preview{border:1px solid #bbc8d4;background:white;color:#17324d;border-radius:6px;overflow:hidden}
+.gp-layout-preview>header,.gp-layout-preview>footer{background:#e9eff4;padding:8px}
+.gp-layout-preview header small{font-size:11px;margin-left:8px}
+.gp-layout-preview .gp-ticket-control-row{padding:5px;gap:5px}
+.gp-layout-preview-control{display:inline-block;border:1px solid #d6dfe6;padding:4px;border-radius:3px}
+.gp-layout-preview-control small{display:block;font-size:11px;color:#566d80}
+.gp-layout-preview-pets{padding:8px;font-size:12px;background:#eee8f8}
+.gp-layout-preview-tabs{display:flex;flex-wrap:wrap;gap:8px;padding:8px;border-bottom:1px solid #d4dde5;font-size:12px}
+.gp-layout-preview>main{padding:12px;min-height:220px;font-size:12px}
+.gp-layout-preview>footer{display:flex;justify-content:space-between;gap:5px;font-size:11px}
+.gp-pos-layout-settings>fieldset{margin:12px 0}.gp-pos-layout-settings>fieldset>label{display:block;margin:7px 0}
+@media(max-width:1000px){.gp-ticket-layout-editor{grid-template-columns:minmax(0,1fr)}.gp-ticket-layout-live{position:static;grid-row:1}.gp-layout-setting-actions .gp-btn{min-height:44px}}
+
+.gp-bottom-control-row{display:flex;gap:4px 7px;align-items:center;flex-wrap:wrap}
+.gp-bottom-control-row>[data-pos-control]{min-width:0;max-width:100%}
+.gp-bottom-control-row label{display:flex;flex-direction:column;gap:3px;font-size:inherit}
+.gp-bottom-control-row input,.gp-bottom-control-row select{width:10ch;max-width:100%;padding:3px 4px;border:1px solid #bcc8d2;border-radius:4px;font-size:inherit;min-height:27px}
+.gp-bottom-control-row [data-pos-control=summary],.gp-bottom-control-row [data-pos-control=noShow]{flex:1 1 100%}
+.gp-ticket-money-summary{display:flex;gap:4px 8px;flex-wrap:wrap;font-size:12px}
+.gp-layout-preview-bottom{display:block;margin:3px 0}
+.gp-pos-phone.gp-phone-payment-open .gp-pos-footer>section,.gp-pos-phone.gp-phone-actions-open .gp-pos-footer>section,.gp-pos-phone.gp-phone-payment-open .gp-bottom-control-row,.gp-pos-phone.gp-phone-actions-open .gp-bottom-control-row{display:contents}
+.gp-pos-phone.gp-phone-payment-open .gp-pos-footer h2,.gp-pos-phone.gp-phone-actions-open .gp-pos-footer h2{display:none}
+.gp-pos-phone.gp-phone-payment-open .gp-pos-footer [data-pos-control=save],.gp-pos-phone.gp-phone-payment-open .gp-pos-footer [data-pos-control=noShow]{display:none}
+.gp-pos-phone.gp-phone-actions-open .gp-pos-footer [data-pos-control]:not([data-pos-control=noShow]){display:none}
+.gp-pos-phone .gp-bottom-control-row input,.gp-pos-phone .gp-bottom-control-row select{min-height:44px;font-size:16px;width:100%}
+.gp-pos-phone .gp-pos-footer [data-pos-control]{margin:5px 0}
+
+@media(pointer:coarse){.gp-calendar-sidebar:not(.is-collapsed){width:330px}.gp-calendar-sidebar .gp-btn,.gp-mini-month>button{min-height:44px}.gp-calendar-sidebar .gp-btn{touch-action:manipulation}}
+
+.gp-pos-phone.gp-phone-payment-open>.gp-pos-promotions,.gp-pos-phone.gp-phone-actions-open>.gp-pos-promotions{display:none}
+
+.gp-pos-desktop .gp-ticket-control-row [data-pos-control=customer]{width:20ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-pos-desktop .gp-ticket-control-row [data-pos-control=customerId]{width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-pos-desktop .gp-ticket-control-row [data-pos-control=balance]{width:25ch}
+.gp-pos-desktop .gp-ticket-control-row [data-pos-control=account]{width:45ch;max-width:100%}
+.gp-pos-desktop .gp-ticket-control-row time{display:inline-block;width:20ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.gp-pos-desktop .gp-pos-progress-help{display:none}
+
+.gp-pos-desktop [data-pos-control=move]{width:calc(8ch + 14px)}.gp-pos-desktop [data-pos-control=move]>.gp-btn{width:100%;white-space:nowrap}.gp-layout-preview [draggable=true]{cursor:grab}.gp-layout-preview .gp-ticket-control-row:empty{min-height:32px;border:1px dashed #b7c6d2}
+
+/* On a short phone screen Details uses the workspace, rather than pushing actions off screen. */
+.gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-pos-pet-strip,.gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-ticket-tabs,.gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-pos-promotions,.gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-pos-body{display:none}
+.gp-pos-phone>.gp-pos-header[data-details-open=true]{flex:1;min-height:0;max-height:none;overflow:auto}

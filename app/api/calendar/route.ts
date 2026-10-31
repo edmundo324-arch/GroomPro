@@ -1,3 +1,4 @@
+import {plannedSettingKey} from '@/src/lib/planned-package-store';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {customerStates} from '@/src/lib/appointment-customer-state';
 import {groomingSummary} from '@/src/lib/grooming-notes-rules';
@@ -24,9 +25,10 @@ async function handlePolicyGET(request:NextRequest){
  ticketId?Promise.resolve([]):db.$queryRaw<any[]>`SELECT s.userId,s.dayOfWeek,s.startTime,s.endTime FROM EmployeeSchedule s JOIN User u ON u.id=s.userId WHERE s.tenantId=${tenantId} AND (u.locationId=${locationId} OR u.locationId IS NULL) AND s.active=1`,
  ticketId?Promise.resolve([]):db.$queryRaw<any[]>`SELECT s.assetId,s.dayOfWeek,s.startTime,s.endTime FROM BookingAssetSchedule s JOIN BookingAsset a ON a.id=s.assetId WHERE a.tenantId=${tenantId} AND a.locationId=${locationId} AND s.active=1`
  ]);
+ const plannedRows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:tickets.map(t=>plannedSettingKey(t.id))}}});const plans=new Map(plannedRows.map(r=>[r.settingKey,(r.value as any)?.items||[]]));
  const grooming=await db.groomingNote.findMany({where:{tenantId,ticketId:{in:tickets.map(t=>t.id)}},select:{ticketId:true,petId:true,instructions:true}});
  const scheduleOverrides=ticketId?[]:await db.scheduleOverride.findMany({where:{tenantId,date:{gte:new Date(+start-86400000).toISOString().slice(0,10),lte:new Date(+end+86400000).toISOString().slice(0,10)}}});
- return NextResponse.json({blocks:ticketId?undefined:await calendarBlocks(tenantId,locationId),employees,tickets:(await customerStates(tenantId,tickets)).map(t=>({...t,pets:t.pets.map((p:any)=>({...p,pet:{...p.pet,todaysGroomingNotes:groomingSummary(grooming.find(n=>n.ticketId===t.id&&n.petId===p.pet.id)?.instructions)}})),needsAssignment:t.lines.some((l:any)=>l.assignmentUnavailable&&l.role==='GROOM')})),assets,employeeSchedules,assetSchedules,scheduleOverrides,locationId},{headers:{"Cache-Control":"no-store"}});
+ return NextResponse.json({blocks:ticketId?undefined:await calendarBlocks(tenantId,locationId),employees,tickets:(await customerStates(tenantId,tickets)).map(t=>({...t,plannedAssignments:plans.get(plannedSettingKey(t.id))||[],pets:t.pets.map((p:any)=>({...p,pet:{...p.pet,todaysGroomingNotes:groomingSummary(grooming.find(n=>n.ticketId===t.id&&n.petId===p.pet.id)?.instructions)}})),needsAssignment:t.lines.some((l:any)=>l.assignmentUnavailable&&l.role==='GROOM')})),assets,employeeSchedules,assetSchedules,scheduleOverrides,locationId},{headers:{"Cache-Control":"no-store"}});
  }catch(error){console.error("Calendar load failed",error);return NextResponse.json({error:"Calendar could not load. Retry to see your appointments."},{status:503})}
 }
 

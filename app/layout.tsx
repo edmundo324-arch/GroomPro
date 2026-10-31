@@ -3,6 +3,7 @@ import "./globals.css";
 import "./calendar-search.css";
 import "./responsive.css";
 import "./ui-refinements.css";
+import "./ticket-workspace.css";
 
 export const metadata: Metadata = { title: "GroomPro Suite", description: "Multi-tenant grooming salon management platform" };
 

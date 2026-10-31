@@ -1,3 +1,4 @@
+import {checkPlannedPackages,writePlannedPackages,readPlannedPackages} from '@/src/lib/planned-package-store';
 import {approvedScheduling} from '@/src/lib/scheduling-authorization';
 import {ensureGroomingNotes,moveGroomingNotes} from '@/src/lib/grooming-notes-store';
 import {schedulingApproved,schedulingWarning,schedulingException,warningDetails} from '@/src/lib/scheduling-warning';
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return NextResponse.json({ error: "Employee PIN is required before creating a ticket." }, { status: 401 });
-  let body: { groomingNotesDraft?:Record<string,any>; bookingAssetId?:string|null; draftId?:string; tipCents?:number;salesTaxCents?:number;timingMode?:string;customerId?: string; petId?: string; petIds?: string[]; petDetails?: PetDetailInput[]; serviceId?: string; serviceIds?: string[]; lines?: LineInput[]; scheduledStart?: string; durationMin?: number; notes?: string; groomerId?: string; arrivalPriority?: number; bookingSource?: "STAFF"|"ONLINE"; onlineCategory?: "GROOMING"|"FULL_WASH"|"NAIL_GRINDING"|"SELFSERVICE"|"DAYCARE"|"BOARDING"; confirmRecentWarning?: boolean };
+  let body: { plannedAssignments?:any[]; groomingNotesDraft?:Record<string,any>; bookingAssetId?:string|null; draftId?:string; tipCents?:number;salesTaxCents?:number;timingMode?:string;customerId?: string; petId?: string; petIds?: string[]; petDetails?: PetDetailInput[]; serviceId?: string; serviceIds?: string[]; lines?: LineInput[]; scheduledStart?: string; durationMin?: number; notes?: string; groomerId?: string; arrivalPriority?: number; bookingSource?: "STAFF"|"ONLINE"; onlineCategory?: "GROOMING"|"FULL_WASH"|"NAIL_GRINDING"|"SELFSERVICE"|"DAYCARE"|"BOARDING"; confirmRecentWarning?: boolean };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if(body.bookingSource==='ONLINE'&&request.headers.get('x-groompro-scheduling-overrides'))return NextResponse.json({error:'Online booking cannot override scheduling restrictions.'},{status:403});
   if (!body.customerId) return NextResponse.json({ error: "Customer is required." }, { status: 400 });
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
   const customerWarnings = rules.conflicts;
   const nearby=customerWarnings.length?'Nearby appointment warning: '+customerWarnings.map(c=>c.message).join(' '):'';
   if(source==='STAFF'&&nearby&&!await approvedScheduling(request,nearby))return NextResponse.json(schedulingWarning(nearby),{status:409});
+  let planned:any[]=[];try{if(body.plannedAssignments?.length)planned=await checkPlannedPackages(tenantId,{locationId,scheduledStart,durationMin,pets:petIds.map(petId=>({petId})),lines:resolved.lines},body.plannedAssignments,await approvedScheduling(request,'Choose an available employee or Assign later.'))}catch(e){return NextResponse.json({...warningDetails(e),error:(e as Error).message},{status:409})}
   let orderNumber=0;
   const lines=resolved.lines;
   const detailMap = new Map((body.petDetails || []).map(p => [p.petId, p]));
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
     if(draft?.promotedAt){const existing=await tx.ticket.findFirst({where:{id:draft.id,tenantId}});if(existing)return existing;}
     orderNumber=draft?.orderNumber||await nextTicketNumber(tx,tenantId);
     const created = await tx.ticket.create({ data: { ...(draft?{id:draft.id,createdAt:draft.createdAt}:{}),tenantId, locationId, customerId: customer.id, tipCents:body.tipCents||0,salesTaxCents:body.salesTaxCents||0,orderNumber, scheduledStart, durationMin, bookingAssetId:body.bookingAssetId||null, timingMode:mode, arrivalPriority: body.arrivalPriority ?? null, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: [{ userId: body.groomerId, role: "GROOMER" },{userId:body.groomerId,role:"PLANNED_GROOMER"}] } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}}, pet: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } } });
+    if(planned.length)await writePlannedPackages(tx,tenantId,created.id,planned,created);
     await ensureGroomingNotes(tx,created,session.user.id,body.groomingNotesDraft);
     if(lines.some(l=>l.role==='GROOM'&&l.assignedUserId))await syncActualGroomers(tx,created.id);
     if(scheduledStart)await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
@@ -85,21 +88,21 @@ export async function PATCH(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return NextResponse.json({ error: "Employee PIN is required before changing an appointment." }, { status: 401 });
-  let body: { bookingAssetId?:string|null; ticketId?: string; scheduledStart?: string; groomerId?:string|null; expectedStart?:string };
+  let body: { plannedAssignments?:any[]; bookingAssetId?:string|null; ticketId?: string; scheduledStart?: string; groomerId?:string|null; expectedStart?:string };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if (!body.ticketId || !body.scheduledStart) return NextResponse.json({ error: "Ticket and new appointment time are required." }, { status: 400 });
   const newStart = new Date(body.scheduledStart);
   if (Number.isNaN(newStart.getTime())) return NextResponse.json({ error: "Invalid appointment time." }, { status: 400 });
-  const ticket = await db.ticket.findFirst({ where: { id: body.ticketId, tenantId, locationId }, include: { customer: true, pets: { include: { pet: true } } } });
+  const ticket = await db.ticket.findFirst({ where: { id: body.ticketId, tenantId, locationId }, include: { customer: true, pets: { include: { pet: true } },lines:true,assignments:true } });
   if (!ticket) return NextResponse.json({ error: "Appointment could not be found." }, { status: 404 });
   if(['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status))return NextResponse.json({error:'This appointment is closed.'},{status:409});
-  if(body.groomerId!==undefined&&ticket.checkedInAt)return NextResponse.json({error:'Change actual employee assignments in the POS Ticket or Whiteboard after check-in.'},{status:409});
+  if((body.groomerId!==undefined||body.plannedAssignments!==undefined)&&ticket.checkedInAt)return NextResponse.json({error:'Change actual employee assignments in the POS Ticket or Whiteboard after check-in.'},{status:409});
   if(body.groomerId&&!await db.user.findFirst({where:{id:body.groomerId,tenantId,active:true,OR:[{locationId},{locationId:null}]}}))return NextResponse.json({error:'Selected groomer not found.'},{status:404});
   if(body.groomerId&&!await employeeAvailable(tenantId,body.groomerId,locationId,newStart,ticket.durationMin))if(!await approvedScheduling(request,'The selected employee is unavailable at this time.'))return NextResponse.json(schedulingWarning('The selected employee is unavailable at this time.'),{status:409});
   if(body.groomerId===undefined){const assigned=await db.ticketAssignment.findMany({where:{ticketId:ticket.id,role:'GROOMER'}});for(const a of assigned)if(await resourceBlocked(tenantId,locationId,'employee',a.userId,newStart,ticket.durationMin))if(!await approvedScheduling(request,'This employee has a time block at the selected time.'))return NextResponse.json(schedulingWarning('This employee has a time block at the selected time.'),{status:409});}
   const assetMessage=await bookingAssetError(tenantId,locationId,body.bookingAssetId===undefined?ticket.bookingAssetId:body.bookingAssetId,newStart,ticket.durationMin);if(assetMessage&&(assetMessage==='Booking asset is unavailable.'||!await approvedScheduling(request,assetMessage)))return NextResponse.json(assetMessage==='Booking asset is unavailable.'?{error:assetMessage}:schedulingWarning(assetMessage),{status:409});
   const hoursMessage=await appointmentHoursError(tenantId,locationId,newStart,ticket.durationMin);if(hoursMessage&&!await approvedScheduling(request,hoursMessage))return NextResponse.json(schedulingWarning(hoursMessage),{status:409});
-  if (body.groomerId===undefined&&body.bookingAssetId===undefined&&ticket.scheduledStart?.getTime() === newStart.getTime()) return NextResponse.json({ ticket, moved: false });
+  if (body.plannedAssignments===undefined&&body.groomerId===undefined&&body.bookingAssetId===undefined&&ticket.scheduledStart?.getTime() === newStart.getTime()) return NextResponse.json({ ticket, moved: false });
   const rules=await checkCustomerBookingRules(tenantId,ticket.customerId,newStart,ticket.durationMin,ticket.pets.map(p=>p.petId),ticket.id);
   const nearby=rules.conflicts.length?'Nearby appointment warning: '+rules.conflicts.map(c=>c.message).join(' '):'';
   if(nearby&&!await approvedScheduling(request,nearby))return NextResponse.json(schedulingWarning(nearby),{status:409});
@@ -108,6 +111,8 @@ export async function PATCH(request: NextRequest) {
     await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;
     const live=await tx.ticket.findUnique({where:{id:ticket.id}});
     if(body.expectedStart&&live?.scheduledStart?.toISOString()!==body.expectedStart)throw Error('Appointment changed elsewhere. Refresh before moving.');
+    if(!live||['CLOSED','CANCELLED','NO_SHOW'].includes(live.status))throw Error('This appointment is closed.');
+    if(body.plannedAssignments!==undefined){if(live.checkedInAt)throw Error('Use service-line assignments after check-in.');const changed=await checkPlannedPackages(tenantId,{...ticket,scheduledStart:newStart},body.plannedAssignments,await approvedScheduling(request,'Choose an available employee or Assign later.'),tx),previous=await readPlannedPackages(tenantId,ticket.id,tx);const keys=new Set(changed.map(p=>p.petId+'|'+(p.packageKey||'')));await writePlannedPackages(tx,tenantId,ticket.id,[...previous.filter(p=>!keys.has(p.petId+'|'+(p.packageKey||''))),...changed],ticket,previous);}
     if(body.groomerId!==undefined){await tx.ticketAssignment.deleteMany({where:{ticketId:ticket.id,role:{in:['GROOMER','PLANNED_GROOMER']}}});if(body.groomerId)await tx.ticketAssignment.createMany({data:[{ticketId:ticket.id,userId:body.groomerId,role:'GROOMER'},{ticketId:ticket.id,userId:body.groomerId,role:'PLANNED_GROOMER'}]});}
     await moveGroomingNotes(tx,tenantId,ticket.id,newStart);
     const changed = await tx.ticket.update({ where: { id: ticket.id }, data: { scheduledStart: newStart,...(body.bookingAssetId!==undefined?{bookingAssetId:body.bookingAssetId||null}:{}) } });
