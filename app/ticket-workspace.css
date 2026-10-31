@@ -191,3 +191,24 @@
 .gp-pos-phone>.gp-ticket-workbar{display:contents}
 .gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-ticket-workbar{display:none}
 .gp-pos-phone.gp-phone-payment-open>.gp-ticket-workbar>.gp-pos-promotions,.gp-pos-phone.gp-phone-actions-open>.gp-ticket-workbar>.gp-pos-promotions{display:none}
+
+/* A real table row keeps planning aligned with Role and Employee. */
+.gp-pos-pet-heading>td{border-top:2px solid #8ca0b3}
+.gp-pos-pet-heading .gp-dog-package-summary{flex-wrap:nowrap;gap:6px}
+.gp-pos-pet-heading .gp-dog-package-summary>strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.gp-dog-heading-prices{flex:none;white-space:nowrap;font-weight:600}
+.gp-planned-role{font-weight:400;white-space:nowrap}
+.gp-planned-employee select{width:100%;min-width:0;max-width:100%;font:inherit}
+.gp-pet-items-empty>td{padding:8px;color:#596b7b}
+.gp-pos-phone .gp-pos-pet-heading,.gp-pos-phone .gp-pos-secondary-package{display:grid;grid-template-columns:minmax(0,1fr) auto}
+.gp-pos-phone .gp-pos-pet-heading>td:first-child,.gp-pos-phone .gp-pos-secondary-package>td:first-child{grid-column:1 / -1}
+.gp-pos-phone .gp-pos-pet-heading .gp-dog-package-summary{flex-wrap:wrap}
+.gp-pos-phone .gp-pos-pet-heading .gp-dog-package-summary>strong{flex:1 1 100%;white-space:normal}
+.gp-pos-phone .gp-pos-pet-heading .gp-dog-heading-prices{flex:1}
+.gp-pos-phone .gp-planned-role{grid-column:1;align-self:center;font-size:12px}
+.gp-pos-phone .gp-planned-employee{grid-column:2;min-width:0;max-width:200px}
+.gp-pos-phone .gp-planned-employee select{min-height:44px}
+.gp-pos-phone .gp-pet-heading-spacer{display:none!important}
+.gp-pos-phone .gp-pet-heading-remove{grid-column:2;justify-self:end}
+.gp-pos-phone .gp-pet-heading-remove .gp-btn{min-height:44px}
+.gp-pos-phone .gp-pet-items-empty{display:block}

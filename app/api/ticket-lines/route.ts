@@ -1,3 +1,5 @@
+import {removePetTicketItems} from '@/src/lib/pet-ticket-items-store';
+import {readPlannedPackages,writePlannedPackages} from '@/src/lib/planned-package-store';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {setOfferTodayLine} from '@/src/lib/offer-today-lines';
 import {approvedScheduling} from '@/src/lib/scheduling-authorization';
@@ -111,6 +113,8 @@ async function handlePolicyDELETE(request: NextRequest) {
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
   const session = await getSession(request, tenantId);
   if (!session) return NextResponse.json({ error: "Employee PIN is required before changing ticket lines." }, { status: 401 });
+  const petId=request.nextUrl.searchParams.get('petId'),ticketId=request.nextUrl.searchParams.get('ticketId');
+  if(petId){try{const body=await request.json();const result=await db.$transaction(async tx=>{const result=await removePetTicketItems(tx,tenantId,ticketId||'',petId,body.lineIds);const previous=await readPlannedPackages(tenantId,result.ticket.id,tx);if(!result.ticket.checkedInAt&&previous.length)await writePlannedPackages(tx,tenantId,result.ticket.id,[...previous],{...result.ticket,lines:result.remaining},previous);else if(result.removed.some((l:any)=>l.role==='GROOM'&&l.assignedUserId))await syncActualGroomers(tx,result.ticket.id);if(result.removed.length)await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'TICKET',entityId:result.ticket.id,customerId:result.ticket.customerId,action:'REMOVE_PET_ITEMS',summary:'Removed all selected items for one dog.',details:{petId,lineIds:result.removed.map((l:any)=>l.id)}}});return result;});return NextResponse.json({removedLineIds:result.removed.map((l:any)=>l.id),durationMin:result.durationMin,subtotalCents:result.remaining.reduce((n:number,l:any)=>n+l.totalCents,0)});}catch(e){return NextResponse.json({error:(e as Error).message},{status:409})}}
   const lineId = request.nextUrl.searchParams.get("lineId") || "";
   if (!lineId) return NextResponse.json({ error: "Ticket line is required." }, { status: 400 });
   const line = await db.ticketLine.findFirst({ where: { id: lineId, ticket: { tenantId } }, include: { ticket: true } });
