@@ -2,3 +2,6 @@
 export function calendarPetCards<T extends {id:string;pets:any[];lines:any[];plannedAssignments?:any[]}>(tickets:T[]):(T&{calendarPetId?:string})[]{
  return tickets.flatMap(ticket=>ticket.pets.length?ticket.pets.map(entry=>{const petId=entry.pet.id;return {...ticket,calendarPetId:petId,pets:[entry],lines:ticket.lines.filter(line=>(line.petId||line.pet?.id)===petId),...(ticket.plannedAssignments?{plannedAssignments:ticket.plannedAssignments.filter(p=>p.petId===petId)}:{})}}):[ticket]);
 }
+
+// A pet block is a projection for placement only; its popup represents the complete appointment.
+export function calendarHoverTicket<T extends {id:string}>(card:T,tickets:readonly T[]):T{return tickets.find(ticket=>ticket.id===card.id)||card;}

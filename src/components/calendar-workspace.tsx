@@ -1,5 +1,5 @@
 "use client";
-import {calendarPetCards} from '../lib/calendar-pet-cards';
+import {calendarPetCards,calendarHoverTicket} from '../lib/calendar-pet-cards';
 import {CalendarSidebar} from './calendar-sidebar';
 import {ticketWorkspace} from '../lib/pos-layout';
 import {plannedCalendarCard,PlannedPackage} from '../lib/planned-package-rules';
@@ -35,7 +35,7 @@ export function CalendarWorkspace({onSlot,onNewTicket,onOpenTicket,refreshKey=0,
  useEffect(()=>{const refresh=()=>employeeFetch('/api/workflow-settings').then(r=>r.json()).then(d=>setPresentation(d.settings));window.addEventListener('groompro:appearance-changed',refresh);return()=>window.removeEventListener('groompro:appearance-changed',refresh)},[]);
  useEffect(()=>{const preview=(event:Event)=>{const d=(event as CustomEvent).detail;if(d?.module!=='Calendar')return;if(d.clear)employeeFetch('/api/workflow-settings').then(r=>r.json()).then(w=>setPresentation(w.settings||{})).catch(()=>{});else if(d.appearance)setPresentation((v:any)=>({...v,...d.appearance}))};window.addEventListener('groompro:module-appearance-preview',preview);return()=>window.removeEventListener('groompro:module-appearance-preview',preview)},[]);
  function cardStyle(t:Ticket){return appointmentStyle(t,presentation)}
- function showHover(t:Ticket,el:HTMLElement){const pos=popupPosition(el.getBoundingClientRect(),window.innerWidth,window.innerHeight);setHoverDetails([]);setHover({ticket:t,x:pos.left,y:pos.top,width:pos.width})}
+ function showHover(t:Ticket,el:HTMLElement){const pos=popupPosition(el.getBoundingClientRect(),window.innerWidth,window.innerHeight);setHoverDetails([]);setHover({ticket:calendarHoverTicket(t,tickets),x:pos.left,y:pos.top,width:pos.width})}
  const[blocks,setBlocks]=useState<CalendarBlock[]>([]),[blockMode,setBlockMode]=useState(false),[blockEdit,setBlockEdit]=useState<CalendarBlock|null>(null),[blockBusy,setBlockBusy]=useState(false);
  const drag=useRef<{ticket?:Ticket;block?:CalendarBlock}|null>(null),movingIds=useRef(new Set<string>());
  function slotDate(e:{clientY:number},el:HTMLElement){const d=new Date(date);d.setHours(0,slotMinute(e.clientY,el.getBoundingClientRect().top,firstMinute),0,0);return d}
