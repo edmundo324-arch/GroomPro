@@ -1,3 +1,5 @@
+import {workflowSettings} from '@/src/lib/workflow-settings';
+import {ticketDuration} from '@/src/lib/ticket-timing';
 import {attendingPets} from '@/src/lib/appointment-pets';
 import {approvedScheduling} from '@/src/lib/scheduling-authorization';
 import {ensureGroomingNotes} from '@/src/lib/grooming-notes-store';
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
     source=attendingPets(source);
     if (source.status === "CANCELLED") return NextResponse.json({ error: "A cancelled appointment cannot be rebooked." }, { status: 409 });
 
-    const durationMin = Math.max(15, source.durationMin || 30);
+    const businessMode=(await workflowSettings(tenantId)).timingMode;const durationMin=ticketDuration(source.lines,businessMode);
     const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage&&!await approvedScheduling(request,hoursMessage))return NextResponse.json(schedulingWarning(hoursMessage),{status:409});
     const assetMessage=await bookingAssetError(tenantId,locationId,body.bookingAssetId,scheduledStart,durationMin);if(assetMessage&&(assetMessage==='Booking asset is unavailable.'||!await approvedScheduling(request,assetMessage)))return NextResponse.json(assetMessage==='Booking asset is unavailable.'?{error:assetMessage}:schedulingWarning(assetMessage),{status:409});
     const rules = await checkCustomerBookingRules(tenantId, source.customerId, scheduledStart, durationMin,source.pets.map(p=>p.petId));
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
       orderNumber=await nextTicketNumber(tx,tenantId);
       const ticket = await tx.ticket.create({
         data: {
-          tenantId, locationId, customerId: source.customerId, orderNumber, scheduledStart, durationMin,timingMode:source.timingMode,
+          tenantId, locationId, customerId: source.customerId, orderNumber, scheduledStart, durationMin,timingMode:businessMode,
           bookingAssetId:body.bookingAssetId||null,status: "OPEN", bookingSource: "STAFF", bookingDecision: "INTERNAL", notes: source.notes,
           pets: { create: source.pets.map(p => ({ petId: p.petId, weightLbs: p.weightLbs, analSituation: null, vipAvailability: p.vipAvailability })) },
           lines: { create: serviceLines.map((line, index) => {

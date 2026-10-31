@@ -53,3 +53,8 @@
 - POS pet strip lists all customer pets independently of attendance, with visible overflow navigation. A pet-name click toggles only its assigned grooming package; Self Service, other packages, offers, add-ons and products remain. Items and attendance/history derive from booked pet item lines, never from the customer pet list. Do not create empty pet item sections. Keep historical grooming records even when current appointment links are removed.
 
 - Undo check-in clears only that ticket’s arrival priority. Each booked pet has its own Calendar block, including simultaneous same-employee bookings. POS booking choices show active pets only. Customer/Pet Profile Settings own the Show Inactive business default; profile/list overrides are local to the current instance and never reactivate a pet.
+
+## Visual configuration and business timing
+- A confirmed business timing save updates every non-terminal ticket and draft atomically, recalculating durations. Preserve closed/cancelled/no-show history; new bookings/rebookings use the business selection.
+- Settings visual customization reuses live module controls. Tenant Admins may arrange existing controls/sections and change labels/colors; only PLATFORM_OWNER and DEVELOPER may alter control/section sizes, enforced by the API. Floating-window resize preferences remain independent.
+- Visual configuration history keeps five complete snapshots per business/module, covering desktop/phone and existing POS placement or Calendar appearance settings. Restoring appearance never changes tax, prices, timing rules or ticket data. Do not store preview DOM, customer data or authentication material in layout history.

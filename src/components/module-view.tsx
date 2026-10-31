@@ -1,4 +1,5 @@
 "use client";
+import {useVisualRoot} from './visual-layout-studio';
 import {createContext,useContext,useLayoutEffect,useRef,useEffect,useState} from 'react';
 const VisibleModule=createContext(true);
 export const useModuleVisible=()=>useContext(VisibleModule);
@@ -7,10 +8,11 @@ export function RetainedSection({active,visited,children}:{active:boolean;visite
  const parentVisible=useModuleVisible();
  return visited?<VisibleModule.Provider value={parentVisible&&active}>{children}</VisibleModule.Provider>:null;
 }
-export function ModuleView({active,children}:{active:boolean;children:React.ReactNode}){
+export function ModuleView({active,children,name=''}:{active:boolean;children:React.ReactNode;name?:string}){
+ const visualRoot=useRef<HTMLDivElement>(null);useVisualRoot(visualRoot,name,active);
  const visited=useRef(active),scroll=useRef({x:0,y:0});if(active)visited.current=true;
  useLayoutEffect(()=>{if(!active)return;window.scrollTo(scroll.current.x,scroll.current.y);const remember=()=>{scroll.current={x:window.scrollX,y:window.scrollY}};window.addEventListener('scroll',remember,{passive:true});return()=>window.removeEventListener('scroll',remember)},[active]);
- return visited.current?<VisibleModule.Provider value={active}><div hidden={!active} style={active?{display:'contents'}:{display:'none'}}>{children}</div></VisibleModule.Provider>:null;
+ return visited.current?<VisibleModule.Provider value={active}><div ref={visualRoot} hidden={!active} style={active?{display:'contents'}:{display:'none'}}>{children}</div></VisibleModule.Provider>:null;
 }
 
 // Visible retained screens refresh on return/focus and relevant confirmed writes.

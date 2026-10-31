@@ -1,4 +1,5 @@
 "use client";
+import {useVisualRoot,visualWindowName} from './visual-layout-studio';
 import {useWindowRecovery} from "./window-recovery";
 import {createContext,useContext,useLayoutEffect,useRef,useState} from 'react';
 import type {CSSProperties,ReactNode} from 'react';
@@ -17,7 +18,7 @@ type Preference={geometry:WindowGeometry;restore?:WindowGeometry;maximized:boole
 export function FloatingEditorWindow({windowKey,title,children,onClose,closeDisabled=false,existing=false,style}:{windowKey:string;title:string;children:ReactNode;onClose?:()=>void;closeDisabled?:boolean;existing?:boolean;style?:CSSProperties}){
  const scope=useContext(PreferenceScope),visible=useModuleVisible(),key=scope?'groompro:window:v1:'+scope+':'+windowKey:'';
  const root=useRef<HTMLDivElement>(null),preferred=useRef<Preference|null>(null),drag=useRef<{start:WindowGeometry;x:number;y:number;edge:string}|null>(null);
- const[maximized,setMaximized]=useState(false);
+ const[maximized,setMaximized]=useState(false);useVisualRoot(root,visualWindowName(windowKey),visible);
  const bounds=()=>{const r=root.current!.getBoundingClientRect();return {left:r.left,top:r.top,width:r.width,height:r.height}};
  function apply(g:WindowGeometry){const el=root.current;if(!el)return;const f=dragWindow({...g,width:Math.min(g.width,document.documentElement.clientWidth-16),height:Math.min(g.height,window.innerHeight-16)},document.documentElement.clientWidth,window.innerHeight);for(const n of ['left','top','width','height'] as const)el.style[n]=f[n]+'px';}
  const full=()=>({left:8,top:8,width:document.documentElement.clientWidth-16,height:window.innerHeight-16});

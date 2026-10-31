@@ -1,4 +1,5 @@
 "use client";
+import {useVisualRoot} from './visual-layout-studio';
 import {useWindowRecovery} from "./window-recovery";
 import {fitWindow,dragWindow,defaultPosGeometry} from '../lib/window-geometry';
 import {createContext,useContext,useLayoutEffect,useRef,useState} from 'react';
@@ -6,7 +7,7 @@ type Geometry={left:number;top:number;width:number;height:number};let saved:Geom
 const WindowContext=createContext({full:false,toggle:()=>{}});
 export function PosFullSizeButton(){const ctx=useContext(WindowContext);return <button className="gp-btn" onClick={ctx.toggle}>{ctx.full?'Restore Size':'Full Size'}</button>}
 export function PosWindowFrame({children,active=true,className='',style}:{children:React.ReactNode;active?:boolean;className?:string;style?:React.CSSProperties}){
- const root=useRef<HTMLDivElement>(null),drag=useRef<(Geometry&{x:number;y:number;resize:boolean})|null>(null);const[full,setFull]=useState(false);
+ const root=useRef<HTMLDivElement>(null),drag=useRef<(Geometry&{x:number;y:number;resize:boolean})|null>(null);const[full,setFull]=useState(false);useVisualRoot(root,'POS Ticket',active);
  const geometry=()=>{const b=root.current!.getBoundingClientRect();return{left:b.left,top:b.top,width:b.width,height:b.height}};
  function apply(g:Geometry,offscreen=true){const el=root.current;if(!el)return;const fitted=offscreen?dragWindow({...g,width:Math.min(g.width,document.documentElement.clientWidth-16),height:Math.min(g.height,window.innerHeight-16)},document.documentElement.clientWidth,window.innerHeight):fitWindow(g,document.documentElement.clientWidth,window.innerHeight);for(const key of ['left','top','width','height'] as const)el.style[key]=fitted[key]+'px';el.style.right='auto';el.style.bottom='auto';el.style.margin='0'}
  useLayoutEffect(()=>{if(!active)return;if(saved)apply(saved);else if(!savedFull)apply(defaultPosGeometry(document.documentElement.clientWidth,window.innerHeight));if(savedFull)apply({left:8,top:8,width:window.innerWidth-16,height:window.innerHeight-16});setFull(savedFull)},[active]);
