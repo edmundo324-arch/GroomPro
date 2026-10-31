@@ -30,7 +30,7 @@ async function updateStatus(request: NextRequest) {
 
     if(['UNDO_CHECK_IN','UNDO_READY'].includes(body.action)){
       if(['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status))return NextResponse.json({error:'This visit cannot be changed.'},{status:409});
-      const data=body.action==='UNDO_CHECK_IN'?{status:'CONFIRMED' as const,checkedInAt:null,pickupAt:null}:{status:ticket.checkedInAt?'CHECKED_IN' as const:'CONFIRMED' as const,pickupAt:null};
+      const data=body.action==='UNDO_CHECK_IN'?{status:'CONFIRMED' as const,checkedInAt:null,arrivalPriority:null,pickupAt:null}:{status:ticket.checkedInAt?'CHECKED_IN' as const:'CONFIRMED' as const,pickupAt:null};
       const updated=await db.ticket.update({where:{id:ticket.id},data});await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:body.action,summary:body.action==='UNDO_CHECK_IN'?'Reversed check-in.':'Reversed ready for pickup.'});return NextResponse.json({ticket:updated});
     }
     if(status==="CLOSED")return NextResponse.json({error:"Use Check Out / Close so payment and earnings are finalized together."},{status:409});

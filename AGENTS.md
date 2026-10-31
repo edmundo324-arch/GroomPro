@@ -51,3 +51,5 @@
 - Continue preparing a publication commit and PowerShell command for the user. Do not push automatically.
 
 - POS pet strip lists all customer pets independently of attendance, with visible overflow navigation. A pet-name click toggles only its assigned grooming package; Self Service, other packages, offers, add-ons and products remain. Items and attendance/history derive from booked pet item lines, never from the customer pet list. Do not create empty pet item sections. Keep historical grooming records even when current appointment links are removed.
+
+- Undo check-in clears only that ticket’s arrival priority. Each booked pet has its own Calendar block, including simultaneous same-employee bookings. POS booking choices show active pets only. Customer/Pet Profile Settings own the Show Inactive business default; profile/list overrides are local to the current instance and never reactivate a pet.

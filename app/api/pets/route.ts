@@ -9,7 +9,7 @@ const tenant=(r:NextRequest)=>r.headers.get('x-tenant-id')||r.cookies.get('groom
 async function handlePolicyGET(r:NextRequest){
  const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});
  const q=(r.nextUrl.searchParams.get('q')||'').trim();
- const pets=await db.pet.findMany({where:{tenantId,active:true,customer:{tenantId,active:true},...(q?{OR:[{name:{contains:q}},{breed:{contains:q}},{customer:{firstName:{contains:q}}},{customer:{lastName:{contains:q}}}]}:{})},include:{customer:{select:{id:true,firstName:true,lastName:true}},vaccinations:true},orderBy:{name:'asc'},take:100});
+ const pets=await db.pet.findMany({where:{tenantId,...(r.nextUrl.searchParams.get('showInactive')==='true'?{}:{active:true}),customer:{tenantId,active:true},...(q?{OR:[{name:{contains:q}},{breed:{contains:q}},{customer:{firstName:{contains:q}}},{customer:{lastName:{contains:q}}}]}:{})},include:{customer:{select:{id:true,firstName:true,lastName:true}},vaccinations:true},orderBy:{name:'asc'},take:100});
  return NextResponse.json({pets});
 }
 async function save(r:NextRequest,editing:boolean){
