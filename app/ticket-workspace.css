@@ -166,3 +166,28 @@
 /* On a short phone screen Details uses the workspace, rather than pushing actions off screen. */
 .gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-pos-pet-strip,.gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-ticket-tabs,.gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-pos-promotions,.gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-pos-body{display:none}
 .gp-pos-phone>.gp-pos-header[data-details-open=true]{flex:1;min-height:0;max-height:none;overflow:auto}
+
+/* Compact desktop chrome: keep controls exposed and give the reclaimed height to Items. */
+.gp-pos-desktop>.gp-floating-head{padding:3px 8px;min-height:32px}
+.gp-pos-desktop>.gp-pos-header.gp-pos-compact-header{padding:2px 7px;gap:1px}
+.gp-pos-desktop .gp-ticket-control-row{min-height:28px;padding:0;gap:2px 8px}
+.gp-pos-desktop .gp-ticket-control-row label{margin:0!important}
+.gp-pos-desktop .gp-ticket-control-row input:not([type=checkbox]),.gp-pos-desktop .gp-ticket-control-row select{height:26px;min-height:26px}
+.gp-pos-desktop [data-pos-control=move]{display:flex;align-items:center;gap:3px;width:calc(8ch + 26px)}
+.gp-pos-desktop [data-pos-control=move]>.gp-btn{flex:1;width:auto}
+.gp-pos-desktop>.gp-pos-pet-strip{display:grid;grid-template-columns:minmax(200px,45%) minmax(0,1fr);align-items:center;gap:6px;height:38px;padding:2px 7px}
+.gp-pos-desktop .gp-pos-pet-row,.gp-pos-desktop .gp-pos-pet-scroll{height:32px;padding:0}
+.gp-pos-desktop .gp-pos-pet-chip{height:29px;padding:1px 4px}
+.gp-pos-desktop .gp-pos-pet-chip>.gp-btn{display:flex;flex-direction:row;align-items:center;gap:5px;padding:2px 3px;min-height:0}
+.gp-pos-desktop .gp-pos-pet-instructions{height:30px;padding:2px 5px;margin:0}
+.gp-pos-desktop .gp-ticket-workbar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;flex:none;padding:2px 7px;min-width:0;border-block:1px solid #dce1e5}
+.gp-pos-desktop .gp-ticket-workbar>.gp-ticket-tabs{flex:0 0 auto;flex-wrap:nowrap;gap:4px;padding:0;min-height:30px}
+.gp-pos-desktop .gp-ticket-workbar .gp-ticket-tabs .gp-btn{padding:4px 6px}
+.gp-pos-desktop .gp-ticket-workbar>.gp-pos-promotions{flex:1 1 340px;min-height:32px;height:32px;max-height:32px;padding:0;border:0;min-width:0}
+.gp-pos-desktop .gp-ticket-workbar .gp-pos-promotions>select{width:105px;padding:3px 4px}
+.gp-pos-desktop .gp-ticket-workbar .gp-pos-promotions-choices .gp-btn{height:28px;min-height:28px;flex:0 0 125px;width:125px;display:flex;flex-direction:row;gap:5px;align-items:center;justify-content:space-between;padding:3px 5px}
+.gp-pos-desktop .gp-ticket-workbar .gp-pos-promotions-choices .gp-btn>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.gp-pos-desktop .gp-ticket-workbar .gp-pos-offer-price{flex:none;white-space:nowrap}
+.gp-pos-phone>.gp-ticket-workbar{display:contents}
+.gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-ticket-workbar{display:none}
+.gp-pos-phone.gp-phone-payment-open>.gp-ticket-workbar>.gp-pos-promotions,.gp-pos-phone.gp-phone-actions-open>.gp-ticket-workbar>.gp-pos-promotions{display:none}
