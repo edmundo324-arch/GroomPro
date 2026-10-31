@@ -14,10 +14,10 @@ export function parseHours(value:unknown):DayHours[]{
  return value.map((v:any)=>{if(!Number.isInteger(v.day)||v.day<0||v.day>6||days.has(v.day)||typeof v.closed!=="boolean"||!clock.test(v.open)||!clock.test(v.close)||(!v.closed&&v.open>=v.close))throw new Error("Each day needs valid opening and closing times, with closing after opening.");days.add(v.day);return{day:v.day,closed:v.closed,open:v.open,close:v.close}}).sort((a,b)=>a.day-b.day);
 }
 export function hoursError(start:Date,durationMin:number,hours:DayHours[],zone:string){
- if(!Number.isFinite(+start)||!Number.isInteger(durationMin)||durationMin<=0||durationMin>1440)return "Choose a valid appointment time and duration.";
+ if(!Number.isFinite(+start)||!Number.isInteger(durationMin)||durationMin<=0||durationMin>2147483647)return "Choose a valid appointment time and duration.";
  const p=zonedParts(start,zone),end=zonedParts(new Date(+start+durationMin*60000),zone),day=new Date(p.date+"T12:00:00Z").getUTCDay(),h=hours.find(h=>h.day===day);
- if(!h||h.closed)return `This location is closed on ${new Date(p.date+"T12:00:00Z").toLocaleDateString("en-US",{weekday:"long",timeZone:"UTC"})}. Choose an open day.`;
- if(p.time<h.open||end.date!==p.date||end.time>h.close||(end.time===h.close&&end.second>0))return `Choose an appointment that starts and finishes within ${h.open}–${h.close} (${zone}). This appointment lasts ${durationMin} minutes.`;
+ if(!h||h.closed)return `Appointments cannot start on the closed day ${new Date(p.date+"T12:00:00Z").toLocaleDateString("en-US",{weekday:"long",timeZone:"UTC"})}. Choose an open day.`;
+ if(p.time<h.open||p.time>=h.close)return `Appointments must start within ${h.open}–${h.close} (${zone}). Finishing after closing is allowed.`;
  return null;
 }
 

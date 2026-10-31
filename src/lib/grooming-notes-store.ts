@@ -42,7 +42,7 @@ export async function snapshotGroomingClosure(tx:any,tenantId:string,ticketId:st
  for(const n of records)if(!n.closureSnapshot)await tx.groomingNote.update({where:{id:n.id},data:{closureSnapshot:{instructions:n.instructions,usual:n.usual,at:new Date().toISOString()}}});
 }
 
-export async function moveGroomingNotes(tx:any,tenantId:string,ticketId:string,date:Date){
- const records=await tx.groomingNote.findMany({where:{tenantId,ticketId}});
+export async function moveGroomingNotes(tx:any,tenantId:string,ticketId:string,date:Date,petId?:string){
+ const records=await tx.groomingNote.findMany({where:{tenantId,ticketId,...(petId?{petId}:{})}});
  for(const record of records){const n=await freezeNote(tx,record);if(!n.lockedAt)await tx.groomingNote.update({where:{id:n.id},data:{appointmentAt:date}});}
 }

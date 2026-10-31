@@ -1,6 +1,7 @@
+import {petSchedule,responsibleEmployee} from './pet-scheduling';
 // Preserve the real ticket ID for opening, updates and dragging. Only display keys differ.
-export function calendarPetCards<T extends {id:string;pets:any[];lines:any[];plannedAssignments?:any[]}>(tickets:T[]):(T&{calendarPetId?:string})[]{
- return tickets.flatMap(ticket=>ticket.pets.length?ticket.pets.map(entry=>{const petId=entry.pet.id;return {...ticket,calendarPetId:petId,pets:[entry],lines:ticket.lines.filter(line=>(line.petId||line.pet?.id)===petId),...(ticket.plannedAssignments?{plannedAssignments:ticket.plannedAssignments.filter(p=>p.petId===petId)}:{})}}):[ticket]);
+export function calendarPetCards<T extends {id:string;pets:any[];lines:any[];plannedAssignments?:any[]}>(tickets:T[]):(T&{calendarPetId?:string;calendarDragLocked?:boolean})[]{
+ return tickets.flatMap(ticket=>ticket.pets.length?ticket.pets.map(entry=>{const petId=entry.pet.id;return {...ticket,calendarPetId:petId,calendarDragLocked:!!responsibleEmployee(ticket.lines,petId),...((ticket as any).scheduledStart?{scheduledStart:petSchedule(ticket,petId).start.toISOString(),durationMin:petSchedule(ticket,petId).durationMin}:{}),pets:[entry],lines:ticket.lines.filter(line=>(line.petId||line.pet?.id)===petId),...(ticket.plannedAssignments?{plannedAssignments:ticket.plannedAssignments.filter(p=>p.petId===petId)}:{})}}):[ticket]);
 }
 
 // A pet block is a projection for placement only; its popup represents the complete appointment.

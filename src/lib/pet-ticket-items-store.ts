@@ -1,3 +1,4 @@
+import {ticketTiming} from './line-time-store';
 import {syncAppointmentPets} from './appointment-pet-store';
 import {ticketDuration} from './ticket-timing';
 // The caller owns the transaction. Snapshot IDs preserve items added after Remove was clicked.
@@ -15,6 +16,6 @@ export async function removePetTicketItems(tx:any,tenantId:string,ticketId:strin
  if(removedIds.length)await tx.ticketLine.deleteMany({where:{ticketId,petId,id:{in:removedIds}}});
  await syncAppointmentPets(tx,ticket,remaining);
  const durationMin=ticketDuration(remaining,ticket.timingMode);
- await tx.ticket.update({where:{id:ticketId},data:{durationMin}});
+ await tx.ticket.update({where:{id:ticketId},data:await ticketTiming(tx,ticket,remaining)});
  return {ticket,removed,remaining,durationMin};
 }
