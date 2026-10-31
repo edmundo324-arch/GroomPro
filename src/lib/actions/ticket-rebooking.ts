@@ -1,3 +1,4 @@
+import {attendingPets} from '@/src/lib/appointment-pets';
 import {approvedScheduling} from '@/src/lib/scheduling-authorization';
 import {ensureGroomingNotes} from '@/src/lib/grooming-notes-store';
 import {schedulingApproved,schedulingWarning,schedulingException,warningDetails} from '@/src/lib/scheduling-warning';
@@ -38,8 +39,9 @@ export async function POST(request: NextRequest) {
     const groomerId = body.groomerId ? String(body.groomerId) : null;
     if (!ticketId || Number.isNaN(scheduledStart.getTime())) return NextResponse.json({ error: "Original ticket and a valid new appointment time are required." }, { status: 400 });
 
-    const source = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { pets: true, lines: { orderBy: { sortOrder: "asc" } } } });
+    let source = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { pets: true, lines: { orderBy: { sortOrder: "asc" } } } });
     if (!source) return NextResponse.json({ error: "Original ticket could not be found." }, { status: 404 });
+    source=attendingPets(source);
     if (source.status === "CANCELLED") return NextResponse.json({ error: "A cancelled appointment cannot be rebooked." }, { status: 409 });
 
     const durationMin = Math.max(15, source.durationMin || 30);

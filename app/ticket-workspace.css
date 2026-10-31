@@ -212,3 +212,8 @@
 .gp-pos-phone .gp-pet-heading-remove{grid-column:2;justify-self:end}
 .gp-pos-phone .gp-pet-heading-remove .gp-btn{min-height:44px}
 .gp-pos-phone .gp-pet-items-empty{display:block}
+
+/* All customer pets remain available, independently of this visit's booked items. */
+.gp-pos-desktop>.gp-pos-pet-strip{grid-template-columns:minmax(0,2fr) minmax(140px,1fr)}
+.gp-pet-strip-nav{flex:none!important;width:24px;padding:0!important;min-height:28px!important}
+@media(pointer:coarse){.gp-pet-strip-nav{min-width:44px;min-height:44px!important}}

@@ -49,3 +49,5 @@
 - Per-dog headings show actual package names and the dog's complete subtotal / tax-inclusive total, excluding tip. Never add a duplicate charge or per-dog payment ledger. Allocate the actual ticket tax with cent-accurate rounding. Existing ticket/manual tax stays unchanged; tenant-controlled new-ticket rate defaults to 8.25 percent.
 - The desktop Calendar sidebar has three months, collapse-to-icon navigation and scoped preferences; tenant settings choose visibility, available items and their order. Date navigation never silently moves a ticket.
 - Continue preparing a publication commit and PowerShell command for the user. Do not push automatically.
+
+- POS pet strip lists all customer pets independently of attendance, with visible overflow navigation. A pet-name click toggles only its assigned grooming package; Self Service, other packages, offers, add-ons and products remain. Items and attendance/history derive from booked pet item lines, never from the customer pet list. Do not create empty pet item sections. Keep historical grooming records even when current appointment links are removed.

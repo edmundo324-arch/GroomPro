@@ -1,3 +1,4 @@
+import {attendingPets} from '@/src/lib/appointment-pets';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -13,10 +14,10 @@ async function handlePolicyGET(r:NextRequest){
  const result=await db.$transaction(async tx=>{
  const customer=await tx.customer.findFirst({where:{id:customerId,tenantId},select:{id:true,notes:true}});if(!customer)throw Error('Customer not found.');
  const pets=await tx.pet.findMany({where:{tenantId,customerId},select:{id:true,name:true,breed:true,breedId:true,notes:true,groomingNotes:true}});
- if(ticketId){await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticketId} AND tenantId=${tenantId} FOR UPDATE`;const t=await tx.ticket.findFirst({where:{id:ticketId,tenantId,customerId},include:{pets:true}});if(!t)throw Error('Appointment not found.');await ensureGroomingNotes(tx,t);}
+ if(ticketId){await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticketId} AND tenantId=${tenantId} FOR UPDATE`;const t=await tx.ticket.findFirst({where:{id:ticketId,tenantId,customerId},include:{pets:true,lines:{select:{petId:true}}}});if(!t)throw Error('Appointment not found.');await ensureGroomingNotes(tx,attendingPets(t));}
  const notes=await tx.groomingNote.findMany({where:{tenantId,customerId},orderBy:[{appointmentAt:'desc'},{createdAt:'desc'}]});
- const tickets=await tx.ticket.findMany({where:{tenantId,customerId,id:{in:notes.map(n=>n.ticketId)}},select:{id:true,scheduledStart:true,orderNumber:true,status:true}}),ticketMap=new Map(tickets.map(t=>[t.id,t]));
- const records:any[]=[];for(const n of notes){const t=ticketMap.get(n.ticketId);if(!t)continue;let current=await freezeNote(tx,n);if(!current.lockedAt&&String(n.appointmentAt)!==String(t.scheduledStart))current=await tx.groomingNote.update({where:{id:n.id},data:{appointmentAt:t.scheduledStart}});current=await freezeNote(tx,current);records.push({...current,deadline:current.lockedAt||await noteDeadline(tx,current),orderNumber:t.orderNumber,status:t.status})}
+ const tickets=await tx.ticket.findMany({where:{tenantId,customerId,id:{in:notes.map(n=>n.ticketId)}},select:{id:true,scheduledStart:true,orderNumber:true,status:true,lines:{select:{petId:true}}}}),ticketMap=new Map(tickets.map(t=>[t.id,t]));
+ const records:any[]=[];for(const n of notes){const t=ticketMap.get(n.ticketId);if(!t||!t.lines.some(l=>l.petId===n.petId))continue;let current=await freezeNote(tx,n);if(!current.lockedAt&&String(n.appointmentAt)!==String(t.scheduledStart))current=await tx.groomingNote.update({where:{id:n.id},data:{appointmentAt:t.scheduledStart}});current=await freezeNote(tx,current);records.push({...current,deadline:current.lockedAt||await noteDeadline(tx,current),orderNumber:t.orderNumber,status:t.status})}
  const breeds=await loadBreeds(tx,tenantId);
  return {customer,pets,records,defaults:Object.fromEntries(pets.map(p=>{const history=records.filter(n=>n.petId===p.id&&n.ticketId!==ticketId&&!['CANCELLED','NO_SHOW'].includes(n.status)&&n.appointmentAt&&+n.appointmentAt<=Date.now()),usual=history.filter(n=>n.usual).sort((a,b)=>+(b.usualAt||0)-+(a.usualAt||0))[0];const v=initialGroomingInstructions(p,usual?.instructions as any,history[0]?.instructions as any,breeds);if(!usual&&!history.length&&p.groomingNotes)v.specialNotes=p.groomingNotes;return [p.id,v]}))};
  },{timeout:30000});return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});

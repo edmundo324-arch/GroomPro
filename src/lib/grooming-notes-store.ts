@@ -23,7 +23,7 @@ export async function ensureGroomingNotes(tx:any,t:any,actorUserId?:string,draft
   if(existing){const frozen=await freezeNote(tx,existing);if(!frozen.lockedAt&&String(existing.appointmentAt)!==String(t.scheduledStart))await tx.groomingNote.update({where:{id:existing.id},data:{appointmentAt:t.scheduledStart||null}});continue;}
   const previous=await tx.groomingNote.findMany({where:{tenantId:t.tenantId,petId:pet.id,ticketId:{not:t.id},appointmentAt:{not:null,...(t.scheduledStart?{lt:t.scheduledStart}:{})}},orderBy:[{appointmentAt:'desc'},{createdAt:'desc'}]});
   // Only real appointments supply history; abandoned drafts never become defaults.
-  const ids=previous.map((n:any)=>n.ticketId),booked=await tx.ticket.findMany({where:{tenantId:t.tenantId,id:{in:ids},status:{notIn:['CANCELLED','NO_SHOW']}},select:{id:true}}),real=new Set(booked.map((b:any)=>b.id)),history=previous.filter((n:any)=>real.has(n.ticketId));
+  const ids=previous.map((n:any)=>n.ticketId),booked=await tx.ticket.findMany({where:{tenantId:t.tenantId,id:{in:ids},lines:{some:{petId:pet.id}},status:{notIn:['CANCELLED','NO_SHOW']}},select:{id:true}}),real=new Set(booked.map((b:any)=>b.id)),history=previous.filter((n:any)=>real.has(n.ticketId));
   const usual=history.filter((n:any)=>n.usual).sort((a:any,b:any)=>+new Date(b.usualAt)-+new Date(a.usualAt))[0];
   const instructions=initialGroomingInstructions(pet,usual?.instructions||null,history[0]?.instructions||null,breeds);
   if(!usual&&!history.length&&pet.groomingNotes)instructions.specialNotes=pet.groomingNotes;

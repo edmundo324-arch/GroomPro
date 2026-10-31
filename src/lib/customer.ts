@@ -1,3 +1,4 @@
+import {attendingPets} from './appointment-pets';
 import { db } from "./db";
 
 import {normalizePhone} from './phone-normalization';
@@ -64,7 +65,7 @@ export async function findPossibleDuplicateCustomer(
 }
 
 export async function getCustomerProfile(tenantId: string, customerId: string) {
-  return db.customer.findFirst({
+  const customer=await db.customer.findFirst({
     where: { id: customerId, tenantId, active: true },
     include: {
       phones: { orderBy: { isPrimary: "desc" } },
@@ -81,4 +82,5 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
       communications: { orderBy: { createdAt: "desc" }, take: 30 },
     },
   });
+  return customer?{...customer,tickets:customer.tickets.map(attendingPets)}:null;
 }
