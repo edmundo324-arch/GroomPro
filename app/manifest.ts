@@ -1,0 +1,6 @@
+import type {MetadataRoute} from 'next';
+export default function manifest():MetadataRoute.Manifest{return {
+ id:'/',name:'GroomPro',short_name:'GroomPro',description:'GroomPro salon management',
+ start_url:'/',scope:'/',display:'standalone',background_color:'#ffffff',theme_color:'#17354d',
+ icons:[192,512].map(size=>({src:`/icons/groompro-${size}.png`,sizes:`${size}x${size}`,type:'image/png',purpose:'any'}))
+};}

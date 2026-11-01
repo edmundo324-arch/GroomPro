@@ -64,3 +64,9 @@
 - Calendar dragging changes only the dragged dog's planned employee. Same Time moves all ticket times together; Add Up Time moves only that dog's times, permitting gaps/overlaps. Actual responsible Groomer/Bather assignments override planned placement and disable that dog's dragging; other unassigned dogs remain draggable. Planning never rewrites actual service employees or commissions.
 - Explicit line starts use tenant-scoped TICKET_LINE_STARTS metadata and per-date Calendar indexes, without schema changes. Same-day moves skip nearby-visit warnings. Appointment starts must be within business hours, while durations may finish after closing.
 - Items are flat in all views. Keyboard Delete is bound to an intentionally selected dog's captured lines and never advances to another dog automatically. Package service removal asks Keep Discount/Remove Discount by default; tenant defaults are in POS ticket settings. Reprice only the remaining services in that dog's package using regular location prices, preserving actual employees and auditing price/commission changes.
+
+## Compact Calendar and app installation
+- Calendar heading and New POS Ticket are factory-hidden; tenants may enable them in POS layout settings. Empty employee slots continue the existing booking workflow.
+- Small-screen Calendar keeps date navigation and search visible; secondary controls use the three-dot menu. Time Block / To Whiteboard are concise labels. Clear empties live search without reloading data.
+- Phone/tablet column defaults are 100 px; scoped user choices override defaults and survive reopening. Touch item fields show ordinary text until activated, while desktop keeps its original native editors.
+- The standalone web-app manifest uses a stable root launch URL without preview tokens. Installation shares live application services and permissions; no offline customer/payment caches or separate app business logic.
