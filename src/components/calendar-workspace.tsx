@@ -36,8 +36,8 @@ export function CalendarWorkspace({onSlot,onNewTicket,onOpenTicket,refreshKey=0,
  const [dayList,setDayList]=useState(false);
  const [phoneCalendar,setPhoneCalendar]=useState(false);
  useEffect(()=>{
-  const media=window.matchMedia('(max-width:700px)');
-  const update=()=>{setPhoneCalendar(media.matches);setDayList(media.matches)};
+  const media=window.matchMedia('(max-width:700px), (pointer:coarse) and (max-width:1000px)');
+  const update=()=>{setPhoneCalendar(media.matches)};
   update();media.addEventListener('change',update);
   return()=>media.removeEventListener('change',update);
  },[]);
@@ -164,6 +164,8 @@ export function CalendarWorkspace({onSlot,onNewTicket,onOpenTicket,refreshKey=0,
  resources.sort((a,b)=>(positions.get(a.id)??Infinity)-(positions.get(b.id)??Infinity));
  const localNow=new Date(wallTime(now,timezone));
  const layout=appointmentLayout(calendarPetCards(filtered),date);
+ const weekThrough=new Date(date);weekThrough.setDate(weekThrough.getDate()+6);
+ const agenda=view==='Day'?layout:Array.from({length:7},(_,i)=>{const day=new Date(date);day.setDate(day.getDate()+i);return appointmentLayout(calendarPetCards(filtered),day)}).flat();
  const firstMinute=Math.min(480,...layout.map(x=>Math.floor(x.start/60)*60),...resources.flatMap(r=>r.schedules.map(s=>Math.floor(clockMinutes(s.startTime)/60)*60)));
  const lastMinute=Math.min(1440,Math.max(1080,...layout.map(x=>Math.ceil(x.end/60)*60),...resources.flatMap(r=>r.schedules.map(s=>Math.ceil(clockMinutes(s.endTime)/60)*60))));
  const height=(lastMinute-firstMinute)*1.2;
@@ -177,12 +179,12 @@ export function CalendarWorkspace({onSlot,onNewTicket,onOpenTicket,refreshKey=0,
  <div className="gp-calendar-tools"><button type="button" className="gp-btn gp-calendar-overflow" aria-label="Calendar options" aria-expanded={optionsOpen} aria-controls="gp-calendar-options" onClick={()=>setOptionsOpen(v=>!v)}>⋮</button><div id="gp-calendar-options" className="gp-calendar-options"><button className="gp-btn" onClick={()=>{void pushSelectedDate();setOptionsOpen(false)}} disabled={pushing} title={`Prepare Whiteboard for ${dateInput(date)}`}>{pushing?"Loading…":"To Whiteboard"}</button><div className="gp-view-toggle">{(["Day","Week"] as const).map(v=><button key={v} className={!mapOpen&&view===v?"selected":""} onClick={()=>{setMapOpen(false);setView(v);setOptionsOpen(false)}}>{v}</button>)}</div><label><input type="checkbox" checked={blockMode} onChange={e=>{setBlockMode(e.target.checked);setOptionsOpen(false)}}/> Time Block</label><label>Show <select value={show} onChange={e=>{setShow(e.target.value);setOptionsOpen(false)}} disabled={view==="Week"}><option value="all">Employees + assets</option><option value="employees">Employees</option><option value="assets">Assets</option></select></label><label><input type="checkbox" checked={workingOnly} disabled={view==="Week"} onChange={e=>{setWorkingOnly(e.target.checked);setOptionsOpen(false)}}/> Working only</label><label>Columns <select value={width} onChange={e=>{changeWidth(e.target.value);setOptionsOpen(false)}} disabled={view==="Week"}><option value="fit">Fit all</option><option value="100">100 px</option><option value="160">160 px</option><option value="220">220 px</option></select></label><InstallGroomPro/></div></div>
  <div className="gp-calendar-search-controls"><input aria-label="Search calendar" className="gp-search-input" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search customer, pet, service or ticket"/><button type="button" className="gp-btn" onClick={()=>{setQuery('');calendarRoot.current?.querySelector<HTMLInputElement>('[aria-label="Search calendar"]')?.focus()}}>Clear</button></div></div></div>
 
- {!mapOpen&&phoneCalendar&&view==='Day'&&<div className="gp-phone-calendar-switch"><button className="gp-btn" aria-pressed={dayList} onClick={()=>setDayList(true)}>Day list</button><button className="gp-btn" aria-pressed={!dayList} onClick={()=>setDayList(false)}>Grid</button></div>}
+ {!mapOpen&&phoneCalendar&&<div className="gp-phone-calendar-switch"><button className="gp-btn" aria-pressed={dayList} onClick={()=>setDayList(true)}>List</button><button className="gp-btn" aria-pressed={!dayList} onClick={()=>setDayList(false)}>Grid</button></div>}
  {pushMessage&&<div role="status" className="gp-form-success">{pushMessage}</div>}{pushError&&<div role="alert" className="gp-form-error">{pushError}</div>}
- {error&&<div role="alert" className="gp-form-error">{error} <button className="gp-btn" onClick={()=>setReload(v=>v+1)}>Retry</button></div>}{mapOpen?<CalendarMap date={dateInput(date)} onOpen={onOpenTicket}/>:loading?<div role="status" className="gp-search-empty">Loading calendar…</div>:view==="Day"&&dayList&&!blockMode?<div className="gp-calendar-agenda">
- {layout.length===0&&<p>No appointments for this day.</p>}
- {layout.map(({ticket},index)=><button type="button" key={ticket.id+':'+(ticket.calendarPetId||index)} className={'gp-agenda-card'+(hover?.ticket.id===ticket.id?' gp-calendar-ticket-highlight':'')} style={{...cardStyle(ticket),borderInlineStartWidth:4}} onPointerDown={e=>touchDown(e,ticket)} onPointerMove={touchMotion} onPointerUp={finishTouch} onPointerCancel={finishTouch} onContextMenu={e=>e.preventDefault()} onClick={()=>openAppointment(ticket)}>
-  <time>{ticket.scheduledStart&&new Date(ticket.scheduledStart).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</time>
+ {error&&<div role="alert" className="gp-form-error">{error} <button className="gp-btn" onClick={()=>setReload(v=>v+1)}>Retry</button></div>}{mapOpen?<CalendarMap date={dateInput(date)} throughDate={view==="Week"?dateInput(weekThrough):dateInput(date)} onOpen={onOpenTicket}/>:loading?<div role="status" className="gp-search-empty">Loading calendar…</div>:dayList&&phoneCalendar&&!blockMode?<div className="gp-calendar-agenda">
+ {agenda.length===0&&<p>No appointments for this {view.toLowerCase()}.</p>}
+ {agenda.map(({ticket},index)=><button type="button" key={ticket.id+':'+(ticket.calendarPetId||index)} className={'gp-agenda-card'+(hover?.ticket.id===ticket.id?' gp-calendar-ticket-highlight':'')} style={{...cardStyle(ticket),borderInlineStartWidth:4}} onPointerDown={e=>touchDown(e,ticket)} onPointerMove={touchMotion} onPointerUp={finishTouch} onPointerCancel={finishTouch} onContextMenu={e=>e.preventDefault()} onClick={()=>openAppointment(ticket)}>
+  <time>{ticket.scheduledStart&&new Date(ticket.scheduledStart).toLocaleString(undefined,{...(view==='Week'?{weekday:'short' as const,month:'short' as const,day:'numeric' as const}:{}),hour:'numeric',minute:'2-digit'})}</time>
   <span><strong>{ticket.pets.map(p=>p.pet.name).join(', ')||'Appointment'}</strong><span>{ticket.customer.firstName} {ticket.customer.lastName}</span></span>
   <small>{ticket.status.replaceAll('_',' ').toLowerCase()}</small>
  </button>)}

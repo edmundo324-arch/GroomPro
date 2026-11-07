@@ -2,6 +2,7 @@ import {initialGroomingInstructions} from './grooming-note-defaults';
 import {defaultHours,parseHours} from './operating-hours';
 import {notesDeadline,parseSpecialHours,validInstructions} from './grooming-notes-rules';
 import {loadBreeds} from './breed-store';
+import {offlineCreateId} from './offline-transaction';
 
 export async function noteDeadline(tx:any,n:any){
  if(!n.appointmentAt)return null;
@@ -31,7 +32,7 @@ export async function ensureGroomingNotes(tx:any,t:any,actorUserId?:string,draft
   const source=draft?.sourceId?await tx.groomingNote.findFirst({where:{id:draft.sourceId,tenantId:t.tenantId,customerId:t.customerId,petId:pet.id}}):null;
   if(draft?.sourceId&&!source)throw Error('Grooming history must belong to this pet.');
   const applied=draft?validInstructions(draft.instructions):instructions;
-  await tx.groomingNote.create({data:{...key,customerId:t.customerId,locationId:t.locationId,appointmentAt:t.scheduledStart||null,instructions:applied,usual:!!draft?.usual,usualAt:draft?.usual?new Date():null}});
+  await tx.groomingNote.create({data:{id:offlineCreateId()?t.id+'-note-'+pet.id:undefined,...key,customerId:t.customerId,locationId:t.locationId,appointmentAt:t.scheduledStart||null,instructions:applied,usual:!!draft?.usual,usualAt:draft?.usual?new Date():null}});
   if(actorUserId)await tx.auditEntry.create({data:{tenantId:t.tenantId,actorType:'EMPLOYEE',actorUserId,entityType:'TICKET',entityId:t.id,customerId:t.customerId,action:'GROOMING_NOTES',summary:`${pet.name}: loaded grooming instructions.`,details:{petId:pet.id,sourceTicketId:source?.ticketId||usual?.ticketId||history[0]?.ticketId||null,instructions:applied,usual:!!draft?.usual}}});
  }
 }

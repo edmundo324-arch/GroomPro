@@ -1,3 +1,4 @@
+import {offlineLineId} from './offline-transaction';
 import {ticketTiming} from './line-time-store';
 import {offerTodayLine,offerTodaySourceKey} from './service-promotion';
 import {resolveSaleLines} from './pos-lines';
@@ -20,7 +21,7 @@ export async function setOfferTodayLine(tx:any,tenantId:string,ticketId:string,i
  const result=await resolveSaleLines(tx,tenantId,[{type:'SERVICE',id:input.id,petId:input.petId,quantity:1,role:input.role,offerToday:true}],ticket.pets.map((pet:any)=>pet.petId),ticket.locationId);
  const durationMin=ticketDuration([...ticket.lines,...result.lines],ticket.timingMode);
  await checkSchedule(ticket,durationMin);
- const line=await tx.ticketLine.create({data:{...result.lines[0],ticketId,sortOrder:Math.max(-1,...ticket.lines.map((line:any)=>line.sortOrder))+1}});
+ const line=await tx.ticketLine.create({data:{...result.lines[0],id:offlineLineId(0),ticketId,sortOrder:Math.max(-1,...ticket.lines.map((line:any)=>line.sortOrder))+1}});
  await tx.ticket.update({where:{id:ticketId},data:await ticketTiming(tx,ticket,[...ticket.lines,line])});
  return {changed:true,line,removed:false,removedLines:[]};
 }

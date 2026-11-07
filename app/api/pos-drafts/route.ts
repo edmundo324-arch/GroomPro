@@ -1,3 +1,4 @@
+import {offlineCreateId} from '@/src/lib/offline-transaction';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -26,7 +27,7 @@ async function handlePolicyPOST(r:NextRequest){
   await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
   const existing=await tx.posDraft.findUnique({where:{tenantId_requestKey:{tenantId,requestKey:body.requestKey}}});
   if(existing)return existing;
-  return tx.posDraft.create({data:{tenantId,locationId,requestKey:body.requestKey,orderNumber:await nextTicketNumber(tx,tenantId),payload:{ticket:{timingMode:defaults.timingMode}}}});
+  return tx.posDraft.create({data:{id:offlineCreateId(),tenantId,locationId,requestKey:body.requestKey,orderNumber:await nextTicketNumber(tx,tenantId),payload:{ticket:{timingMode:defaults.timingMode}}}});
  });
  return NextResponse.json({draft});
 }

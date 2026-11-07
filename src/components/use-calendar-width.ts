@@ -3,12 +3,19 @@ import { calendarDeviceKind, calendarWidth } from '../lib/calendar-preferences';
 
 export function useCalendarWidth(scope: string, policy: unknown) {
   const [width, setWidth] = useState('fit');
+  const [kind, setKind] = useState<ReturnType<typeof calendarDeviceKind>>('pc');
   const selection = useRef(0);
   const device = useRef<{ employeeId: string; deviceId: string; deviceKind: string } | null>(null);
   const writes = useRef(Promise.resolve());
   useEffect(() => {
+    const update = () => setKind(calendarDeviceKind());
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  useEffect(() => {
     const controller = new AbortController();
-    const deviceKind = calendarDeviceKind();
+    const deviceKind = kind;
     const fallback = calendarWidth(null, deviceKind !== 'pc');
     const version = ++selection.current;
     setWidth(fallback);
@@ -33,7 +40,7 @@ export function useCalendarWidth(scope: string, policy: unknown) {
         if (controller.signal.aborted) return;
         if (selection.current === version) {
           let previous = null;
-          if (saved.remember && !saved.width) {
+          if (saved.remember && !saved.width && deviceKind === 'pc') {
             try { previous = localStorage.getItem('groompro:calendar-width:' + scope); } catch {}
           }
           setWidth(saved.width || (previous ? calendarWidth(previous, deviceKind !== 'pc') : saved.defaultWidth || fallback));
@@ -41,7 +48,7 @@ export function useCalendarWidth(scope: string, policy: unknown) {
       } catch { /* Default widths are still usable when a preference cannot load. */ }
     })();
     return () => controller.abort();
-  }, [scope, policy]);
+  }, [scope, policy, kind]);
 
   function changeWidth(value: string) {
     selection.current++;

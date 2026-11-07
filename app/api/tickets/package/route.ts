@@ -1,3 +1,4 @@
+import {offlineLineId} from '@/src/lib/offline-transaction';
 import {ticketTiming} from '@/src/lib/line-time-store';
 import {packageMembersForPet} from '@/src/lib/appointment-pets';
 import {syncAppointmentPets} from '@/src/lib/appointment-pet-store';
@@ -30,7 +31,7 @@ async function handlePolicyPOST(r:NextRequest){
  if(b.present)await tx.ticketPet.upsert({where:{ticketId_petId:{ticketId:ticket.id,petId:pet.id}},create:{ticketId:ticket.id,petId:pet.id},update:{}});
  if(b.present)await ensureGroomingNotes(tx,{...ticket,pets:[{petId:pet.id}]},session.user.id);
  if(!b.present)await tx.ticketLine.deleteMany({where:{ticketId:ticket.id,id:{in:existing.map(l=>l.id)}}});
- for(const line of addition.lines)await tx.ticketLine.create({data:{...line,ticketId:ticket.id,sortOrder:remaining.length+line.sortOrder}});
+ for(const [index,line] of addition.lines.entries())await tx.ticketLine.create({data:{...line,id:offlineLineId(index),ticketId:ticket.id,sortOrder:remaining.length+line.sortOrder}});
  await syncAppointmentPets(tx,ticket,[...remaining,...addition.lines]);
  await tx.ticket.update({where:{id:ticket.id},data:await ticketTiming(tx,ticket,await tx.ticketLine.findMany({where:{ticketId:ticket.id},include:{service:true},orderBy:{sortOrder:'asc'}}))});return{changed:true};});
  if(result.changed)await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:b.ticketId,action:b.present?'ADD_PACKAGE':'REMOVE_PACKAGE',summary:b.present?'Added pet package.':'Removed pet package.',details:{petId:b.petId,packageId:b.packageId}});

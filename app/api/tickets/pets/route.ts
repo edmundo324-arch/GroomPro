@@ -17,6 +17,7 @@ async function handlePolicyPATCH(r:NextRequest){
   if(b.included)await tx.ticketPet.upsert({where:{ticketId_petId:{ticketId:t.id,petId:pet.id}},create:{ticketId:t.id,petId:pet.id},update:{}});
   else {if(await tx.ticketLine.count({where:{ticketId:t.id,petId:pet.id}}))throw Error('Remove this dog’s service lines before removing the dog.');await tx.ticketPet.deleteMany({where:{ticketId:t.id,petId:pet.id}});}
   if(b.included)await ensureGroomingNotes(tx,{...t,pets:[{petId:pet.id}]},session.user.id);
+  await tx.ticket.update({where:{id:t.id},data:{updatedAt:new Date()}});
   return t;
  });
  await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:'TICKET_PET',summary:'Updated the dogs included on the ticket.',details:{petId:b.petId,included:b.included}});

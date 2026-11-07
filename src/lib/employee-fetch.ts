@@ -1,5 +1,6 @@
 "use client";
 import {requestMaterial} from './request-fingerprint';
+import {deviceFetch} from './offline-device';
 export type PinResult=false|{approval?:string};
 export type PinRequest={mode?:'SIGN_IN'|'SWITCH'|'APPROVAL';requestHash?:string;complete:(result:PinResult)=>void};
 export function requestEmployeePin(mode:PinRequest['mode']='SIGN_IN',requestHash?:string){return new Promise<PinResult>(complete=>window.dispatchEvent(new CustomEvent<PinRequest>('groompro:request-pin',{detail:{mode,requestHash,complete}})));}
@@ -64,7 +65,7 @@ async function authorizedFetch(input:string,init?:RequestInit):Promise<Response>
  throw Error('Scheduling conditions changed. Review this appointment before trying again.');
 }
 async function pinAuthorizedFetch(input:string,init?:RequestInit):Promise<Response>{
- let response=await fetch(input,init);
+ let response=await deviceFetch(input,init);
  for(let attempt=0;attempt<2;attempt++){
   if(![401,403].includes(response.status))return response;
   const body=await response.clone().json().catch(()=>({}));

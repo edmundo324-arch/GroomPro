@@ -1,3 +1,4 @@
+import {offlineCreateId,offlineLineId} from '@/src/lib/offline-transaction';
 import {workflowSettings} from '@/src/lib/workflow-settings';
 import {ticketDuration} from '@/src/lib/ticket-timing';
 import {attendingPets} from '@/src/lib/appointment-pets';
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       orderNumber=await nextTicketNumber(tx,tenantId);
       const ticket = await tx.ticket.create({
         data: {
-          tenantId, locationId, customerId: source.customerId, orderNumber, scheduledStart, durationMin,timingMode:businessMode,
+          id:offlineCreateId(), tenantId, locationId, customerId: source.customerId, orderNumber, scheduledStart, durationMin,timingMode:businessMode,
           bookingAssetId:body.bookingAssetId||null,status: "OPEN", bookingSource: "STAFF", bookingDecision: "INTERNAL", notes: source.notes,
           pets: { create: source.pets.map(p => ({ petId: p.petId, weightLbs: p.weightLbs, analSituation: null, vipAvailability: p.vipAvailability })) },
           lines: { create: serviceLines.map((line, index) => {
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
             const gross = line.unitPriceCents * line.quantity;
             const discountCents = eligible && discountPct > 0 ? Math.round(gross * discountPct / 100) : 0;
             const totalCents = gross - discountCents;
-            return {durationMin:line.durationMin,reportCardDescription:line.reportCardDescription,packageId:line.packageId,packageGroupKey:line.packageGroupKey,packageName:line.packageName, lineType: "SERVICE", role: line.role, serviceId: line.serviceId, petId: line.petId, description: line.description, quantity: line.quantity, unitPriceCents: line.unitPriceCents, discountCents, totalCents, commissionPct: line.commissionPct, commissionCents: Math.round(totalCents * Number(line.commissionPct || 0) / 100), sortOrder: index, assignedUserId: null, assignedAt: null };
+            return {id:offlineLineId(index),durationMin:line.durationMin,reportCardDescription:line.reportCardDescription,packageId:line.packageId,packageGroupKey:line.packageGroupKey,packageName:line.packageName, lineType: "SERVICE", role: line.role, serviceId: line.serviceId, petId: line.petId, description: line.description, quantity: line.quantity, unitPriceCents: line.unitPriceCents, discountCents, totalCents, commissionPct: line.commissionPct, commissionCents: Math.round(totalCents * Number(line.commissionPct || 0) / 100), sortOrder: index, assignedUserId: null, assignedAt: null };
           }) },
           ...(groomerId ? { assignments: { create: [{ userId: groomerId, role: "GROOMER" },{userId:groomerId,role:"PLANNED_GROOMER"}] } } : {})
         },

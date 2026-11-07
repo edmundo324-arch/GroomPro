@@ -1,4 +1,5 @@
 import {withRequestPolicy} from '@/src/lib/request-policy';
+import {offlineLineId} from '@/src/lib/offline-transaction';
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 import { writeAudit } from "@/src/lib/audit";
@@ -19,7 +20,7 @@ async function handlePolicyPATCH(request: NextRequest) {
   const existingLine=await db.ticketLine.findFirst({where:{ticketId:ticket.id,serviceId:daycareService.id,role:"ADD_ON",petId:null}});
   if(body.staying&&!existingLine){
     const commissionPct=daycareService.commissionPct==null?null:Number(daycareService.commissionPct);const totalCents=daycareService.priceCents;const commissionCents=commissionPct==null?0:Math.round(totalCents*commissionPct/100);
-    const updated=await db.$transaction(async tx=>{await tx.ticketLine.create({data:{ticketId:ticket.id,lineType:"SERVICE",role:"ADD_ON",serviceId:daycareService.id,petId:null,description:daycareService.name,quantity:1,unitPriceCents:daycareService.priceCents,totalCents,commissionPct,commissionCents,sortOrder:999999}});return tx.ticket.update({where:{id:ticket.id},data:{daycareStatus:"STAYING",daycareAddedAt:new Date(),daycareAddedByUserId:session.user.id},include:{customer:true,pets:{include:{pet:true}},lines:true}})});
+    const updated=await db.$transaction(async tx=>{await tx.ticketLine.create({data:{id:offlineLineId(0),ticketId:ticket.id,lineType:"SERVICE",role:"ADD_ON",serviceId:daycareService.id,petId:null,description:daycareService.name,quantity:1,unitPriceCents:daycareService.priceCents,totalCents,commissionPct,commissionCents,sortOrder:999999}});return tx.ticket.update({where:{id:ticket.id},data:{daycareStatus:"STAYING",daycareAddedAt:new Date(),daycareAddedByUserId:session.user.id},include:{customer:true,pets:{include:{pet:true}},lines:true}})});
     await writeAudit({tenantId,actorUserId:session.user.id,entityType:"TICKET",entityId:ticket.id,customerId:ticket.customerId,action:"ADD_DAYCARE",summary:`Added ticket-level daycare for order #${ticket.orderNumber}.`,details:{ticketLevel:true,affectsAllDogsOnTicket:true,petIds:ticket.pets.map(p=>p.petId),serviceId:daycareService.id,priceCents:daycareService.priceCents}});
     return NextResponse.json({ticket:updated,daycareStatus:updated.daycareStatus,affectsAllDogsOnTicket:true});
   }

@@ -5,6 +5,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {db} from './db';
 import {getActiveEmployeeSession} from './employee-session';
 import {moduleDenial} from './module-entitlement';
+import {replayOffline} from './offline-replay';
 
 // One request owns one authorization result. Nested services do not consume
 // another per-action PIN or manager approval. Nothing is cached across requests.
@@ -43,6 +44,9 @@ export function withRequestPolicy<A extends unknown[]>(handler:(request:NextRequ
    // Unconfigured permissions keep existing route defaults; an explicit denial
    // cannot be bypassed through a second screen or endpoint.
    if(permissions.some(permission=>permission?.enabled===false))return NextResponse.json({error:'Your role does not have permission for this action.'},{status:403});
+  }
+  if(!read&&request.headers.has('x-groompro-offline')&&session){
+   return replayOffline(request,tenantId,session.user.id,()=>handler(request,...args));
   }
   return handler(request,...args);
  });
