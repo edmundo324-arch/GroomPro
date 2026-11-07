@@ -74,6 +74,18 @@ async function bootstrap(db, plan) {
     }
   }, { maxWait: 65000, timeout: 240000 });
 }
+async function registerCustomerContactFeature(tx) {
+  const code = 'CUSTOMER_TEXT_CALL';
+  const inserted = await tx.featureModule.createMany({ skipDuplicates: true, data: [{
+    code, name: 'Customer Texting & Calling', description: 'Send customer SMS and open the device dialer from a customer profile.',
+  }] });
+  if (!inserted.count) return;
+  const plans = await tx.subscriptionPlan.findMany({ select: { code: true } });
+  if (plans.length) await tx.planFeature.createMany({
+    data: plans.map(plan => ({ planCode: plan.code, featureCode: code })),
+  });
+}
+
 async function applyDemoAddresses(db) {
   const file = path.join(ROOT, 'transfer-data', 'GroomPro-Demo-Customer-Addresses.sql');
   const commands = statements(fs.readFileSync(file, 'utf8'));
@@ -100,6 +112,7 @@ async function main() {
     if(!process.argv.includes("--verify-only")){const repaired=await require("./repair-demo-hours.cjs").repairDemoHours(db);if(repaired)console.log(`GroomPro: corrected ${repaired} untouched demo appointments to location time.`)}
     if(!process.argv.includes("--verify-only")){const changed=await require("./upgrade-imported-services.cjs").upgradeImportedServices(db);if(changed)console.log(`GroomPro: separated imported service fields for ${changed} services; original values retained.`)}
     if (!process.argv.includes('--verify-only')) {
+      await db.$transaction(registerCustomerContactFeature);
       const updated = await applyDemoAddresses(db);
       if (updated) console.log(`GroomPro: filled ${updated} blank demo customer addresses.`);
     }

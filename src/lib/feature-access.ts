@@ -1,12 +1,21 @@
 import {isPlatformRole} from '@/src/lib/roles';
-import {entitled,hasConfiguredPlan} from './platform-access';
+import {customerContactFeature,entitled,hasConfiguredPlan} from './platform-access';
 import { db } from "@/src/lib/db";
 import type { GroomProPermission, GroomProRole } from "@/src/lib/roles";
+
+export {customerContactFeature};
 
 export async function isFeatureEnabled(tenantId: string, featureCode: string) {
   const row = await db.tenantFeature.findUnique({ where: { tenantId_featureCode: { tenantId, featureCode } } });
   if(row?.enabled===false)return false;
   const subscription=await db.subscription.findUnique({where:{tenantId}});
+  if (featureCode === customerContactFeature) {
+    if (!subscription) return true;
+    if (subscription.status !== 'active') return false;
+    return !!await db.planFeature.findUnique({
+      where: { planCode_featureCode: { planCode: subscription.plan, featureCode } },
+    });
+  }
   return subscription&&await hasConfiguredPlan(tenantId)?await entitled(tenantId,featureCode):true;
 }
 

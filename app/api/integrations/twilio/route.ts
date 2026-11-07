@@ -1,5 +1,6 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
+import {customerContactFeature,isFeatureEnabled} from '@/src/lib/feature-access';
 import {configFor,smsCallbackUrl} from '@/src/lib/sms';
 import {normalizePhone} from '@/src/lib/customer';
 import {validTwilioSignature,deliveryCanAdvance} from '@/src/lib/twilio-signature';
@@ -19,6 +20,9 @@ export async function POST(r:NextRequest){
   });
  }else{
   if(parameters.get('To')!==config.from)return NextResponse.json({error:'Recipient mismatch.'},{status:403});
+  if (!await isFeatureEnabled(tenantId, customerContactFeature)) {
+   return new NextResponse('<Response/>',{status:200,headers:{'Content-Type':'text/xml'}});
+  }
   const from=parameters.get('From')||'',body=parameters.get('Body')||'';
   await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;if(await tx.communication.findFirst({where:{tenantId,externalId:sid}}))return;
    const phone=await tx.customerPhone.findFirst({where:{tenantId,normalized:normalizePhone(from)}});if(!phone)return;

@@ -1,4 +1,5 @@
 import {withRequestPolicy} from '@/src/lib/request-policy';
+import {customerContactFeature,isFeatureEnabled} from '@/src/lib/feature-access';
 import {customerDetails} from "@/src/lib/customer-details";
 import {writeAudit} from '@/src/lib/audit';
 import {saveCustomerPhones} from '@/src/lib/customer-phones';
@@ -18,7 +19,7 @@ async function handlePolicyGET(
   const customer = await getCustomerProfile(tenantId, customerId);
   if (!customer) return NextResponse.json({ error: "Customer not found." }, { status: 404 });
 
-  return NextResponse.json({ customer });
+  return NextResponse.json({ customer, callingEnabled: await isFeatureEnabled(tenantId, customerContactFeature) });
 }
 
 async function handlePolicyPATCH(request:NextRequest,{params}:{params:Promise<{customerId:string}>}){

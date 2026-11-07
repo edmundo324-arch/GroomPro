@@ -4,4 +4,6 @@ export async function platformSession(r:NextRequest){const tenantId=r.headers.ge
 export function isPlatformAdmin(s:any){return !!s && isPlatformRole(s.user.role)}
 export async function entitled(tenantId:string,code:string){const override=await db.tenantFeature.findUnique({where:{tenantId_featureCode:{tenantId,featureCode:code}}});if(override&&(override.config as any)?.platformOverride)return override.enabled;const subscription=await db.subscription.findUnique({where:{tenantId}});if(!subscription||subscription.status!=='active')return false;return !!await db.planFeature.findUnique({where:{planCode_featureCode:{planCode:subscription.plan,featureCode:code}}})}
 
-export async function hasConfiguredPlan(tenantId:string){const sub=await db.subscription.findUnique({where:{tenantId}});return !!sub&&!!await db.planFeature.count({where:{planCode:sub.plan}})}
+export const customerContactFeature = 'CUSTOMER_TEXT_CALL';
+
+export async function hasConfiguredPlan(tenantId:string){const sub=await db.subscription.findUnique({where:{tenantId}});return !!sub&&!!await db.planFeature.count({where:{planCode:sub.plan,featureCode:{not:customerContactFeature}}})}

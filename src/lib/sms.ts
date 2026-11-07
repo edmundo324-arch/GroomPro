@@ -1,10 +1,15 @@
 import {db} from './db';
 import {normalizePhone} from './customer';
+import {customerContactFeature,isFeatureEnabled} from './feature-access';
+export class TextingPlanError extends Error {
+ constructor(){super('Customer texting is disabled on this subscription plan.')}
+}
 export type SmsConfig={accountSid:string;authToken:string;from:string;webhookUrl?:string};
 export function configFor(tenantId:string):SmsConfig|null{try{const all=JSON.parse(process.env.GROOMPRO_SMS_TENANTS_JSON||'{}');const c=all[tenantId];return c&&/^AC[0-9a-f]{32}$/i.test(c.accountSid)&&c.authToken&&/^\+[1-9]\d{7,14}$/.test(c.from)?c:null}catch{return null}}
 export function smsCallbackUrl(config:SmsConfig,tenantId:string,communicationId=''){try{if(!config.webhookUrl)return null;const url=new URL(config.webhookUrl);if(url.protocol!=='https:'||url.search||url.hash||url.username||url.password)return null;url.searchParams.set('tenantId',tenantId);if(communicationId)url.searchParams.set('communicationId',communicationId);return url.toString()}catch{return null}}
 export const smsConfigured=(tenantId:string)=>!!configFor(tenantId);
 export async function sendCustomerSms({tenantId,customerId,ticketId,phoneId,body,subject}:{tenantId:string;customerId:string;ticketId?:string;phoneId?:string;body:string;subject?:string}){
+ if (!await isFeatureEnabled(tenantId, customerContactFeature)) throw new TextingPlanError();
  if(!body.trim()||body.length>1600)throw Error('Message must contain 1–1600 characters.');
  const customer=await db.customer.findFirst({where:{id:customerId,tenantId,active:true},include:{phones:{where:{smsEnabled:true},orderBy:{isPrimary:'desc'}}}});if(!customer)throw Error('Customer not found.');
  const phone=phoneId?customer.phones.find(p=>p.id===phoneId):customer.phones[0];if(!phone)throw Error('Choose an SMS-enabled phone belonging to this customer.');
