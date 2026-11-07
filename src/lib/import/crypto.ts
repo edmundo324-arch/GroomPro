@@ -3,7 +3,7 @@ import {createCipheriv,createDecipheriv,createHash,randomBytes,scryptSync} from 
 let cachedSecret:string|undefined,cachedKey:Buffer|undefined;
 function key(){
  const secret=process.env.GROOMPRO_IMPORT_KEY||'';
- if(!secret.trim())throw Error('Set GROOMPRO_IMPORT_KEY to your private secret before importing.');
+ if(!secret.trim())throw Error('The running app did not receive a value for GROOMPRO_IMPORT_KEY. Make your existing private secret available to this app and redeploy. There is no length or format requirement.');
  if(secret===cachedSecret&&cachedKey)return cachedKey;
  // Keep existing encrypted history readable; other secret formats use a KDF.
  const result=/^[a-fA-F0-9]{64}$/.test(secret)?Buffer.from(secret,'hex'):scryptSync(secret,'GroomPro import encryption v1',32);

@@ -37,7 +37,7 @@ The user ran the writer under their Windows SQL identity. All 10 synthetic rows,
 including package grouping, passed SQL write/read-back verification and were rolled
 back. No imported records were retained. This does not verify a committed GoDaddy
 transfer or native 123Pet UI behavior. GoDaddy snapshot preparation still reports
-an invalid or missing GROOMPRO_IMPORT_KEY in its running environment.
+a missing GROOMPRO_IMPORT_KEY in its running environment.
 
 ## Ticket processing
 

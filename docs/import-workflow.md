@@ -10,7 +10,7 @@ Images, PDFs and DOCX files may be retained as encrypted historical attachments,
 
 ## Security and staging
 
-Configure `GROOMPRO_IMPORT_KEY` with 32 cryptographically random bytes encoded as 64 hex characters. Back it up separately from the database. The key never goes to the browser. Original datasets, protected source values, and recovery snapshots are compressed and encrypted with AES-256-GCM, with the tenant ID authenticated as additional data. A different tenant cannot decrypt the ciphertext. Do not rotate or remove the key without re-encrypting existing imports.
+Set `GROOMPRO_IMPORT_KEY` as a private server environment variable. Existing non-blank values are accepted at any length. If the importer reports a missing value, confirm the variable is available to the running app and redeploy using the same secret. Back it up separately from the database. The key never goes to the browser. Original datasets, protected source values, and recovery snapshots are compressed and encrypted with AES-256-GCM, with the tenant ID authenticated as additional data. A different tenant cannot decrypt the ciphertext. Do not rotate or remove the key without re-encrypting existing imports.
 
 Only administrators and managers can stage, review, execute, retrieve source records or roll back imports. PIN/session policy applies. Reports mask recognized protected fields and never activate imported merchant credentials. Imported employees start inactive with no usable PIN. Assign a PIN through the shared employee editor after reviewing their role.
 
