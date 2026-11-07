@@ -8,4 +8,4 @@ The ZIP is never imported on sync. The ZIP can be selected directly in Choose Re
 
 Use source name `GroomPro Local Demo 2026`. Existing employee references must match uniquely. Employee profiles and service/package catalogs are not created. Review validation before executing. Existing matched tickets are not overwritten in add-new mode.
 
-`GroomPro-Demo-Customer-Addresses.sql` is the separate address update for the 203 reviewed demo customer records. GoDaddy applies it at application startup after verifying the schema. It can also be uploaded directly to the selected GroomPro MySQL database. It preserves existing address fields and saves each affected record's previous address in ImportRecord.
+`GroomPro-Demo-Customer-Contacts.sql` fills missing phone numbers and compatible address fields for the 203 reviewed demo customer records. GoDaddy applies it automatically at startup after verifying the schema. It can also be uploaded directly to the selected GroomPro MySQL database. It saves each affected record's previous address in ImportRecord. The automatic update runs without the general import encryption secret.

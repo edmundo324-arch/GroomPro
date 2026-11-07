@@ -86,16 +86,21 @@ async function registerCustomerContactFeature(tx) {
   });
 }
 
-async function applyDemoAddresses(db) {
-  const file = path.join(ROOT, 'transfer-data', 'GroomPro-Demo-Customer-Addresses.sql');
+async function applyDemoContacts(db) {
+  const file = path.join(ROOT, 'transfer-data', 'GroomPro-Demo-Customer-Contacts.sql');
   const commands = statements(fs.readFileSync(file, 'utf8'));
-  if (commands.shift() !== 'START TRANSACTION' || commands.pop() !== 'COMMIT') {
-    throw new Error('Invalid demo address transaction.');
+  const report = commands.pop();
+  if (commands.shift() !== 'START TRANSACTION' || commands.pop() !== 'COMMIT' || !report?.startsWith('SELECT @groompro_addresses_filled ')) {
+    throw new Error('Invalid demo contact transaction.');
   }
   return db.$transaction(async tx => {
-    let updated = 0;
-    for (const command of commands) updated = await tx.$executeRawUnsafe(command);
-    return updated;
+    for (const command of commands) await tx.$executeRawUnsafe(command);
+    const [summary] = await tx.$queryRawUnsafe(report);
+    return {
+      addresses: Number(summary.addresses_completed),
+      phones: Number(summary.phones_added),
+      reenabled: Number(summary.phones_reenabled),
+    };
   }, { timeout: 30000 });
 }
 
@@ -113,8 +118,8 @@ async function main() {
     if(!process.argv.includes("--verify-only")){const changed=await require("./upgrade-imported-services.cjs").upgradeImportedServices(db);if(changed)console.log(`GroomPro: separated imported service fields for ${changed} services; original values retained.`)}
     if (!process.argv.includes('--verify-only')) {
       await db.$transaction(registerCustomerContactFeature);
-      const updated = await applyDemoAddresses(db);
-      if (updated) console.log(`GroomPro: filled ${updated} blank demo customer addresses.`);
+      const { addresses, phones, reenabled } = await applyDemoContacts(db);
+      if (addresses || phones || reenabled) console.log(`GroomPro demo contacts: ${addresses} addresses completed, ${phones} phones added, ${reenabled} phones re-enabled.`);
     }
     console.log(`GroomPro: verified ${count} application tables and all required columns.`);
   } finally { await db.$disconnect(); }
@@ -123,5 +128,5 @@ if (require.main === module) main().catch(error => {
   console.error('GroomPro database bootstrap failed:', error.code || error.name, String(error.message).replace(/mysql:\/\/[^\s"']+/g, 'mysql://[redacted]'));
   process.exitCode = 1;
 });
-module.exports = { statements, schemaPlan, verify, bootstrap, applyDemoAddresses };
+module.exports = { statements, schemaPlan, verify, bootstrap, applyDemoContacts };
 
