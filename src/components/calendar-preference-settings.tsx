@@ -46,7 +46,7 @@ export function CalendarPreferenceSettings({ value, onChange }: { value: any; on
     <legend>Calendar lanes and device settings</legend>
     {error && <p role="alert">{error}</p>}
     <label><input type="checkbox" checked={policy.remember} onChange={e => onChange({ ...value, calendarPreferences: { ...policy, remember: e.target.checked } })}/> Remember each employee’s Calendar width on each device</label>
-    <p>New phones and tablets use 100 px. New PCs use Fit all. A matching rule sets the starting width and can turn remembering off for that group.</p>
+    <p>Narrow windows, phones and tablets start at 100 px. Full-width desktop windows start at Fit all. A matching rule sets the starting width and can turn remembering off for that group.</p>
     {policy.rules.map((item, index) => {
       const names = item.category === 'jobTitle' ? employees.map(employee => employee.jobTitle) :
         categories[item.category === 'employee' ? 'EMPLOYEE' : 'SERVICE']?.filter(category => category.active).map(category => category.name);
@@ -58,7 +58,7 @@ export function CalendarPreferenceSettings({ value, onChange }: { value: any; on
           {[...new Set<string>([item.name, ...(names || []).filter(Boolean)])].map(name => <option key={name}>{name}</option>)}
         </select>
         <select aria-label="Calendar rule device" value={item.device} onChange={e => rule(index, { device: e.target.value })}>
-          <option value="all">All devices</option><option value="phone">Phone</option><option value="tablet">Tablet</option><option value="pc">PC</option>
+          <option value="all">All devices</option><option value="phone">Phone</option><option value="tablet">Tablet</option><option value="narrow">Narrow desktop</option><option value="pc">Full-width PC</option>
         </select>
         <select aria-label="Calendar rule width" value={item.width} onChange={e => rule(index, { width: e.target.value })}>
           <option value="">Device default</option><option value="fit">Fit all</option><option value="100">100 px</option><option value="160">160 px</option><option value="220">220 px</option>

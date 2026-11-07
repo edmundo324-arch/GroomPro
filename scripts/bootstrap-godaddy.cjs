@@ -74,6 +74,19 @@ async function bootstrap(db, plan) {
     }
   }, { maxWait: 65000, timeout: 240000 });
 }
+async function applyDemoAddresses(db) {
+  const file = path.join(ROOT, 'transfer-data', 'GroomPro-Demo-Customer-Addresses.sql');
+  const commands = statements(fs.readFileSync(file, 'utf8'));
+  if (commands.shift() !== 'START TRANSACTION' || commands.pop() !== 'COMMIT') {
+    throw new Error('Invalid demo address transaction.');
+  }
+  return db.$transaction(async tx => {
+    let updated = 0;
+    for (const command of commands) updated = await tx.$executeRawUnsafe(command);
+    return updated;
+  }, { timeout: 30000 });
+}
+
 async function main() {
   loadEnvironment();
   console.log('GroomPro: starting schema bootstrap v2 (47-table recovery).');
@@ -86,6 +99,10 @@ async function main() {
     const count = process.argv.includes('--verify-only') ? await verify(db, plan) : await bootstrap(db, plan);
     if(!process.argv.includes("--verify-only")){const repaired=await require("./repair-demo-hours.cjs").repairDemoHours(db);if(repaired)console.log(`GroomPro: corrected ${repaired} untouched demo appointments to location time.`)}
     if(!process.argv.includes("--verify-only")){const changed=await require("./upgrade-imported-services.cjs").upgradeImportedServices(db);if(changed)console.log(`GroomPro: separated imported service fields for ${changed} services; original values retained.`)}
+    if (!process.argv.includes('--verify-only')) {
+      const updated = await applyDemoAddresses(db);
+      if (updated) console.log(`GroomPro: filled ${updated} blank demo customer addresses.`);
+    }
     console.log(`GroomPro: verified ${count} application tables and all required columns.`);
   } finally { await db.$disconnect(); }
 }
@@ -93,5 +110,5 @@ if (require.main === module) main().catch(error => {
   console.error('GroomPro database bootstrap failed:', error.code || error.name, String(error.message).replace(/mysql:\/\/[^\s"']+/g, 'mysql://[redacted]'));
   process.exitCode = 1;
 });
-module.exports = { statements, schemaPlan, verify, bootstrap };
+module.exports = { statements, schemaPlan, verify, bootstrap, applyDemoAddresses };
 

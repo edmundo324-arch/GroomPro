@@ -1,7 +1,7 @@
 export const calendarWidths=['fit','100','160','220'];
 export function calendarWidth(saved:string|null,compact:boolean){return saved&&calendarWidths.includes(saved)?saved:compact?'100':'fit';}
 
-export const calendarDeviceKinds = ['phone', 'tablet', 'pc'] as const;
+export const calendarDeviceKinds = ['phone', 'tablet', 'narrow', 'pc'] as const;
 type DeviceKind = typeof calendarDeviceKinds[number];
 type CalendarRule = {
   category: 'jobTitle' | 'employee' | 'service';
@@ -40,5 +40,6 @@ export function employeeCalendarPolicy(value: any, jobTitle: string | null, devi
 
 export function calendarDeviceKind(): DeviceKind {
   if (window.matchMedia('(max-width:700px)').matches) return 'phone';
-  return window.matchMedia('(pointer:coarse)').matches ? 'tablet' : 'pc';
+  if (window.matchMedia('(pointer:coarse)').matches) return 'tablet';
+  return window.matchMedia('(max-width:1000px)').matches ? 'narrow' : 'pc';
 }
