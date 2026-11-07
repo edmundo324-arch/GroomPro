@@ -165,3 +165,7 @@
   .gp-map-stop { grid-template-columns: minmax(4rem, auto) minmax(0, 1fr); }
   .gp-map-stop .gp-actions { grid-column: 2; }
 }
+
+.gp-dismiss-button{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:32px;min-height:32px}
+.gp-dismiss-button svg{flex:none}
+@media(pointer:coarse){.gp-dismiss-button{min-width:44px;min-height:44px}}

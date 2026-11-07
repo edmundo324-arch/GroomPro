@@ -1,4 +1,5 @@
 "use client";
+import {DismissButton} from './dismiss-button';
 import {useVisualRoot,visualWindowName} from './visual-layout-studio';
 import {useWindowRecovery} from "./window-recovery";
 import {createContext,useContext,useLayoutEffect,useRef,useState} from 'react';
@@ -34,7 +35,7 @@ export function FloatingEditorWindow({windowKey,title,children,onClose,closeDisa
  return <Controls.Provider value={{maximized,toggle}}><div ref={root} data-floating-recoverable role="dialog" aria-label={title} className={'gp-floating-window gp-editor-window'+(existing?' gp-editor-existing':'')} style={{...style,...(!visible?{display:'none'}:{})}}
  onPointerDown={e=>{if(maximized)return;const target=e.target as HTMLElement,handle=target.closest<HTMLElement>('[data-editor-resize]'),header=target.closest('.gp-floating-head');if(target.closest('.gp-editor-window')!==e.currentTarget||(!handle&&(!header||target.closest('button,input,select,textarea,a'))))return;e.preventDefault();e.stopPropagation();drag.current={start:bounds(),x:e.clientX,y:e.clientY,edge:handle?.dataset.editorResize||''};e.currentTarget.setPointerCapture(e.pointerId)}}
  onPointerMove={e=>{const d=drag.current;if(!d)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;apply(d.edge?resizeEditorWindow(d.start,d.edge,dx,dy,document.documentElement.clientWidth,window.innerHeight):{...d.start,left:d.start.left+dx,top:d.start.top+dy})}} onPointerUp={finish} onPointerCancel={finish}>
- {existing?children:<><div className="gp-floating-head"><div className="gp-floating-title">{title}</div><EditorWindowControls/>{onClose&&<button type="button" className="gp-btn" disabled={closeDisabled} onClick={onClose}>Close</button>}</div><div className="gp-editor-content">{children}</div></>}
+ {existing?children:<><div className="gp-floating-head"><div className="gp-floating-title">{title}</div><EditorWindowControls/>{onClose&&<DismissButton label={"Dismiss "+title} disabled={closeDisabled} onClick={onClose}/>}</div><div className="gp-editor-content">{children}</div></>}
  {!maximized&&['n','e','s','w','se'].map(edge=><span key={edge} data-editor-resize={edge} className={'gp-editor-resize gp-editor-resize-'+edge} title="Drag to resize" aria-hidden="true">{edge==='se'?'◢':''}</span>)}
  </div></Controls.Provider>;
 }

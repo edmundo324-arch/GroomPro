@@ -46,29 +46,35 @@
 .gp-ticket-tab-menu{position:absolute;right:0;top:100%;z-index:150;background:white;border:1px solid #bdc8d1;border-radius:5px;padding:5px;min-width:190px;box-shadow:0 5px 15px #0003}
 .gp-ticket-tab-menu>.gp-btn{display:block;width:100%;text-align:left;margin:3px 0}
 .gp-pos-phone .gp-phone-only{display:flex!important}
-.gp-pos-phone>.gp-floating-head{padding:5px 8px;flex-wrap:nowrap}
+.gp-pos-phone>.gp-floating-head{padding:0 7px;gap:3px;flex-wrap:nowrap}
 .gp-pos-phone>.gp-floating-head>.gp-pos-created,.gp-pos-phone>.gp-floating-head>button:not(.gp-phone-only):not(:last-child){display:none}
 .gp-pos-phone>.gp-floating-head .gp-floating-title{font-size:14px;min-width:0;flex:1}
 .gp-pos-phone>.gp-floating-head .gp-floating-title small{font-size:12px;display:block}
-.gp-pos-phone>.gp-floating-head .gp-btn{min-height:44px;padding:5px 8px}
-.gp-phone-ticket-summary{flex:none;padding:5px 8px;font-size:12px;background:#f2f5f8}
+.gp-pos-phone>.gp-floating-head>.gp-btn{min-height:44px;padding:0 6px}
+.gp-phone-ticket-summary{flex:none;padding:2px 7px;font-size:12px;background:#f2f5f8}
 .gp-pos-phone>.gp-pos-header[data-details-open=false]{display:none}
 .gp-pos-phone>.gp-pos-header[data-details-open=true]{max-height:45dvh;overflow:auto;flex-shrink:0}
 .gp-pos-phone .gp-ticket-control-row{gap:8px;margin-bottom:5px}
 .gp-pos-phone .gp-ticket-control-row input:not([type=checkbox]),.gp-pos-phone .gp-ticket-control-row select{min-height:44px;font-size:16px}
-.gp-pos-phone .gp-pos-pet-strip{padding:3px 7px}
-.gp-pos-phone .gp-pos-pet-chip .gp-btn{padding:4px 7px;min-height:44px}
-.gp-pos-phone .gp-pos-pet-instructions{padding:3px;font-size:12px}
-.gp-pos-phone .gp-pos-pet-instructions>.gp-btn{min-height:30px;padding:3px 5px}
-.gp-pos-phone .gp-ticket-tabs{display:flex;flex-wrap:nowrap;gap:4px;overflow:visible}
+.gp-pos-phone .gp-pos-pet-strip{padding:0 6px}
+.gp-pos-phone .gp-pos-pet-row,.gp-pos-phone .gp-pos-pet-scroll{height:auto;min-height:44px;gap:4px}
+.gp-pos-phone .gp-pos-pet-chip,.gp-pos-phone .gp-pos-pet-chip[data-selected=true]{height:auto;padding:0;border:0;border-radius:0;background:transparent}
+.gp-pos-phone .gp-pos-pet-chip[data-selected=true]>.gp-btn>span{text-decoration:underline;text-underline-offset:3px}
+.gp-pos-phone .gp-pos-pet-chip>.gp-btn[aria-pressed=true]{font-weight:700}
+.gp-pos-phone .gp-pos-pet-chip>.gp-btn{flex-direction:row;align-items:center;gap:4px;min-width:0;min-height:44px;padding:0 5px}
+.gp-pos-phone .gp-pos-pet-instructions{height:auto;min-height:28px;padding:0 4px;gap:5px;font-size:12px;border-top:1px solid #dce1e5;border-radius:0;background:none}
+.gp-pos-phone .gp-pos-pet-instructions>.gp-btn{min-height:28px;padding:0 4px;text-decoration:underline;text-underline-offset:3px}
+.gp-pos-phone .gp-ticket-tabs{display:flex;flex-wrap:nowrap;gap:0;overflow:visible;border-bottom:1px solid #dce1e5}
 .gp-pos-phone .gp-ticket-tabs>.gp-btn,.gp-pos-phone .gp-ticket-tab-overflow{flex:1;min-width:0}
-.gp-pos-phone .gp-ticket-tabs .gp-btn{font-size:12px;min-height:44px;padding:5px}
+.gp-pos-phone .gp-ticket-tabs .gp-btn{font-size:12px;min-height:44px;padding:0 4px}
 .gp-pos-phone .gp-ticket-tab-overflow>.gp-btn{width:100%;white-space:normal}
 .gp-pos-phone .gp-pos-footer{display:none}
-.gp-phone-ticket-actions{padding:6px 8px;flex:none;flex-direction:column;gap:4px;background:white;border-top:1px solid #ccd5df}
+.gp-phone-ticket-actions{padding:2px 6px 0;flex:none;flex-direction:column;gap:0;background:white;border-top:1px solid #ccd5df}
 .gp-phone-ticket-actions>span{font-size:12px}
-.gp-phone-ticket-actions>div{display:flex;gap:4px}
-.gp-phone-ticket-actions .gp-btn{flex:1;min-height:44px;font-size:12px;padding:4px}
+.gp-phone-ticket-actions>div{display:flex;gap:0}
+.gp-phone-ticket-actions .gp-btn{flex:1;min-height:44px;font-size:12px;padding:0 4px}
+.gp-phone-ticket-actions>div>.gp-btn:last-child{flex:0 0 44px}
+.gp-phone-ticket-actions>div>.gp-btn.primary{font-weight:700}
 .gp-pos-phone.gp-phone-payment-open>.gp-pos-body,.gp-pos-phone.gp-phone-actions-open>.gp-pos-body{display:none}
 .gp-pos-phone.gp-phone-payment-open>.gp-pos-footer,.gp-pos-phone.gp-phone-actions-open>.gp-pos-footer{display:flex;flex:1;min-height:0;overflow:auto;flex-direction:column;padding:8px}
 .gp-pos-phone.gp-phone-payment-open .gp-pos-footer-general{display:none}
@@ -166,6 +172,18 @@
 .gp-pos-desktop .gp-ticket-workbar .gp-pos-promotions-choices .gp-btn>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .gp-pos-desktop .gp-ticket-workbar .gp-pos-offer-price{flex:none;white-space:nowrap}
 .gp-pos-phone>.gp-ticket-workbar{display:contents}
+.gp-pos-phone>.gp-floating-head>.gp-btn,.gp-pos-phone .gp-ticket-tabs .gp-btn,
+.gp-pos-phone .gp-pos-pet-strip .gp-btn,.gp-pos-phone .gp-pos-promotions-choices .gp-btn,
+.gp-pos-phone .gp-phone-ticket-actions .gp-btn{background:transparent;border:0;border-radius:0;box-shadow:none;color:#17324d}
+.gp-pos-phone .gp-ticket-tabs .gp-btn[aria-pressed=true],
+.gp-pos-phone :is(.gp-floating-head,.gp-ticket-tabs,.gp-phone-ticket-actions) .gp-btn[aria-expanded=true],
+.gp-pos-phone .gp-pos-promotions-choices .gp-btn[aria-pressed=true]{text-decoration:underline;text-underline-offset:4px;font-weight:700}
+.gp-pos-phone :is(.gp-floating-head,.gp-ticket-tabs,.gp-pos-pet-strip,.gp-pos-promotions,.gp-phone-ticket-actions) :is(.gp-btn,select):focus-visible{outline:2px solid #4c70b4;outline-offset:-2px}
+.gp-pos-phone .gp-pos-promotions{flex:0 0 auto;min-height:44px;max-height:none;padding:0 6px;gap:4px;background:white}
+.gp-pos-phone .gp-pos-promotions>select{min-height:44px;max-width:27%;padding:0 2px;border:0;border-radius:0;background:transparent;color:#17324d}
+.gp-pos-phone .gp-pos-promotions-choices{height:auto;gap:3px}
+.gp-pos-phone .gp-pos-promotions-choices .gp-btn{flex:0 0 154px;width:154px;height:44px;min-height:44px;flex-direction:row;align-items:center;justify-content:space-between;gap:4px;padding:0 4px}
+.gp-pos-phone .gp-pos-promotions-choices .gp-btn>span:first-child{min-width:0;flex:1;text-align:left}
 .gp-pos-phone:has(>.gp-pos-header[data-details-open=true])>.gp-ticket-workbar{display:none}
 .gp-pos-phone.gp-phone-payment-open>.gp-ticket-workbar>.gp-pos-promotions,.gp-pos-phone.gp-phone-actions-open>.gp-ticket-workbar>.gp-pos-promotions{display:none}
 
@@ -289,7 +307,7 @@
 
 .gp-calendar-context-menu{position:fixed;z-index:3000;background:white;padding:4px;border:1px solid #b9c6ce;border-radius:4px;box-shadow:0 4px 12px #0003}
 
-.gp-pos-phone>.gp-ticket-tabs{margin:0;padding:4px 6px;flex:none}
+.gp-pos-phone>.gp-ticket-tabs{margin:0;padding:0 6px;flex:none}
 .gp-pos-phone .gp-flat-items{width:100%;min-width:760px;table-layout:auto}
 .gp-pos-phone .gp-flat-items .gp-pos-component-row[data-collapsed=true]{display:none}
 .gp-pos-phone .gp-flat-items .gp-inline-item-value>.gp-inline-value-text{min-height:26px;padding:2px 4px;white-space:nowrap}

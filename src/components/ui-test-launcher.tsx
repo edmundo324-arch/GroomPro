@@ -1,11 +1,12 @@
 "use client";
+import {DismissButton} from './dismiss-button';
 import {useState} from "react";
 
 export function UiTestLauncher(){
   const [open,setOpen]=useState(false);
   if(!open)return <button className="gp-btn primary" onClick={()=>setOpen(true)}>Open UI Test Center</button>;
   return <div className="gp-modal-backdrop" onMouseDown={()=>setOpen(false)}><div className="gp-floating-window" onMouseDown={e=>e.stopPropagation()} style={{left:"50%",right:"auto",transform:"translateX(-50%)",width:"min(900px,calc(100% - 24px))"}}>
-    <div className="gp-floating-head"><div><div className="gp-floating-title">GroomPro UI Test Center</div><div className="gp-floating-subtitle">Use the live workspace to test the complete operating flow.</div></div><button className="gp-btn" onClick={()=>setOpen(false)}>Close</button></div>
+    <div className="gp-floating-head"><div><div className="gp-floating-title">GroomPro UI Test Center</div><div className="gp-floating-subtitle">Use the live workspace to test the complete operating flow.</div></div><DismissButton label="Dismiss test launcher" onClick={()=>setOpen(false)}/></div>
     <div style={{padding:18,display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:12}}>
       {[
         ["1","Calendar","Search a customer or pet while typing, hover matching appointments, and open the correct Ticket."],

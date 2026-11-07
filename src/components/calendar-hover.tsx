@@ -1,4 +1,5 @@
 "use client";
+import {DismissButton} from './dismiss-button';
 import {useLayoutEffect,useRef,useState} from 'react';
 import {packageSummaries,serviceLabel} from '../lib/package-display';
 import {HoverDetail,hoverValue} from '../lib/calendar-hover-details';
@@ -14,7 +15,7 @@ export function CalendarHover({hover,fields,labels,details,onOpen,onClose}:{onOp
  const t=hover.ticket;
  const primary=new Set(['pet.name','pet.weightLbs','pet.breed','pet.vipEligible','pet.notes','pet.groomingNotes']);
  return <aside ref={ref} role={hover.touch?"dialog":"tooltip"} aria-label={hover.touch?"Appointment preview":undefined} className="gp-appointment-hover gp-human-hover" style={{left:hover.x,top,width:hover.width,maxWidth:hover.width}}>
- <header>{hover.touch&&<div className="gp-touch-preview-actions"><button type="button" className="gp-btn" onClick={onOpen}>Open</button><button type="button" className="gp-btn" aria-label="Close appointment preview" onClick={onClose}>X</button></div>}{selected.has('time')&&<strong className="gp-hover-time">{t.scheduledStart?new Date(t.scheduledStart).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Unscheduled'}</strong>}{selected.has('customer')&&<strong>{t.customer.firstName} {t.customer.lastName}</strong>}<div className="gp-hover-facts">{show(details.filter(d=>d.key.startsWith('customer.')&&d.key!=='customer.vipStatus'),selected.has('customer')?['customer.firstName','customer.lastName']:[])}</div><div className="gp-hover-facts">{show(details.filter(d=>!d.petId&&!d.lineId&&!d.key.startsWith('customer.')))}</div></header>
+ <header>{hover.touch&&<div className="gp-touch-preview-actions"><button type="button" className="gp-btn" onClick={onOpen}>Open</button><DismissButton label="Close appointment preview" onClick={onClose}/></div>}{selected.has('time')&&<strong className="gp-hover-time">{t.scheduledStart?new Date(t.scheduledStart).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Unscheduled'}</strong>}{selected.has('customer')&&<strong>{t.customer.firstName} {t.customer.lastName}</strong>}<div className="gp-hover-facts">{show(details.filter(d=>d.key.startsWith('customer.')&&d.key!=='customer.vipStatus'),selected.has('customer')?['customer.firstName','customer.lastName']:[])}</div><div className="gp-hover-facts">{show(details.filter(d=>!d.petId&&!d.lineId&&!d.key.startsWith('customer.')))}</div></header>
  {t.pets.map(({pet}:any,i:number)=>{
   const petDetails=details.filter(d=>d.petId===pet.id&&!d.lineId);
   const value=(key:string,fallback:any)=>petDetails.find(d=>d.key===key)?.value||hoverValue(key,fallback);
