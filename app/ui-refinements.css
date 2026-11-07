@@ -102,9 +102,12 @@
 
 .gp-topbar .gp-brand{font-size:clamp(13px,1.15vw,17px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gp-customer-table{max-height:65dvh;overflow:auto}
-.gp-customer-column-row{display:grid;gap:8px;align-items:center;width:max-content;min-width:100%;padding:7px 9px;border-bottom:1px solid #d9e2eb}
-.gp-customer-column-row>div{overflow-wrap:anywhere}
-.gp-customer-column-head{position:sticky;top:0;background:#e9f0f6;z-index:1;font-weight:600}
+.gp-customer-table table{width:100%;border-spacing:0;text-align:left}
+.gp-customer-table th,.gp-customer-table td{min-width:112px;padding:7px 9px;border-bottom:1px solid #d9e2eb;overflow-wrap:anywhere}
+.gp-customer-table th{position:sticky;top:0;background:#e9f0f6;z-index:1;font-weight:600}
+.gp-customer-table tbody tr,.gp-customer-row-link{cursor:pointer}
+.gp-customer-table tbody tr:hover,.gp-customer-table tbody tr:focus-within{background:#eef4fa}
+.gp-customer-row-link{display:block;border:0;background:none;color:inherit;font:inherit;text-align:left;padding:0;width:100%;min-height:1.25em}
 .gp-visit-progress{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
 .gp-visit-progress details{font-size:.9em}
 
