@@ -1,12 +1,4 @@
 "use client";
-import {useEffect,useState} from 'react';
-import {employeeFetch} from '../lib/employee-fetch';
+
 export const identificationFields=['name','email','phones','contacts','pets','balance','upcoming','sourceId'] as const;
 export function CustomerIdentification({customer,fields=identificationFields,showPetLabel=true}:{customer:any;fields?:readonly string[];showPetLabel?:boolean}){const c=customer;return <span style={{display:'flex',gap:12,flexWrap:'wrap'}}>{fields.includes('name')&&<strong>{c.firstName} {c.lastName}</strong>}{fields.includes('email')&&c.email&&<span>{c.email}</span>}{fields.includes('phones')&&<span>{c.phones?.map((p:any)=>p.number).join(' · ')}</span>}{fields.includes('contacts')&&<span>{c.phones?.filter((p:any)=>p.contactName).map((p:any)=>`${p.contactName} (${p.relationship||p.label||'contact'})`).join(', ')}</span>}{fields.includes('pets')&&<span>{showPetLabel?"Pets: ":""}{c.pets?.map((p:any)=>p.name).join(', ')||'None'}</span>}{fields.includes('balance')&&c.balanceCents!==undefined&&<span>Owed ${(c.balanceCents/100).toFixed(2)} · Credit ${((c.creditCents||0)/100).toFixed(2)}</span>}{fields.includes('upcoming')&&c.nextAppointment&&<span>Next: {new Date(c.nextAppointment).toLocaleString()}</span>}{fields.includes('sourceId')&&c.importSourceId&&<span>Source ID: {c.importSourceId}</span>}</span>;}
-export const customerFieldLabels: Record<string,string>={name:'Name',email:'Email',phones:'Phones',contacts:'Contacts',pets:'Pets',balance:'Balance',upcoming:'Upcoming',sourceId:'Source ID'};
-export function CustomerDisplayPreferences({onChange}:{onChange:(fields:string[])=>void}){
- const [fields,setFields]=useState<string[]>(['name','email','phones','pets']),[error,setError]=useState('');
- useEffect(()=>{employeeFetch('/api/customer-display').then(r=>r.json()).then(d=>{if(d.fields){setFields(d.fields);onChange(d.fields)}}).catch(()=>setError('Display preferences could not load.'));},[]);
- async function change(next:string[]){try{const r=await employeeFetch('/api/customer-display',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:next})});const d=await r.json();if(!r.ok)throw Error(d.error);setFields(next);onChange(next);setError('');}catch(e){setError((e as Error).message)}}
- return <details><summary>Customer display fields</summary>{identificationFields.map(f=><label key={f} style={{marginRight:10}}><input type="checkbox" checked={fields.includes(f)} onChange={e=>void change(e.target.checked?[...fields,f]:fields.filter(v=>v!==f))}/>{f}</label>)}{error&&<span role="alert">{error}</span>}</details>;
-}

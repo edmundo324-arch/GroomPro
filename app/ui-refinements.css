@@ -108,6 +108,24 @@
 .gp-customer-table tbody tr,.gp-customer-row-link{cursor:pointer}
 .gp-customer-table tbody tr:hover,.gp-customer-table tbody tr:focus-within{background:#eef4fa}
 .gp-customer-row-link{display:block;border:0;background:none;color:inherit;font:inherit;text-align:left;padding:0;width:100%;min-height:1.25em}
+.gp-customer-address,.gp-customer-referral{grid-column:1/-1;min-width:0}
+.gp-customer-address-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr));gap:5px 9px}
+.gp-customer-address-fields label,.gp-customer-referral label{display:grid;gap:3px}
+.gp-profile-display-settings{max-width:100%;min-width:0}
+.gp-profile-display-settings fieldset{min-width:0;max-width:min(550px,90vw)}
+.gp-profile-display-settings ol{padding-inline-start:25px}
+.gp-profile-display-settings li{margin-block:4px}
+.gp-profile-display-settings li .gp-btn{margin-inline-start:4px;padding:2px 7px}
+.gp-profile-available-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr));gap:4px 12px}
+@media(max-width:1000px),(pointer:coarse) and (max-width:1100px){
+ .gp-profile-table{max-height:none;overflow:visible;min-width:0}
+ .gp-profile-table table,.gp-profile-table tbody{display:block;width:100%;min-width:0}
+ .gp-profile-table thead{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
+ .gp-profile-table tbody tr{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr));gap:4px 12px;padding:8px;border-bottom:1px solid #d9e2eb}
+ .gp-profile-table td{display:block;min-width:0;padding:0;border:0}
+ .gp-profile-table td:not([data-field=name])::before{content:attr(data-label);display:block;color:#526577;font-size:.78em}
+ .gp-profile-table td[data-field=name] .gp-customer-row-link{padding-block:2px}
+}
 .gp-visit-progress{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
 .gp-visit-progress details{font-size:.9em}
 

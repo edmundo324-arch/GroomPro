@@ -13,7 +13,7 @@ async function handlePolicyGET(request: NextRequest) {
   }
   const limit = size === "all" ? "all" : size === null ? 25 : Number(size);
   try {
-    return NextResponse.json({ customers: await searchCustomers(tenantId, query, limit) }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ customers: await searchCustomers(tenantId, query, limit, size !== null) }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Customer search could not be completed." }, { status: 500 });
   }

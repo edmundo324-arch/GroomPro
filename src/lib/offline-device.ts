@@ -4,7 +4,7 @@ import { deviceRead, deviceUpdate, emptyOutbox, outboxKey, snapshotKey, type Off
 import { findRecord, offlineReadRecords, projectOffline, type OfflineRecords } from './offline-records';
 
 const activeKey = 'active-employee';
-const lookups = ['/api/catalog', '/api/operating-hours', '/api/workflow-settings', '/api/customer-display', '/api/breeds', '/api/features'];
+const lookups = ['/api/catalog', '/api/operating-hours', '/api/workflow-settings', '/api/customer-display', '/api/pet-display', '/api/breeds', '/api/features'];
 type ActiveDevice = { scope: OfflineScope; validUntil: number };
 let syncing: Promise<void> | null = null;
 let preparing: Promise<void> | null = null;

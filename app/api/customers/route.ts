@@ -7,6 +7,7 @@ import { db } from "@/src/lib/db";
 import { findPossibleDuplicateCustomer, normalizePhone, normalizeText } from "@/src/lib/customer";
 import { writeAudit } from "@/src/lib/audit";
 import { getActiveEmployeeSession } from "@/src/lib/employee-session";
+import { customerReferrals, saveCustomerReferral } from '@/src/lib/customer-referrals';
 
 const SESSION_COOKIE = "groompro_session";
 
@@ -41,7 +42,9 @@ async function handlePolicyPOST(request: NextRequest) {
     const created = await tx.customer.create({ data: { ...customerDetails(body),id:offlineCreateId(),tenantId, firstName, lastName, email, notes: body.notes?.trim() || null } });
     if(body.phones)await saveCustomerPhones(tx,tenantId,created.id,body.phones);
     else if (phone) await tx.customerPhone.create({ data: { tenantId, customerId: created.id, number: phone, normalized: normalizedPhone, isPrimary: true } });
-    return tx.customer.findUnique({ where: { id: created.id }, include: { phones: true, pets: true } });
+    await saveCustomerReferral(tx, tenantId, created.id, body);
+    const record=await tx.customer.findUniqueOrThrow({ where: { id: created.id }, include: { phones: true, pets: true } });
+    return {...record,...(await customerReferrals(tenantId,[created.id],tx)).get(created.id)};
   });
 
   await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "CUSTOMER", entityId: customer!.id, customerId: customer!.id, action: "CREATE", summary: `Created customer ${firstName} ${lastName}.` });

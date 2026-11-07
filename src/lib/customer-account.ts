@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/src/lib/db";
+import type { Prisma } from '@prisma/client';
 
 export type AccountEntryType = "OWED" | "CREDIT";
 
@@ -15,15 +16,16 @@ export async function getCustomerAccount(tenantId: string, customerId: string) {
   return { customer: { ...rows[0], paymentMethodCount: Number(rows[0].paymentMethodCount) }, ledger, rewards, paymentMethods: methods };
 }
 
-export async function addAccountEntry(params: {tenantId:string;customerId:string;ticketId?:string|null;actorUserId?:string|null;entryType:AccountEntryType;amountCents:number;reason:string;referenceId?:string|null}) {
+export async function addAccountEntry(params: {tenantId:string;customerId:string;ticketId?:string|null;actorUserId?:string|null;entryType:AccountEntryType;amountCents:number;reason:string;referenceId?:string|null}, client?: Prisma.TransactionClient) {
   if (!Number.isInteger(params.amountCents) || params.amountCents <= 0) throw new Error("Account amount must be a positive dollar amount with no more than two decimal places.");
-  return db.$transaction(async tx => {
+  const add = async (tx: Prisma.TransactionClient) => {
     const id=randomUUID();
     await tx.$executeRaw`INSERT INTO CustomerAccountLedger (id,tenantId,customerId,ticketId,actorUserId,entryType,amountCents,reason,referenceId) VALUES (${id},${params.tenantId},${params.customerId},${params.ticketId||null},${params.actorUserId||null},${params.entryType},${params.amountCents},${params.reason},${params.referenceId||null})`;
     const field=params.entryType==="OWED"?"balanceCents":"creditCents";
     await tx.$executeRawUnsafe(`UPDATE Customer SET ${field} = ${field} + ? WHERE id = ? AND tenantId = ?`,params.amountCents,params.customerId,params.tenantId);
     return id;
-  });
+  };
+  return client ? add(client) : db.$transaction(add);
 }
 
 export async function adjustAccountEntry(params:{tenantId:string;customerId:string;actorUserId?:string|null;entryType:AccountEntryType;amountCents:number;reason:string;ticketId?:string|null}) {

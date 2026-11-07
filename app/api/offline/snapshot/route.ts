@@ -7,6 +7,7 @@ import { moduleDenial } from '@/src/lib/module-entitlement';
 import { localToInstant, zonedParts } from '@/src/lib/operating-hours';
 import { attendingPets } from '@/src/lib/appointment-pets';
 import { lineStartsKey } from '@/src/lib/line-time-store';
+import { customerReferrals } from '@/src/lib/customer-referrals';
 import { plannedSettingKey } from '@/src/lib/planned-package-store';
 
 async function snapshot(request: NextRequest) {
@@ -48,7 +49,7 @@ async function snapshot(request: NextRequest) {
   });
   const customerIds = customers.map(customer => customer.id);
   const staffFields = { id: true, displayName: true, firstName: true, lastName: true, role: true, active: true } as const;
-  const [tickets, notes, drafts] = await Promise.all([
+  const [tickets, notes, drafts, referrals] = await Promise.all([
     db.ticket.findMany({
       where: { tenantId, customerId: { in: customerIds }, OR: [{ scheduledStart: { lt: through } }, { scheduledStart: null }] },
       include: { pets: { include: { pet: true } }, lines: { include: { pet: true, service: true, product: true, assignedUser: { select: staffFields } } },
@@ -60,6 +61,7 @@ async function snapshot(request: NextRequest) {
     }),
     db.groomingNote.findMany({ where: { tenantId, customerId: { in: customerIds } }, orderBy: [{ appointmentAt: 'desc' }, { createdAt: 'desc' }] }),
     db.posDraft.findMany({ where: { tenantId, locationId, promotedAt: null } }),
+    customerReferrals(tenantId, customerIds),
   ]);
   const settings = await db.tenantSetting.findMany({ where: { tenantId, settingKey: { in: tickets.flatMap(ticket => [lineStartsKey(ticket.id), plannedSettingKey(ticket.id)]) } }, select: { settingKey: true, value: true } });
   const values = new Map(settings.map(entry => [entry.settingKey, entry.value]));
@@ -67,7 +69,7 @@ async function snapshot(request: NextRequest) {
   return NextResponse.json({
     scope: { tenantId, locationId, employeeId: session.user.id },
     employee: { id: session.user.id, displayName: session.user.displayName, firstName: session.user.firstName, lastName: session.user.lastName, role: session.user.role },
-    location, start, since, through, customers, tickets: records, notes, drafts, fetchedAt: Date.now(),
+    location, start, since, through, customers: customers.map(customer => ({ ...customer, ...referrals.get(customer.id) })), tickets: records, notes, drafts, fetchedAt: Date.now(),
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
 

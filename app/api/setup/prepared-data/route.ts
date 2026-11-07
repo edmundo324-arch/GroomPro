@@ -4,6 +4,7 @@ import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {requestLocation} from '@/src/lib/request-location';
 import {loadPreparedServices} from '@/src/lib/import/prepared-services';
 import {preparedTestData} from '@/src/lib/import/prepared-test-data';
+import {preparedCustomerAddresses} from '@/src/lib/import/prepared-customer-addresses';
 export const runtime='nodejs';
 export async function POST(r:NextRequest){
  const tenantId=r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
@@ -13,6 +14,9 @@ export async function POST(r:NextRequest){
  if(!['PLATFORM_OWNER','DEVELOPER','ADMIN'].includes(session.user.role))return NextResponse.json({error:'Administrator access required.'},{status:403});
  try{
   const body=await r.json();if(!['PREVIEW','LOAD'].includes(body.action))throw Error('Choose preview or load.');
+  if(body.scope==='CUSTOMER_ADDRESSES'){
+   return NextResponse.json(await preparedCustomerAddresses(db,tenantId,session.user.id,body.action==='LOAD'));
+  }
   if(body.scope==='SERVICES'){
    if(!['PLATFORM_OWNER','DEVELOPER'].includes(session.user.role))return NextResponse.json({error:'Owner or Developer access is required to load this service catalog.'},{status:403});
    return NextResponse.json(await loadPreparedServices(db,tenantId,session.user.id,body.action==='LOAD'));

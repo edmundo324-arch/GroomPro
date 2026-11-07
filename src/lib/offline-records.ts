@@ -302,9 +302,15 @@ export function offlineReadRecords(state: OfflineRecords, url: URL) {
     const customer = customerRecord(state, customerMatch[1]);
     return { customer: { ...customer, tickets: state.tickets.filter(ticket => ticket.customerId === customer.id) } };
   }
-  if (path === '/api/pets') return { pets: state.customers.flatMap(customer => customer.pets.map((pet: any) => ({ ...pet, customer })))
-    .filter(pet => (pet.active || params.get('showInactive') === 'true') &&
-      (!q || [pet.name, pet.breed, pet.customer.firstName, pet.customer.lastName].some(value => String(value || '').toLowerCase().includes(q)))) };
+  if (path === '/api/pets') {
+    const pets = state.customers.filter(customer => customer.active)
+      .flatMap(customer => customer.pets.map((pet: any) => ({ ...pet, customer })))
+      .filter(pet => (pet.active || params.get('showInactive') === 'true') &&
+        (!q || [pet.name, pet.breed, pet.customer.firstName, pet.customer.lastName].some(value => String(value || '').toLowerCase().includes(q))))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    const limit = params.get('limit');
+    return { pets: limit === 'all' ? pets : pets.slice(0, Number(limit) || 100) };
+  }
   const ticketMatch = /^\/api\/tickets\/([^/]+)$/.exec(path);
   if (ticketMatch) {
     const ticket = findRecord(state, 'ticket', ticketMatch[1]);
@@ -356,7 +362,10 @@ export function offlineReadRecords(state: OfflineRecords, url: URL) {
       return { ticket, paidCents, subtotalCents, totalCents: ticket.totalCents, dueCents: Math.max(0, ticket.totalCents - paidCents), account: customerRecord(state, ticket.customerId) };
     }
   }
-  if (path === '/api/customers/account') return { account: customerRecord(state, customerId || '') };
+  if (path === '/api/customers/account') {
+    const customer = customerRecord(state, customerId || '');
+    return { customer, account: customer };
+  }
   if (path === '/api/customers/rewards') return { rewards: [] };
   if (path === '/api/grooming-notes') {
     const customer = customerRecord(state, customerId || '');

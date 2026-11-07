@@ -1,5 +1,8 @@
-export const customerDetailFields = {
+export const customerAddressFields = {
  address1:'Street address', address2:'Address line 2', city:'City', state:'State / province', postalCode:'Postal code',
+} as const;
+export const customerDetailFields = {
+ ...customerAddressFields,
  spouse:'Spouse / related contact', popupNotes:'Important popup notes', historyNotes:'Historical notes',
 } as const;
 export function customerDetails(input:Record<string,unknown>){

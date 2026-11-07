@@ -1,5 +1,6 @@
 import {attendingPets} from './appointment-pets';
 import { db } from "./db";
+import { customerReferrals } from './customer-referrals';
 
 import {normalizePhone} from './phone-normalization';
 export {normalizePhone} from './phone-normalization';
@@ -8,7 +9,7 @@ export function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
-export async function searchCustomers(tenantId: string, query: string, limit: number | "all" = 25) {
+export async function searchCustomers(tenantId: string, query: string, limit: number | "all" = 25, includeReferrals = false) {
   const text = normalizeText(query);
   const phone = normalizePhone(query);
 
@@ -35,7 +36,8 @@ export async function searchCustomers(tenantId: string, query: string, limit: nu
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
     take: limit === "all" ? undefined : limit,
   });
- return results.map(({tickets,...customer})=>({...customer,nextAppointment:tickets[0]?.scheduledStart||null}));
+ const referrals=includeReferrals?await customerReferrals(tenantId,results.map(customer=>customer.id)):null;
+ return results.map(({tickets,...customer})=>({...customer,...referrals?.get(customer.id),nextAppointment:tickets[0]?.scheduledStart||null}));
 }
 
 export async function findPossibleDuplicateCustomer(
@@ -80,5 +82,7 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
       communications: { orderBy: { createdAt: "desc" }, take: 30 },
     },
   });
-  return customer?{...customer,tickets:customer.tickets.map(attendingPets)}:null;
+  if(!customer)return null;
+  const referrals=await customerReferrals(tenantId,[customerId]);
+  return {...customer,...referrals.get(customerId),tickets:customer.tickets.map(attendingPets)};
 }
