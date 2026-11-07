@@ -28,7 +28,19 @@ import {WORKSPACE_MODULES as modules} from '../src/lib/module-catalog';
 type Module=typeof modules[number];
 type Employee={id:string;firstName:string;lastName:string;role:string;active:boolean};
 export default function Home(){
+ const[brand,setBrand]=useState('GroomPro Suite');
+ useEffect(()=>{
+  const controller=new AbortController();
+  fetch('/api/platform-brand',{signal:controller.signal,cache:'no-store'}).then(r=>r.json()).then(d=>{if(d.name&&!controller.signal.aborted)setBrand(d.name)}).catch(()=>{});
+  const changed=(event:Event)=>setBrand((event as CustomEvent).detail.name);
+  window.addEventListener('groompro:brand-changed',changed);
+  return()=>{controller.abort();window.removeEventListener('groompro:brand-changed',changed)};
+ },[]);
+ useEffect(()=>{document.title=brand},[brand]);
+
  const [scope,setScope]=useState(''),[employeeScope,setEmployeeScope]=useState('anonymous');const scopeRef=useRef(''),employeeScopeRef=useRef('anonymous');
+ const[calendarShortcut,setCalendarShortcut]=useState<{view:'Day'|'Week'|'Map'}>();
+ const[requestsOnly,setRequestsOnly]=useState(false);
  const[posPanel,setPosPanel]=useState("Items");
  const navigationRef=useRef<{key?:number;active:string}>({active:"Calendar"});const ticketSequence=useRef(0),openTicketRef=useRef<(id?:string,date?:Date,customerId?:string)=>void>(()=>{});const[openTickets,setOpenTickets]=useState<{ticketId?:string;date:Date;customerId?:string;employeeId?:string;key:number}[]>([]);
  const ticketSelection=useRef(readySelection<number>());const[openingTicket,setOpeningTicket]=useState(false);
@@ -52,12 +64,15 @@ export default function Home(){
  useEffect(()=>{const handler=(event:Event)=>{const name=(event as CustomEvent).detail?.module;if(modules.includes(name)&&name!=='Settings')setActive(name);else if(name==='Customer Profile'||name==='Pet Profile')setActive('Customers');else if(name==='Employee'||name==='Booking asset'||name?.endsWith('shift'))setActive('Schedule');else if(name==='POS Ticket')setActive('Calendar');else {const target=({'Service editor':'Services','Product editor':'Products','Package editor':'Packages','VIP editor':'VIP Memberships'} as any)[name];if(target)setActive(target)}};window.addEventListener('groompro:visual-navigate',handler);return()=>window.removeEventListener('groompro:visual-navigate',handler)},[]);
  const allowed=visibleModules(modules,features);
  if(!contextReady)return <main style={{padding:32}}><h1>GroomPro Suite</h1><p>{contextError||"Opening your business…"}</p>{contextError&&<a href="/setup">Open setup</a>}</main>;
- return <VisualLayoutProvider key={scope+':'+employeeScope} scope={scope+':'+employeeScope}><WindowLayoutScope scope={employee?`${scope}:${employee.id}`:''}><div className={`gp-shell ${active==="Whiteboard"?"gp-whiteboard-shell":""}`}><IntegrationRefresh key={employee?.id||'anonymous'} scope={scope} enabled={!!employee}/><EmployeeActivity/><ActionMessage/><header className="gp-topbar"><div className="gp-brand">GroomPro Suite</div><AppNavigation modules={allowed} active={active} onSelect={setActive}/><div className="gp-employee"><span className="gp-status-dot"/><span>{employee?employeeName(employee):"Ready"}</span><button className="gp-switch" onClick={()=>void requestEmployeePin(employee?'SWITCH':'SIGN_IN')}>{employee?"Switch":"Employee PIN"}</button></div></header><main className="gp-main">
+ return <VisualLayoutProvider key={scope+':'+employeeScope} scope={scope+':'+employeeScope}><WindowLayoutScope scope={employee?`${scope}:${employee.id}`:''}><div data-module={active} className={`gp-shell ${active==="Whiteboard"?"gp-whiteboard-shell":""}`}><IntegrationRefresh key={employee?.id||'anonymous'} scope={scope} enabled={!!employee}/><EmployeeActivity/><ActionMessage/><header className="gp-topbar"><div className="gp-brand" title={brand}>{brand}</div><AppNavigation modules={allowed} active={active}
+ onSelect={module=>{setRequestsOnly(false);setActive(module)}}
+ onCalendarView={view=>{setActive('Calendar');setCalendarShortcut({view})}}
+ onRequests={()=>{setRequestsOnly(true);setActive('Tickets')}}/><div className="gp-employee"><span className="gp-status-dot"/><span>{employee?employeeName(employee):"Ready"}</span><button className="gp-switch" onClick={()=>void requestEmployeePin(employee?'SWITCH':'SIGN_IN')}>{employee?"Switch":"Employee PIN"}</button></div></header><main className="gp-main">
  {modules.filter(m=>allowed.includes(m)).map(m=><ModuleView key={`${scope}:${employeeScope}:${m}`} active={active===m} name={m}>
  {(["Services","Products","Packages","VIP Memberships"] as string[]).includes(m)&&<CatalogWorkspace kind={m==="Services"?"services":m==="Products"?"products":m==="Packages"?"packages":"plans"}/>}
- {m==="Calendar"&&<CalendarWorkspace onWhiteboardPrepared={date=>setWhiteboardDate(new Date(date+"T12:00:00"))} requestedDate={scheduledCalendarDate} refreshKey={calendarRevision} onSlot={(date,resource)=>{if(!navigationRef.current.key)return false;window.dispatchEvent(new CustomEvent('groompro:calendar-slot',{detail:{date,resource}}));return true}} onNewTicket={(date,employeeId)=>openTicket(undefined,date,undefined,employeeId)} onOpenTicket={id=>openTicket(id)}/>}
+ {m==="Calendar"&&<CalendarWorkspace viewShortcut={calendarShortcut} onWhiteboardPrepared={date=>setWhiteboardDate(new Date(date+"T12:00:00"))} requestedDate={scheduledCalendarDate} refreshKey={calendarRevision} onSlot={(date,resource)=>{if(!navigationRef.current.key)return false;window.dispatchEvent(new CustomEvent('groompro:calendar-slot',{detail:{date,resource}}));return true}} onNewTicket={(date,employeeId)=>openTicket(undefined,date,undefined,employeeId)} onOpenTicket={id=>openTicket(id)}/>}
  {m==="Customers"&&<CustomersWorkspace onCreateTicket={newForCustomer}/>}
- {m==="Tickets"&&<TicketsWorkspace refreshKey={calendarRevision} date={new Date()} onOpenTicket={id=>openTicket(id)} onNewTicket={()=>openTicket()}/>}
+ {m==="Tickets"&&<TicketsWorkspace requestsOnly={requestsOnly} refreshKey={calendarRevision} date={new Date()} onOpenTicket={id=>openTicket(id)} onNewTicket={()=>openTicket()}/>}
  {m==="Whiteboard"&&<section className="gp-whiteboard-host" style={{height:"calc(100vh - 140px)",minHeight:400,background:"var(--gp-secondary)"}}><Whiteboard date={whiteboardDate}/></section>}
  {m==="Schedule"&&<section className="gp-settings"><h1 className="gp-title">Schedule</h1><StaffAvailabilitySettings/></section>}
  {m==="Settings"&&<Settings/>}

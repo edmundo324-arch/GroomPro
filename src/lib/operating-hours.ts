@@ -15,7 +15,7 @@ export function parseHours(value:unknown):DayHours[]{
 }
 export function hoursError(start:Date,durationMin:number,hours:DayHours[],zone:string){
  if(!Number.isFinite(+start)||!Number.isInteger(durationMin)||durationMin<=0||durationMin>2147483647)return "Choose a valid appointment time and duration.";
- const p=zonedParts(start,zone),end=zonedParts(new Date(+start+durationMin*60000),zone),day=new Date(p.date+"T12:00:00Z").getUTCDay(),h=hours.find(h=>h.day===day);
+ const p=zonedParts(start,zone),day=new Date(p.date+"T12:00:00Z").getUTCDay(),h=hours.find(h=>h.day===day);
  if(!h||h.closed)return `Appointments cannot start on the closed day ${new Date(p.date+"T12:00:00Z").toLocaleDateString("en-US",{weekday:"long",timeZone:"UTC"})}. Choose an open day.`;
  if(p.time<h.open||p.time>=h.close)return `Appointments must start within ${h.open}–${h.close} (${zone}). Finishing after closing is allowed.`;
  return null;

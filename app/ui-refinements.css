@@ -94,3 +94,42 @@
 .gp-pos-resize{width:64px;height:64px;min-width:64px;min-height:64px;margin-top:-64px}
 .gp-pos-window:has(>[data-pos-resize]) .gp-pos-footer{padding-right:66px}
 @media(max-width:600px){.gp-pos-appointment-row>label{min-width:90px}.gp-pos-created{white-space:normal!important;max-width:125px}.gp-pos-progress-row{gap:4px 8px}}
+
+.gp-business-hours-alert{border:3px solid #a43d14;background:#fff4e7}
+.gp-business-hours-alert h2{color:#8c2713}
+
+.gp-warning-detail + .gp-warning-detail{border-top:1px solid #cbd5df;padding-top:.75rem}
+
+.gp-topbar .gp-brand{font-size:clamp(13px,1.15vw,17px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-customer-table{max-height:65dvh;overflow:auto}
+.gp-customer-column-row{display:grid;gap:8px;align-items:center;width:max-content;min-width:100%;padding:7px 9px;border-bottom:1px solid #d9e2eb}
+.gp-customer-column-row>div{overflow-wrap:anywhere}
+.gp-customer-column-head{position:sticky;top:0;background:#e9f0f6;z-index:1;font-weight:600}
+.gp-visit-progress{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.gp-visit-progress details{font-size:.9em}
+
+.gp-mobile-top,.gp-mobile-bottom{display:none}
+.gp-calendar-agenda{display:grid}
+.gp-agenda-card{display:grid;grid-template-columns:68px minmax(0,1fr) auto;gap:8px;align-items:center;text-align:left;background:white;color:#17202a;border:0;border-inline-start:4px solid #406384;border-bottom:1px solid #dae2e9;padding:10px;min-height:50px}
+.gp-agenda-card span span{display:block;color:#506276}
+.gp-agenda-card small{text-transform:capitalize}
+.gp-phone-calendar-switch{display:flex;gap:4px;padding:4px 0}
+.gp-phone-calendar-switch [aria-pressed=true]{background:#17354d;color:white}
+@media(max-width:700px),(pointer:coarse) and (max-width:1000px){
+ .gp-topbar{position:sticky;top:0;gap:4px}
+ .gp-topbar>.gp-brand{flex:1 1 40%;font-size:14px}
+ .gp-topbar>.gp-employee{order:0}
+ .gp-topbar>.gp-app-navigation{width:100%;flex:1 1 100%;display:grid;gap:3px}
+ .gp-mobile-top,.gp-mobile-bottom{display:flex;gap:4px;overflow-x:auto}
+ .gp-mobile-top button,.gp-mobile-bottom button{white-space:nowrap;border:0;background:transparent;color:white;padding:4px 6px;min-height:36px;font-size:12px}
+ .gp-mobile-bottom [aria-current=page]{background:#365671;border-radius:4px}
+ .gp-app-navigation .gp-navigation-toggle{display:none}
+}
+
+.gp-calendar-map { padding: .75rem; }
+.gp-map-stop { display: grid; grid-template-columns: minmax(5rem, auto) minmax(0, 1fr) auto; align-items: start; gap: .75rem; padding: .75rem 0; border-bottom: 1px solid #dce5ec; }
+.gp-map-stop .gp-actions { flex-wrap: wrap; }
+@media (max-width: 700px) {
+  .gp-map-stop { grid-template-columns: minmax(4rem, auto) minmax(0, 1fr); }
+  .gp-map-stop .gp-actions { grid-column: 2; }
+}

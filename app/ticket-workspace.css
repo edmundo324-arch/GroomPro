@@ -335,3 +335,13 @@
  .gp-pos-phone .gp-flat-items tr.gp-pos-component-row>td[data-field=start]{grid-column:1/3;grid-row:4}
  .gp-pos-phone .gp-flat-items tr.gp-pos-component-row>td[data-field=remove]{grid-column:3;grid-row:4}
 }
+
+.gp-calendar-context-menu{position:fixed;z-index:3000;background:white;padding:4px;border:1px solid #b9c6ce;border-radius:4px;box-shadow:0 4px 12px #0003}
+
+.gp-pos-phone>.gp-ticket-tabs{margin:0;padding:4px 6px;flex:none}
+.gp-pos-phone .gp-flat-items .gp-pos-pet-heading>td{background:#eef3f7;border-radius:0;box-shadow:none}
+.gp-pos-phone .gp-flat-items .gp-btn:not(:focus-visible){box-shadow:none!important;border:0!important;border-radius:0!important}
+@media(pointer:coarse) and (orientation:landscape) and (min-width:920px) and (max-width:1000px){
+ body:has(.gp-shell[data-module=Calendar] .gp-pos-phone[data-pos-active=true]) .gp-shell[data-module=Calendar]>.gp-main{width:36vw}
+ .gp-shell[data-module=Calendar] .gp-pos-phone[data-pos-active=true]{left:36vw!important;right:0!important;top:var(--gp-topbar-height,64px)!important;width:64vw!important;height:calc(100dvh - var(--gp-topbar-height,64px))!important}
+}

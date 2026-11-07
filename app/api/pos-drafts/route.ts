@@ -4,6 +4,8 @@ import {db} from '@/src/lib/db';
 import {requestLocation} from '@/src/lib/request-location';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {workflowSettings} from '@/src/lib/workflow-settings';
+import {appointmentHoursError,locationHours} from '@/src/lib/location-hours';
+import {localToInstant} from '@/src/lib/operating-hours';
 import {nextTicketNumber} from '@/src/lib/ticket-number';
 const tenant=(r:NextRequest)=>r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
 async function handlePolicyGET(r:NextRequest){
@@ -35,7 +37,17 @@ async function handlePolicyPUT(r:NextRequest){
  if(!session||Date.now()-Number(session.lastActiveAt)>policy.inactivityMinutes*60000)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  const body=await r.json();
  if(!body.payload||typeof body.payload!=='object'||JSON.stringify(body.payload).length>250000)return NextResponse.json({error:'Invalid ticket details.'},{status:400});
- const result=await db.posDraft.updateMany({where:{id:String(body.id||''),tenantId,promotedAt:null},data:{payload:body.payload}});
+ const locationId=await requestLocation(r,tenantId);
+ if(!locationId)return NextResponse.json({error:'Choose a location.'},{status:400});
+ if(policy.enforceBusinessHours&&body.payload.newStart){
+  try{
+   const {timezone}=await locationHours(tenantId,locationId);
+   const start=localToInstant(String(body.payload.newStart),timezone);
+   const error=await appointmentHoursError(tenantId,locationId,start,body.payload.ticket?.durationMin||30);
+   if(error)return NextResponse.json({error},{status:409});
+  }catch(error){return NextResponse.json({error:(error as Error).message},{status:400});}
+ }
+ const result=await db.posDraft.updateMany({where:{id:String(body.id||''),tenantId,locationId,promotedAt:null},data:{payload:body.payload}});
  return NextResponse.json({saved:!!result.count},{status:result.count?200:409});
 }
 

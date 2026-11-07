@@ -14,5 +14,12 @@ export function plannedCalendarCard<T extends {pets:any[];lines:any[];assignment
  const plans=ticket.plannedAssignments||[];
  const legacy=plans.length?'':(ticket as any).legacyPlannedUserId||ticket.assignments?.find(a=>a.role==='PLANNED_GROOMER')?.userId||ticket.assignments?.find(a=>a.role==='PLANNED_GROOMER')?.user?.id||ticket.assignments?.find(a=>a.role==='GROOMER')?.userId||ticket.assignments?.find(a=>a.role==='GROOMER')?.user?.id||'';
  const lines=ticket.lines.filter(l=>{const petId=l.petId||l.pet?.id;if(!petId)return false;const actual=responsibleEmployee(ticket.lines,petId);const id=actual?(actual.assignmentUnavailable?'':actual.assignedUserId):plannedFor(ticket.lines,plans,petId,packageKey(l),legacy);return (id&&available.has(id)?id:'unassigned')===resourceId});
- const pets=new Set(lines.map(l=>l.petId||l.pet?.id));if(!pets.size){if(!ticket.pets.length&&resourceId===(legacy&&available.has(legacy)?legacy:'unassigned'))return {...ticket,lines:ticket.lines,pets:[],plannedAssignments:[]};return null;}const source=ticket as any,allTimes=source.lineStarts&&ticket.lines.every(l=>l.lineType==='PRODUCT'||source.lineStarts[lineTimeKey(l)])?source.lineStarts:lineSchedule(source);return {...ticket,lineStarts:allTimes,lines,pets:ticket.pets.filter(p=>pets.has(p.pet.id)),plannedAssignments:plans.filter(p=>pets.has(p.petId)&&(!p.packageKey||lines.some(l=>packageKey(l)===p.packageKey)))};
+ const pets=new Set(lines.map(l=>l.petId||l.pet?.id));
+ for(const entry of ticket.pets){
+  const petId=entry.pet?.id||entry.petId;
+  if(!petId||ticket.lines.some(l=>(l.petId||l.pet?.id)===petId))continue;
+  const plan=plannedFor(ticket.lines,plans,petId,'',legacy);
+  if((plan&&available.has(plan)?plan:'unassigned')===resourceId)pets.add(petId);
+ }
+ if(!pets.size){if(!ticket.pets.length&&resourceId===(legacy&&available.has(legacy)?legacy:'unassigned'))return {...ticket,lines:ticket.lines,pets:[],plannedAssignments:[]};return null;}const source=ticket as any,allTimes=source.lineStarts&&ticket.lines.every(l=>l.lineType==='PRODUCT'||source.lineStarts[lineTimeKey(l)])?source.lineStarts:lineSchedule(source);return {...ticket,lineStarts:allTimes,lines,pets:ticket.pets.filter(p=>pets.has(p.pet.id)),plannedAssignments:plans.filter(p=>pets.has(p.petId)&&(!p.packageKey||lines.some(l=>packageKey(l)===p.packageKey)))};
 }

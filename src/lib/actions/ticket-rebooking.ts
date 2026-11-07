@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const hoursMessage=await appointmentHoursError(tenantId,locationId,scheduledStart,durationMin);if(hoursMessage&&!await approvedScheduling(request,hoursMessage))return NextResponse.json(schedulingWarning(hoursMessage),{status:409});
     const assetMessage=await bookingAssetError(tenantId,locationId,body.bookingAssetId,scheduledStart,durationMin);if(assetMessage&&(assetMessage==='Booking asset is unavailable.'||!await approvedScheduling(request,assetMessage)))return NextResponse.json(assetMessage==='Booking asset is unavailable.'?{error:assetMessage}:schedulingWarning(assetMessage),{status:409});
     const rules = await checkCustomerBookingRules(tenantId, source.customerId, scheduledStart, durationMin,source.pets.map(p=>p.petId));
-    const nearby=rules.conflicts.length?'Nearby appointment warning: '+rules.conflicts.map(c=>c.message).join(' '):'';
+    const nearby=rules.conflicts.length?'Appointment spacing warning: '+rules.conflicts.map(c=>c.message).join('\n'):'';
     if(nearby&&!await approvedScheduling(request,nearby))return NextResponse.json(schedulingWarning(nearby),{status:409});
 
     if (groomerId) {

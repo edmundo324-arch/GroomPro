@@ -2,15 +2,17 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const exportsObject={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/pin.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:exportsObject,require,Buffer});
 const {hashPin,verifyPin,hashPinPrefixes,pinAssignmentError}=exportsObject;
 async function record(pin){return {pinHash:await hashPin(pin),pinPrefixHashes:await hashPinPrefixes(pin)}}
-test('PIN rules reject exact and both prefix directions while allowing a later occurrence',async()=>{
- const short=await record('124');assert.equal(await verifyPin('124',short.pinHash),true);
- for(const invalid of ['124','1245','124999'])assert.match(await pinAssignmentError(invalid,[short]),/different starting/);
- for(const valid of ['2124','3124823','23245124'])assert.equal(await pinAssignmentError(valid,[short]),null);
- assert.match(await pinAssignmentError('124',[await record('124999')]),/different starting/);
+test('new PINs need six digits and cannot share their first six',async()=>{
+ const original=await record('12345678');
+ assert.match(await pinAssignmentError('12345',[original]),/6 to 10/);
+ assert.match(await pinAssignmentError('123456',[original]),/first six/);
+ assert.match(await pinAssignmentError('12345690',[original]),/first six/);
+ for(const pin of ['123457','123458','123459'])assert.equal(await pinAssignmentError(pin,[original]),null);
+ assert.equal(await verifyPin('12345678',original.pinHash),true);
+ assert.equal(await verifyPin('123456',original.pinHash),false);
 });
-test('legacy hashes require sign-in upgrade; salted prefix records disclose no plaintext',async()=>{
- const old={pinHash:await hashPin('1245'),pinPrefixHashes:null};assert.match(await pinAssignmentError('812',[old]),/sign in once/);
- old.pinPrefixHashes=await hashPinPrefixes('1245');assert.equal(await pinAssignmentError('812',[old]),null);
- assert.equal(old.pinPrefixHashes.length,1);assert.match(old.pinPrefixHashes[0],/^[a-f0-9]{32}:[a-f0-9]{128}$/);
- assert.equal(await verifyPin('12',old.pinHash),false);
+test('a legacy PIN can still sign in without blocking unrelated assignments',async()=>{
+ const old={pinHash:await hashPin('1245'),pinPrefixHashes:null};
+ assert.equal(await verifyPin('1245',old.pinHash),true);
+ assert.equal(await pinAssignmentError('812345',[old]),null);
 });

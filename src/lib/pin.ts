@@ -37,18 +37,15 @@ export async function hashPinPrefixes(pin: string): Promise<string[]> {
 }
 
 export async function pinAssignmentError(pin: string, users: {pinHash: string; pinPrefixHashes: unknown}[]): Promise<string | null> {
-  validatePin(pin);
-  users=users.filter(user=>hasUsablePinHash(user.pinHash));
-  if (users.some(user => !Array.isArray(user.pinPrefixHashes))) {
-    return 'Existing employees must sign in once to finish the PIN security upgrade before another PIN can be assigned.';
-  }
+  if (!/^\d{6,10}$/.test(pin)) return 'PIN needs attention. Enter 6 to 10 digits.';
+  const prefix = pin.slice(0, 6);
   for (const user of users) {
-    for (let length = 3; length <= pin.length; length++) {
-      if (await verifyPin(pin.slice(0, length), user.pinHash)) return 'Please choose a different starting number combination.';
+    if (!hasUsablePinHash(user.pinHash)) continue;
+    const prefixes = Array.isArray(user.pinPrefixHashes) ? user.pinPrefixHashes : [];
+    for (const hash of [user.pinHash, ...prefixes]) {
+      if (await verifyPin(prefix, hash)) return 'PIN needs attention. Choose a different first six digits.';
     }
-    for (const hash of user.pinPrefixHashes as string[]) {
-      if (await verifyPin(pin, hash)) return 'Please choose a different starting number combination.';
-    }
+    if (pin !== prefix && await verifyPin(pin, user.pinHash)) return 'PIN needs attention. Choose a different first six digits.';
   }
   return null;
 }

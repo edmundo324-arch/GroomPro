@@ -8,6 +8,7 @@ import {ticketWorkspace} from '../lib/pos-layout';
 import {defaultTicketTax} from '../lib/dog-ticket-summary';
 import {PlannedPackage,plannedKey} from '../lib/planned-package-rules';
 import {CurrencyInput} from "./currency-input";
+import {VisitHistory} from './visit-history';
 import {AppointmentHistory} from './appointment-history';
 import {groomingSummary} from '../lib/grooming-notes-rules';
 import {GroomingNotes} from './grooming-notes';
@@ -232,6 +233,7 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  useEffect(()=>{if(ticket.id&&ticket.id===savedId.current&&!creating.current){for(const apply of deferredEdits.current.splice(0))void apply()}},[ticket,replayRevision]);
  handlers.current={removePetItems,toggleOfferToday,itemAction,assignGroomer,setTiming,includePet,chooseCustomer,addPetPackage};
  useLayoutEffect(()=>{if(!readyReported.current&&recordReady&&(hoursReady||error)){readyReported.current=true;onReady?.()}},[recordReady,hoursReady,error,onReady]);
+ const ticketTabsControl=<TicketTabs tabs={layout.tabs} panel={panel} onChange={name=>{setPhonePayment(false);setPhoneActions(false);setPanel(name);onPanelChange?.(name);if(name==='Report Card'&&!savedId.current)void operate('SAVE',{openPanel:name})}}/>;
  const terminal=!!ticket&&["CLOSED","CANCELLED","NO_SHOW"].includes(ticket.status);
  if(ticketId&&!ticket.id)return <><PosWindowFrame active={active}><div className="gp-floating-head"><div className="gp-floating-title">POS Ticket</div><button className="gp-btn" onClick={()=>void closeWindow()}>Close</button></div><div role="status" style={{padding:24}}>{error||"Opening ticket…"}{error&&<button className="gp-btn" onClick={()=>void load()}>Retry</button>}</div></PosWindowFrame></>;
  return <><PosWindowFrame active={active} className={(phone?"gp-pos-phone ":"gp-pos-desktop ")+(phonePayment?"gp-phone-payment-open ":"")+(phoneActions?"gp-phone-actions-open ":"")} style={{fontSize:layout.fontSize,...Object.fromEntries(layout.footer.map((id,i)=>["--gp-footer-"+id+"-order",i]))} as any}>
@@ -239,6 +241,7 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  {error&&<div>{failedPlans.current.size>0&&<button type="button" className="gp-btn" onClick={()=>{for(const assignment of failedPlans.current.values())void planPackage(assignment)}}>Retry planned employee changes</button>}{uncertainPayment&&<button onClick={()=>void verifyPayment()}>Check payment status</button>}{failedEdits.current.size>0&&<button onClick={()=>{for(const [id,patch] of failedEdits.current){const i=ticket.lines.findIndex((l:any)=>l.id===id);if(i>=0)void itemAction('edit',patch,i)}}}>Retry unsaved edits</button>}</div>}
  {!ticket?<div className="gp-search-empty">{error?"Ticket unavailable":"Loading ticket…"}</div>:<>
  <div className="gp-phone-ticket-summary gp-phone-only"><span>{newStart?new Date(newStart).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}):'Choose date'} · {newStart?new Date(newStart).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'Choose time'} · {ticket.displayStatus||ticket.status.split('_').map((s:string)=>s[0]+s.slice(1).toLowerCase()).join(' ')}</span></div>
+ {phone&&ticketTabsControl}
  <header className="gp-pos-header gp-pos-compact-header" data-details-open={phoneDetails}>
  <div className="gp-phone-only"><small>Created {stamp(ticket.createdAt||draft?.createdAt)}</small><PosFullSizeButton/></div>
  <TicketTopLayout layout={layout} controls={{date:<label>Date<input className="gp-search-input" aria-label="Appointment date" type="date" value={newStart.slice(0,10)} onFocus={()=>{calendarWorkflow.current="Items"}} onChange={e=>{calendarWorkflow.current="Items";const value=appointmentPart(newStart,'date',e.target.value);setNewStart(value);navigateDate(value)}}/></label>,
@@ -248,9 +251,19 @@ timing:<label>Timing <select disabled={terminal} value={ticket.timingMode||"SEQU
 move:<><button className="gp-btn primary" disabled={moving} onClick={()=>void move()}>{moving?"Moving…":"Move"}</button><small className="gp-pos-move-help" title="Every move is recorded in Ticket History with the employee responsible.">?</small></>,
 status:<label>Status <select style={{width:`calc(${Math.max(...statuses.concat(presentationOptions.customStatuses||[]).map(s=>s.length))}ch + 3em)`}} aria-label="Ticket status" value={ticket.displayStatus||ticket.status} disabled={statusSaving||terminal||pendingKeys.includes("payment")} onChange={e=>e.target.value==="CLOSED"?closeTicket():e.target.value==="NO_SHOW"?processNoShow():changeStatus(e.target.value)}>{[...statuses,...(presentationOptions.customStatuses||[])].map(s=><option key={s} value={s}>{s.replaceAll("_"," ")}</option>)}</select></label>,
 asset:(slotAsset||slotAsset===undefined&&ticket.bookingAssetName)&&<small>Booking asset: {slotAsset?.name||ticket.bookingAssetName}</small>,
-checkin:<label className="gp-pos-progress"><input type="checkbox" checked={!!ticket.checkedInAt} disabled={terminal||statusSaving||pendingKeys.includes("payment")} onChange={checkIn}/> Checked in <time title={stamp(ticket.checkedInAt)} >{stamp(ticket.checkedInAt)}</time></label>,
-ready:<label className="gp-pos-progress"><input type="checkbox" checked={!!ticket.pickupAt} disabled={terminal||statusSaving||pendingKeys.includes("payment")} onChange={()=>changeStatus(ticket.pickupAt?"CHECKED_IN":"READY",ticket.pickupAt?"UNDO_READY":undefined)}/> Ready for pickup <time title={stamp(ticket.pickupAt)} >{stamp(ticket.pickupAt)}</time></label>,
-pickup:<><label className="gp-pos-progress"><input type="checkbox" checked={!!ticket.pickupCompletedAt} disabled readOnly/> Pickup completed <time title={stamp(ticket.pickupCompletedAt)} >{stamp(ticket.pickupCompletedAt)}</time></label><small className="gp-pos-progress-help" title="Pickup completion is recorded by Check Out / Close.">Pickup is recorded at checkout.</small></>,
+checkin:<div className="gp-visit-progress">
+ <label>Visit progress <select aria-label="Visit progress" value={ticket.pickupCompletedAt?'PICKED_UP':ticket.pickupAt?'READY':ticket.checkedInAt?'CHECKED_IN':'PENDING'} disabled={terminal||statusSaving||pendingKeys.includes("payment")} onChange={e=>{
+  if(e.target.value==='PENDING')void changeStatus("CONFIRMED","UNDO_CHECK_IN");
+  else if(e.target.value==='CHECKED_IN'&&ticket.pickupAt)void changeStatus("CHECKED_IN","UNDO_READY");
+  else if(e.target.value==='CHECKED_IN')void checkIn();
+  else if(e.target.value==='READY')void changeStatus("READY");
+ }}>
+  <option value="PENDING">Not checked in</option><option value="CHECKED_IN">Checked in</option><option value="READY">Ready for pickup</option><option value="PICKED_UP" disabled>Pickup completed</option>
+ </select></label>
+ <VisitHistory key={ticketId||"draft"} id={ticketId} date={newStart.slice(0,10)} timezone={timezone} current={([['Checked in',ticket.checkedInAt],['Ready for pickup',ticket.pickupAt],['Pickup completed',ticket.pickupCompletedAt]] as const).flatMap(([label,at])=>at?[{label,at}]:[])}/>
+</div>,
+ready:null,
+pickup:null,
 arrival:<div>Arrival order <input type="number" min={1} aria-label="Arrival priority" disabled={terminal} value={ticket.arrivalPriority||""} onChange={e=>{revision.current++;setTicket({...ticket,arrivalPriority:Number(e.target.value)||null})}} onBlur={()=>{if(ticketId)void saveArrival()}}/></div>,
 customer:<strong>{ticket.customer.firstName} {ticket.customer.lastName}</strong>,
 editCustomer:<button className="gp-btn" disabled={!ticket.customer.id} onClick={()=>setOwnerView({id:ticket.customer.id})}>Edit customer</button>,
@@ -261,7 +274,7 @@ account:<small>Daycare: {ticket.daycareStatus==='STAYING'?'Staying':'Not added'}
  {choosingCustomer&&<div className="gp-pos-customer-search"><input aria-label="Search customer" placeholder="Search customer or pet" value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)}/>{customerResults.map(c=><button className="gp-customer-result" key={c.id} onClick={()=>chooseCustomer(c)}><CustomerIdentification customer={c} fields={["name","email","phones","pets","sourceId"]}/></button>)}{pendingOwner&&<div><p>Move this ticket and its service lines to {pendingOwner.firstName} {pendingOwner.lastName}, for:</p><select aria-label="New owner dog" value={replacementPet} onChange={e=>setReplacementPet(e.target.value)}>{pendingOwner.pets.map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button disabled={!replacementPet} onClick={changeCustomer}>Apply customer</button></div>}</div>}{ticket.customer.popupNotes&&<details><summary>Customer grooming notes</summary><p style={{whiteSpace:"pre-wrap"}}>{ticket.customer.popupNotes}</p></details>}</header>
  <PosPetStrip pets={customerPets.filter(p=>p.active!==false)} includedIds={ticket.pets.map((v:any)=>v.pet.id)} packageIds={customerPets.filter(p=>{const target=petPackageToggle(p,ticket.lines,catalog.packages||[],catalog.breeds);if(!target)return false;return packageIntents.current.get(`package:${p.id}:${target.pkg.id}`)??!target.present}).map(p=>p.id)} disabled={terminal} warnVet={warnVet} summaries={Object.fromEntries(customerPets.map((p:any)=>[p.id,groomingSummary(ticket.groomingNotesDraft?.[p.id]?.instructions||noteSummaries[p.id])]))} onInclude={(p,included)=>void includePet(p,included)} onPackage={clickPet} onNotes={()=>setPanel("Notes")}/>
  <div className="gp-ticket-workbar">
- <TicketTabs tabs={layout.tabs} panel={panel} onChange={name=>{setPhonePayment(false);setPhoneActions(false);setPanel(name);onPanelChange?.(name);if(name==='Report Card'&&!savedId.current)void operate('SAVE',{openPanel:name})}}/>
+ {!phone&&ticketTabsControl}
  <PromotingServices services={catalog.services||[]} pets={customerPets.filter(p=>p.active!==false)} petId={ticketItemPet(customerPets.filter(p=>p.active!==false),itemPetId)} onPetChange={setItemPetId} lines={ticket.lines} onToggle={item=>void toggleOfferToday(item)} disabled={terminal} pending={pendingKeys}/>
  </div>
  <main className="gp-pos-body">
