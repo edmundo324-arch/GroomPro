@@ -129,7 +129,7 @@
 .gp-visit-progress{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
 .gp-visit-progress details{font-size:.9em}
 
-.gp-mobile-top,.gp-mobile-bottom{display:none}
+.gp-mobile-top,.gp-mobile-request,.gp-offline-status-icon{display:none}
 .gp-calendar-agenda{display:grid}
 .gp-agenda-card{display:grid;grid-template-columns:68px minmax(0,1fr) auto;gap:8px;align-items:center;text-align:left;background:white;color:#17202a;border:0;border-inline-start:4px solid #406384;border-bottom:1px solid #dae2e9;padding:10px;min-height:50px}
 .gp-agenda-card span span{display:block;color:#506276}
@@ -137,16 +137,22 @@
 .gp-phone-calendar-switch{display:flex;gap:4px;padding:4px 0}
 .gp-phone-calendar-switch [aria-pressed=true]{background:#17354d;color:white}
 @media(max-width:700px),(pointer:coarse) and (max-width:1000px){
- .gp-topbar{position:sticky;top:0;gap:4px}
- .gp-topbar>.gp-brand{flex:1 1 40%;font-size:14px}
- .gp-topbar>.gp-employee{order:0}
- .gp-topbar>.gp-app-navigation{width:100%;flex:1 1 100%;display:grid;gap:3px}
- .gp-mobile-top,.gp-mobile-bottom{display:flex;gap:4px;overflow-x:auto}
- .gp-mobile-top button,.gp-mobile-bottom button{white-space:nowrap;border:0;background:transparent;color:white;padding:4px 6px;min-height:36px;font-size:12px}
- .gp-mobile-bottom [aria-current=page]{background:#365671;border-radius:4px}
+ .gp-topbar{position:sticky;top:0;gap:0 6px;padding:0 8px 2px}
+ .gp-topbar>.gp-brand{order:0;flex:1 1 auto;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .gp-topbar>.gp-offline-indicator{order:1;flex:none}
+ .gp-topbar>.gp-employee{order:2;min-width:0;margin-left:0;gap:4px;font-size:12px;flex:0 1 auto}
+ .gp-topbar>.gp-employee>span:not(.gp-status-dot){max-width:24vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .gp-topbar .gp-switch,.gp-topbar .gp-offline-indicator>.gp-btn{min-height:44px;padding:0 5px;border:0;box-shadow:none;background:transparent;color:inherit;font:inherit}
+ .gp-offline-status-text{display:none}
+ .gp-offline-status-icon{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:32px}
+ .gp-offline-status-icon small{position:absolute;top:-4px;right:-2px;min-width:13px;border-radius:10px;background:#ffe7a3;color:#382800;font-size:9px;text-align:center;padding:1px}
+ .gp-topbar>.gp-app-navigation{order:3;width:100%;flex:1 1 100%;display:flex;gap:0}
+ .gp-mobile-top{display:flex;flex:1;align-items:center;min-width:0;gap:4px}
+ .gp-mobile-top button{white-space:nowrap;border:0;background:transparent;color:white;padding:0 9px;min-height:44px;font-size:13px}
+ .gp-mobile-top .gp-mobile-more{margin-inline-start:auto;min-width:44px;font-size:22px}
  .gp-app-navigation .gp-navigation-toggle{display:none}
+ .gp-app-navigation>.gp-module-nav.is-open .gp-mobile-request{display:block}
 }
-
 .gp-calendar-map { padding: .75rem; }
 .gp-map-stop { display: grid; grid-template-columns: minmax(5rem, auto) minmax(0, 1fr) auto; align-items: start; gap: .75rem; padding: .75rem 0; border-bottom: 1px solid #dce5ec; }
 .gp-map-stop .gp-actions { flex-wrap: wrap; }

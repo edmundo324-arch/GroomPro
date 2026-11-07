@@ -53,9 +53,14 @@ export function OfflineIndicator({ scope, employeeId }: { scope: string; employe
   if (!employeeId) return null;
   const pending = state.pending.length;
   const issue = state.pending.find(command => command.issue);
+  const status = issue ? 'Review offline changes' : state.signInRequired ? 'Sign in to sync' : pending ? pending + ' saved here · sync pending' : !online ? 'Working offline' : state.ready && shellReady ? 'Ready offline' : 'Preparing offline';
   return <div className="gp-offline-indicator">
-    <button type="button" className="gp-btn" onClick={() => setReview(value => !value)} aria-expanded={review}>
-      {issue ? 'Review offline changes' : state.signInRequired ? 'Sign in to sync' : pending ? pending + ' saved here · sync pending' : !online ? 'Working offline' : state.ready && shellReady ? 'Ready offline' : 'Preparing offline'}
+    <button type="button" className="gp-btn" onClick={() => setReview(value => !value)} aria-expanded={review} aria-label={status} title={status}>
+      <span className="gp-offline-status-text">{status}</span>
+      <span className="gp-offline-status-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7 18a4 4 0 0 1 0-8 6 6 0 0 1 11.5 1A3.5 3.5 0 0 1 18 18Z"/><path d="m9 14 2 2 4-4"/></svg>
+        {(issue||state.signInRequired||pending>0)&&<small>{issue||state.signInRequired?'!':pending}</small>}
+      </span>
     </button>
     {review && <section aria-label="Offline changes" className="gp-floating-window" style={{ position: 'fixed', top: '4rem', right: '1rem', zIndex: 31, width: 'min(32rem, 92vw)', padding: '1rem', maxHeight: '75dvh', overflow: 'auto' }}>
       <h2>Offline changes</h2>

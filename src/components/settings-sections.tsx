@@ -1,11 +1,15 @@
 "use client";
-import {useId,useLayoutEffect,useRef,useState} from 'react';
+import {useContext,useId,useLayoutEffect,useRef,useState} from 'react';
 import {usePreferenceScope} from './floating-editor-window';
 import {RetainedSection,useModuleVisible} from './module-view';
 import {settingsPlace,settingsPlaceKey,SettingsPlace} from '../lib/settings-place';
+import {SettingsBranch,SettingsDestination,SettingsTabIcon} from './settings-search';
 type Section={id:string;label:string;content:React.ReactNode};
 export function SettingsSections({id,label,sections,initial}:{id:string;label:string;sections:Section[];initial?:string}){
  const scope=usePreferenceScope(),visible=useModuleVisible(),uid=useId(),root=useRef<HTMLDivElement>(null);
+ const branch=useContext(SettingsBranch),destination=useContext(SettingsDestination);
+ const path=destination?.entry.path;
+ const requested=path&&branch.every((part,index)=>part===path[index])?path[branch.length]:undefined;
  const ids=sections.map(section=>section.id),fallback=initial||ids[0],signature=ids.join('|');
  const [selected,setSelected]=useState(fallback),[ready,setReady]=useState(!scope),[narrow,setNarrow]=useState(false);
  const visited=useRef(new Set<string>()),place=useRef<SettingsPlace>({selected:fallback,panels:{}}),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -33,15 +37,34 @@ export function SettingsSections({id,label,sections,initial}:{id:string;label:st
   const restore=()=>{if(!restoring)return;Array.from(panel.querySelectorAll('details')).filter(detail=>detail.closest('[data-settings-panel]')===panel).forEach((detail,index)=>{if(Object.hasOwn(saved.open,String(index)))detail.open=saved.open[String(index)]});panel.scrollTop=saved.top;panel.scrollLeft=saved.left;for(const element of Array.from(panel.querySelectorAll<HTMLElement>('[data-settings-scroll]'))){const offset=saved.nested?.[element.dataset.settingsScroll!];if(offset&&element.closest('[data-settings-panel]')===panel){element.scrollTop=offset.top;element.scrollLeft=offset.left;}}};
   restore();const observer=new MutationObserver(restore);observer.observe(panel,{childList:true,subtree:true});
   const stop=()=>{restoring=false;observer.disconnect()};
-  for(const event of ['pointerdown','keydown','wheel','touchstart'])panel.addEventListener(event,stop,{capture:true,passive:true});
-  return()=>{stop();for(const event of ['pointerdown','keydown','wheel','touchstart'])panel.removeEventListener(event,stop,true)};
+  for(const event of ['pointerdown','keydown','wheel','touchstart','groompro:settings-reveal'])panel.addEventListener(event,stop,{capture:true,passive:true});
+  return()=>{stop();for(const event of ['pointerdown','keydown','wheel','touchstart','groompro:settings-reveal'])panel.removeEventListener(event,stop,true)};
  },[active,ready,visible]);
  function choose(next:string){if(!ids.includes(next)||next===active)return;const current=root.current?.querySelector<HTMLElement>('[data-settings-panel="'+active+'"]');if(current)remember(current,active);visited.current.add(next);place.current.selected=next;persist();setSelected(next);}
+ useLayoutEffect(()=>{
+  if(!ready||!visible||!destination||!requested||!ids.includes(requested))return;
+  if(active!==requested){choose(requested);return;}
+  if(path?.length!==branch.length+1)return;
+  const frame=requestAnimationFrame(()=>{
+   const panel=root.current?.querySelector<HTMLElement>(':scope > .gp-settings-section-panels > [data-settings-panel="'+active+'"]');
+   if(!panel)return;
+   const anchor=destination.entry.anchor;
+   const target=anchor?panel.querySelector<HTMLElement>('[data-settings-target="'+anchor+'"]'):panel;
+   if(!target)return;
+   panel.dispatchEvent(new Event('groompro:settings-reveal'));
+   target.focus({preventScroll:true});
+   target.scrollIntoView({block:'nearest',inline:'nearest'});
+   target.classList.add('gp-settings-search-target');
+   setTimeout(()=>target.classList.remove('gp-settings-search-target'),2200);
+   destination.done();
+  });
+  return()=>cancelAnimationFrame(frame);
+ },[active,ready,visible,requested,destination,signature]);
  return <div ref={root} data-settings-id={id} className={'gp-settings-sections'+(narrow?' is-narrow':'')}>
-  <nav className="gp-settings-section-tabs" role="tablist" aria-label={label}>{sections.map((section,index)=><button type="button" role="tab" id={uid+'-tab-'+section.id} aria-controls={uid+'-panel-'+section.id} aria-selected={active===section.id} tabIndex={active===section.id?0:-1} key={section.id} onClick={()=>choose(section.id)} onKeyDown={event=>{const offset=event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0;if(!offset&&!['Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?sections.length-1:(index+offset+sections.length)%sections.length;choose(sections[next].id);document.getElementById(uid+'-tab-'+sections[next].id)?.focus()}}>{section.label}</button>)}</nav>
-  <label className="gp-settings-section-select"><span>{label}</span><select aria-label={label} value={active} onChange={event=>choose(event.target.value)}>{sections.map(section=><option key={section.id} value={section.id}>{section.label}</option>)}</select></label>
-  <div className="gp-settings-section-panels">{sections.map(section=><div key={section.id} id={uid+'-panel-'+section.id} role="tabpanel" aria-labelledby={uid+'-tab-'+section.id} data-settings-panel={section.id} className="gp-settings-section-panel" hidden={active!==section.id} onScroll={event=>remember(event.currentTarget,section.id)}>
-   <RetainedSection active={visible&&active===section.id} visited={ready&&(visited.current.has(section.id)||active===section.id)}>{section.content}</RetainedSection>
+  <nav className="gp-settings-section-tabs" role="tablist" aria-label={label}>{sections.map((section,index)=><button type="button" role="tab" id={uid+'-tab-'+section.id} aria-controls={uid+'-panel-'+section.id} aria-selected={active===section.id} tabIndex={active===section.id?0:-1} key={section.id} onClick={()=>{destination?.done();choose(section.id)}} onKeyDown={event=>{const offset=event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0;if(!offset&&!['Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?sections.length-1:(index+offset+sections.length)%sections.length;destination?.done();choose(sections[next].id);document.getElementById(uid+'-tab-'+sections[next].id)?.focus()}}><SettingsTabIcon name={section.id}/>{section.label}</button>)}</nav>
+  <label className="gp-settings-section-select"><SettingsTabIcon name={active}/><span>{label}</span><select aria-label={label} value={active} onChange={event=>{destination?.done();choose(event.target.value)}}>{sections.map(section=><option key={section.id} value={section.id}>{section.label}</option>)}</select></label>
+  <div className="gp-settings-section-panels">{sections.map(section=><div key={section.id} id={uid+'-panel-'+section.id} role="tabpanel" aria-labelledby={uid+'-tab-'+section.id} data-settings-panel={section.id} className="gp-settings-section-panel" tabIndex={-1} hidden={active!==section.id} onScroll={event=>remember(event.currentTarget,section.id)}>
+   <SettingsBranch.Provider value={[...branch,section.id]}><RetainedSection active={visible&&active===section.id} visited={ready&&(visited.current.has(section.id)||active===section.id)}>{section.content}</RetainedSection></SettingsBranch.Provider>
   </div>)}</div>
  </div>;
 }

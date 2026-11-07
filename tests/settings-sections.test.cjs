@@ -15,3 +15,23 @@ test('appointment appearance retains its color, gradient, copy and undo controls
 test('popup preview keeps its real-data option, sample rendering in a full-size floating popup',()=>{const {PopupPreview}=require('../src/components/appointment-preferences.tsx');const html=renderToStaticMarkup(React.createElement(PopupPreview,{settings:{hoverFields:['pet','pet.weightLbs','pet.vipEligible','package'],hoverLabels:false}}));assert.match(html,/Preview with my business data/);assert.match(html,/gp-full-popup-preview/);assert.match(html,/aria-label="Move Calendar popup preview"/);assert.doesNotMatch(html,/aria-label="Expand Calendar popup preview"/);assert.match(html,/Bella/);assert.match(html,/10 lb/);assert.match(html,/Medium Groom/);});
 
 test('additional-detail order distinguishes grooming notes from permanent pet notes',()=>{const {friendlyHoverLabel}=require('../src/lib/calendar-hover-details.ts');assert.equal(friendlyHoverLabel('notes'),'Grooming notes');assert.equal(friendlyHoverLabel('pet.notes'),'Permanent notes');assert.equal(friendlyHoverLabel('ticket.notes'),'Ticket notes');});
+
+test('Settings search renders and sends import terms to two distinct controls with complete directions',()=>{
+ const {findSettings,settingsBreadcrumb}=require('../src/lib/settings-search.ts');
+ const {SettingsSearch}=require('../src/components/settings-search.tsx');
+ const {CustomerImport}=require('../src/components/customer-import.tsx');
+ const upload=findSettings('import customers','ADMIN')[0];
+ const prepared=findSettings('demo customer addresses','ADMIN')[0];
+ assert.equal(upload.anchor,'import-files');
+ assert.equal(prepared.anchor,'prepared-data-scope');
+ assert.equal(settingsBreadcrumb(upload),'Settings → Data & integrations → Import & migration → Choose Related Files');
+ assert.equal(settingsBreadcrumb(prepared),'Settings → Data & integrations → Import & migration → Prepared data from the local site → Load → Demo customer addresses only → Check prepared data → Load prepared data');
+ assert.equal(findSettings('demo customer addresses','FRONT').length,0);
+ assert.ok(findSettings('123Pet connection','DEVELOPER').some(entry=>entry.title==='123Pet connection'));
+ const search=renderToStaticMarkup(React.createElement(SettingsSearch,{role:'ADMIN'}));
+ assert.match(search,/aria-label="Search Settings"/);
+ const importer=renderToStaticMarkup(React.createElement(CustomerImport));
+ for(const text of ['Prepared data from the local site','Demo customer addresses only','Check prepared data','Choose Related Files','data-settings-target="prepared-data-scope"','data-settings-target="import-files"']){
+  assert.ok(importer.includes(text),text);
+ }
+});
