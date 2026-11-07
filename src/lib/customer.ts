@@ -8,17 +8,15 @@ export function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
-export async function searchCustomers(tenantId: string, query: string) {
+export async function searchCustomers(tenantId: string, query: string, limit: number | "all" = 25) {
   const text = normalizeText(query);
   const phone = normalizePhone(query);
-
-  if (!text && !phone) return [];
 
   const results=await db.customer.findMany({
     where: {
       tenantId,
       active: true,
-      OR: [
+      ...(text ? { OR: [
         { id: { equals: text } },
         { importSourceId: { contains: text } },
         ...(text.split(' ').length>1?[{AND:text.split(' ').filter(Boolean).map(word=>({OR:[{firstName:{contains:word}},{lastName:{contains:word}}]}))}]:[]),
@@ -27,15 +25,15 @@ export async function searchCustomers(tenantId: string, query: string) {
         { lastName: { contains: text } },
         { email: { contains: text } },
         { pets: { some: { name: { contains: text } } } },
-      ],
+      ] } : {}),
     },
     include: {
       phones: { orderBy: { isPrimary: "desc" } },
       tickets:{where:{scheduledStart:{gte:new Date()},status:{notIn:["CANCELLED","NO_SHOW","CLOSED"]}},orderBy:{scheduledStart:"asc"},take:1,select:{scheduledStart:true}},
       pets: { where: { active: true }, orderBy: { name: "asc" } },
     },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-    take: 25,
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }],
+    take: limit === "all" ? undefined : limit,
   });
  return results.map(({tickets,...customer})=>({...customer,nextAppointment:tickets[0]?.scheduledStart||null}));
 }
