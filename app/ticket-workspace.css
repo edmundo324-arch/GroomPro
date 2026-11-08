@@ -229,55 +229,57 @@
 
 @media(any-pointer:coarse){.gp-day-appointment,.gp-week-appointment,.gp-agenda-card{user-select:none;-webkit-touch-callout:none}}
 
-/* Compact Calendar commands share one row; secondary touch controls use overflow. */
-.gp-calendar-compact-controls{flex:none;min-width:0}
+/* Keep the schedule viewport below a single Calendar command row. */
+.gp-shell[data-module=Calendar]{height:100dvh;min-height:0}
+.gp-shell[data-module=Calendar]>.gp-main{display:flex;flex-direction:column;min-height:0;padding-bottom:0}
+.gp-shell[data-module=Calendar]>.gp-main .gp-adaptive-calendar{flex:1;min-height:0;padding-bottom:0}
+.gp-calendar-primary{display:flex;flex-direction:column;min-height:0}
+.gp-calendar-primary>:is(.gp-calendar-scroll,.gp-calendar-agenda,.gp-week-grid,.gp-calendar-map){flex:1;min-height:0;max-height:none;overflow:auto}
+.gp-calendar-primary>.gp-week-grid{align-content:start}
+.gp-calendar-primary>.gp-calendar-agenda{align-content:start}
+.gp-calendar-compact-controls{position:relative;z-index:8;flex:none;min-width:0;container-type:inline-size}
 .gp-calendar-compact-controls .gp-calendar-head{margin:0;padding:0;min-height:0}
-.gp-calendar-compact-controls .gp-calendar-head:empty{display:none}
-.gp-calendar-commandbar{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;font-size:12px;padding:4px 0}
-.gp-calendar-date-controls,.gp-calendar-search-controls{display:flex;align-items:center;gap:4px;min-width:0}
-.gp-calendar-date-controls{flex-wrap:wrap}
-.gp-calendar-commandbar .gp-btn,.gp-calendar-commandbar select,.gp-calendar-commandbar input{font:inherit;padding:4px 6px;min-width:0}
-.gp-calendar-commandbar .gp-date{font-size:12px}
-.gp-calendar-commandbar .gp-calendar-options{display:flex;gap:8px;padding:0;font-size:inherit}.gp-cal-install{display:contents}
-.gp-calendar-tools{position:relative;min-width:0}
-.gp-calendar-commandbar .gp-calendar-overflow{display:none}
-.gp-calendar-search-controls{margin-left:auto;flex:1 1 180px;max-width:360px}
+.gp-calendar-commandbar{position:relative;display:flex;align-items:center;gap:4px;font-size:13px}
+.gp-calendar-date-controls,.gp-calendar-search-controls{display:flex;align-items:center;gap:2px;min-width:0}
+.gp-calendar-date-controls{flex:none}
+.gp-calendar-commandbar .gp-btn,.gp-calendar-commandbar select,.gp-calendar-commandbar input{font:inherit;padding:3px 6px;min-width:0}
+.gp-calendar-commandbar .gp-btn,.gp-calendar-commandbar input[type=date],.gp-calendar-search-controls input{min-height:36px;border:0;box-shadow:none;background:transparent;color:#17324d}
+.gp-calendar-commandbar .gp-btn:hover{background:#e5edf4}
+.gp-calendar-commandbar :focus-visible{outline:2px solid #527eaa;outline-offset:-2px}
+.gp-calendar-commandbar .gp-date{display:none}
+.gp-calendar-commandbar input[type=date]{width:122px}
+.gp-calendar-commandbar .gp-calendar-search-toggle{display:none}
+.gp-calendar-search-controls{flex:1 1 130px;max-width:360px;border-bottom:1px solid #c7d4df}
 .gp-calendar-search-controls input{flex:1;width:0}
-.gp-calendar-primary>.gp-calendar-scroll{max-height:calc(100dvh - var(--gp-topbar-height,64px) - var(--gp-calendar-controls-height,70px) - 60px)}
+.gp-calendar-tools{position:relative;min-width:0;margin-inline-start:auto}
+.gp-calendar-commandbar .gp-calendar-overflow{display:block;width:32px;font-size:22px;padding:0}
+.gp-calendar-commandbar .gp-calendar-options{display:none;position:absolute;right:0;top:100%;z-index:25;width:min(450px,100cqw);max-height:60dvh;overflow:auto;background:white;border:1px solid #b9c6ce;border-radius:5px;padding:3px 4px;box-shadow:0 4px 15px #0003}
+.gp-calendar-options-open .gp-calendar-commandbar .gp-calendar-options{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr) minmax(0,1.5fr) minmax(0,.95fr);align-items:center;gap:0 3px}
+.gp-calendar-options>.gp-view-toggle{display:flex;grid-area:1/1/2/2}
+.gp-calendar-options>.gp-view-toggle>button{flex:1;min-width:0;padding-inline:2px}
+.gp-cal-whiteboard{grid-area:1/2/2/4}
+.gp-cal-install{grid-area:1/4/2/5}
+.gp-cal-install>.gp-btn{width:100%;white-space:normal;line-height:1.15}
+.gp-cal-time-block{grid-area:2/1/3/2}
+.gp-cal-working-only{grid-area:2/2/3/3}
+.gp-cal-show{grid-area:2/3/3/4}
+.gp-cal-columns{grid-area:2/4/3/5}
+.gp-calendar-commandbar .gp-calendar-options label{display:flex;align-items:center;gap:2px;min-width:0;min-height:36px;line-height:1.15}
+.gp-calendar-options label input[type=checkbox]{flex:none;margin:0}
+.gp-calendar-commandbar .gp-calendar-options :is(.gp-cal-show,.gp-cal-columns){flex-direction:column;align-items:stretch;justify-content:center;gap:0}
+.gp-calendar-commandbar .gp-calendar-options label select{width:100%;min-height:28px;padding:0}
+.gp-calendar-commandbar .gp-calendar-view-switch{gap:1px;padding:0}
+.gp-calendar-commandbar .gp-calendar-view-switch [aria-pressed=true]{background:#e5edf4;color:#17324d;font-weight:700}
+.gp-calendar-scroll>.gp-calendar-legend{padding:4px 6px;margin:0}
 .gp-inline-value-text{display:none}
 .gp-inline-value-editor,.gp-inline-item-value{display:contents}
 @media(max-width:700px),(pointer:coarse) and (max-width:1000px){
- .gp-calendar-commandbar{display:grid;grid-template-columns:minmax(0,1fr) auto 44px;gap:0 3px;padding:1px 0}
- .gp-calendar-commandbar .gp-date{display:none}
- .gp-calendar-date-controls{grid-column:1/3;flex-wrap:nowrap;gap:1px}.gp-calendar-tools{grid-column:3}
- .gp-calendar-commandbar input[type=date]{width:calc(10ch + 3em);flex:1;max-width:180px}
- .gp-calendar-commandbar button,.gp-calendar-commandbar select,.gp-calendar-commandbar input{min-height:44px}
- .gp-calendar-commandbar .gp-calendar-overflow{display:block;width:44px;font-size:24px;padding:0}
- .gp-calendar-commandbar .gp-calendar-options{display:none;position:absolute;right:0;top:100%;z-index:25;width:min(400px,calc(100vw - 24px));box-sizing:border-box;max-height:60dvh;overflow-y:auto;background:white;border:1px solid #b9c6ce;border-radius:5px;padding:3px 4px;box-shadow:0 4px 15px #0003}
- .gp-calendar-options-open .gp-calendar-commandbar .gp-calendar-options{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr) minmax(0,1.5fr) minmax(0,.95fr);align-items:center;gap:0 3px}
- .gp-calendar-options>.gp-view-toggle{grid-area:1/1/2/2}
- .gp-cal-whiteboard{grid-area:1/2/2/4}
- .gp-cal-install{display:block;grid-area:1/4/2/5}
- .gp-cal-install>.gp-btn{width:100%;white-space:normal;line-height:1.15}
- .gp-cal-time-block{grid-area:2/1/3/2}
- .gp-cal-working-only{grid-area:2/2/3/3}
- .gp-cal-show{grid-area:2/3/3/4}
- .gp-cal-columns{grid-area:2/4/3/5}
- .gp-calendar-commandbar .gp-calendar-options label{display:flex;align-items:center;justify-content:flex-start;gap:2px;min-width:0;min-height:44px;line-height:1.15}
- .gp-calendar-options label input[type=checkbox]{flex:none;margin:0}
- .gp-calendar-commandbar .gp-calendar-options :is(.gp-cal-show,.gp-cal-columns){flex-direction:column;align-items:stretch;justify-content:center;gap:0}
- .gp-calendar-commandbar .gp-calendar-options label select{width:100%;min-width:0;max-width:100%;min-height:30px;padding:0}
- .gp-calendar-commandbar .gp-calendar-options .gp-btn,.gp-calendar-options>.gp-view-toggle>button{padding-inline:2px}
- .gp-calendar-options>.gp-view-toggle>button{flex:1;min-width:0}
- .gp-calendar-commandbar .gp-btn,.gp-calendar-commandbar .gp-view-toggle>button,.gp-calendar-commandbar input,.gp-calendar-commandbar select{border:0;border-radius:2px;box-shadow:none;background:transparent;color:#17324d}
- .gp-calendar-commandbar .gp-phone-calendar-switch [aria-pressed=true],.gp-calendar-commandbar .gp-view-toggle>.selected{background:#e5edf4;color:#17324d;font-weight:700}
- .gp-calendar-commandbar :focus-visible{outline:2px solid #527eaa;outline-offset:-2px}
- .gp-calendar-commandbar .gp-view-toggle{display:flex}
-  .gp-calendar-search-controls{grid-column:1;margin:0;max-width:none;gap:2px;border-bottom:1px solid #c7d4df}
- .gp-calendar-commandbar:not(:has(.gp-phone-calendar-switch)) .gp-calendar-search-controls{grid-column:1/-1}.gp-calendar-commandbar .gp-phone-calendar-switch{grid-column:2/4;gap:1px;padding:0}
- .gp-calendar-commandbar .gp-phone-calendar-switch button{min-width:40px}
- .gp-calendar-commandbar input[type=date],.gp-calendar-search-controls input{font-size:16px}
- .gp-calendar-primary>.gp-calendar-scroll{max-height:calc(100dvh - var(--gp-topbar-height,110px) - var(--gp-calendar-controls-height,100px) - 20px)}
+ .gp-shell[data-module=Calendar]>.gp-main{padding:4px 4px 0}
+ .gp-shell[data-module=Calendar]>.gp-main .gp-adaptive-calendar{padding:3px 4px 0}
+ .gp-calendar-commandbar{font-size:12px}
+ .gp-calendar-commandbar .gp-btn,.gp-calendar-commandbar input[type=date],.gp-calendar-search-controls input{min-height:44px}
+ .gp-calendar-commandbar input[type=date]{width:105px;padding-inline:2px}
+ .gp-calendar-date-controls>.gp-btn{min-width:27px;padding-inline:3px}
  .gp-calendar-legend{display:none}
  .gp-inline-item-value{display:inline-flex;min-width:0;max-width:100%;align-items:center}
  .gp-inline-item-value>.gp-inline-value-editor{display:none}
@@ -287,6 +289,19 @@
  .gp-flat-items .gp-inline-item-value.is-editing input,.gp-flat-items .gp-inline-item-value.is-editing select{appearance:auto;background:white!important;border-color:#527eaa!important;font-size:16px}
 }
 
+@container(max-width:444px){
+ .gp-calendar-commandbar,.gp-calendar-date-controls{gap:1px}
+ .gp-calendar-commandbar .gp-calendar-search-toggle{display:grid;place-items:center;flex:none;width:30px;padding:0}
+ .gp-calendar-search-toggle[data-filtering=true]{background:#e5edf4}
+ .gp-calendar-search-controls{display:none}
+ .gp-calendar-search-open .gp-calendar-search-controls{display:flex;position:absolute;top:100%;left:0;right:0;z-index:25;max-width:none;padding-inline:4px;background:white;border:1px solid #b9c6ce;border-radius:5px;box-shadow:0 4px 15px #0003}
+ .gp-calendar-search-controls input{font-size:16px}
+}
+@container(max-width:325px){
+ .gp-calendar-commandbar input[type=date]{width:94px}
+ .gp-calendar-commandbar .gp-calendar-date-controls>button{min-width:22px;padding-inline:2px}
+ .gp-calendar-commandbar .gp-calendar-view-switch>button{padding-inline:4px}
+}
 .gp-install-dialog{border:1px solid #b9c6ce;max-height:85dvh;overflow:auto}
 .gp-install-dialog::backdrop{background:#0005}
 /* Larger tablets retain their roomy list while using the same text-first editors. */
@@ -297,11 +312,6 @@
  .gp-inline-item-value.is-editing>.gp-inline-value-text{display:none}
  .gp-inline-item-value.is-editing>.gp-inline-value-editor{display:contents}
  .gp-flat-items .gp-inline-item-value.is-editing input,.gp-flat-items .gp-inline-item-value.is-editing select{background:white!important;border-color:#527eaa!important;min-height:44px;font-size:16px}
-}
-
-@media(max-width:700px),(pointer:coarse) and (max-width:1000px){
- .gp-calendar-date-controls>.gp-btn{min-width:44px;padding-inline:4px}
- .gp-calendar-date-controls input[type=date]{font-size:12px;padding-inline:2px}
 }
 
 
