@@ -186,6 +186,7 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
   if (path === '/api/tickets/rebook' || body.kind === 'REBOOK') {
     const rebooked = { ...ticket, id, createdAt: now, orderNumber: null, scheduledStart: details.scheduledStart,
       status: 'OPEN', bookingDecision: 'INTERNAL', checkedInAt: null, pickupAt: null, pickupCompletedAt: null,
+      pickupCalledAt: null, pickupTextedAt: null, readyContacted: false,
       arrivalPriority: null, payments: [], lineStarts: {}, scheduleHistory: [],
       lines: ticket.lines.filter((line: any) => line.lineType === 'SERVICE' && line.serviceId)
         .sort((a: any,b: any)=>a.sortOrder-b.sortOrder).map((line: any, position: number) => ({ ...line, assignedUserId: null, assignedUser: null, id: id + '-line-' + position })) };
@@ -199,8 +200,13 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
     if (details.action === 'UNDO_CHECK_IN') Object.assign(ticket, { status: 'CONFIRMED', checkedInAt: null, arrivalPriority: null, pickupAt: null });
     if (details.action === 'UNDO_READY') Object.assign(ticket, { status: ticket.checkedInAt ? 'CHECKED_IN' : 'CONFIRMED', pickupAt: null });
     if (details.status === 'CHECKED_IN') ticket.checkedInAt ||= now;
-    if (details.status === 'READY_FOR_PICKUP') ticket.pickupAt ||= now;
+    if (details.status === 'READY'||details.status === 'READY_FOR_PICKUP') ticket.pickupAt ||= now;
+    if (!ticket.pickupAt) Object.assign(ticket, {pickupCalledAt:null,pickupTextedAt:null,readyContacted:false});
     if (details.status === 'OPEN' || details.checkedIn === false) Object.assign(ticket, { checkedInAt: null, arrivalPriority: null });
+  } else if (path === '/api/tickets/visit-history') {
+    if(ticket.status!=='READY'||!ticket.pickupAt||ticket.pickupCompletedAt)throw Error('Mark the ticket ready for pickup before recording a call.');
+    ticket.pickupCalledAt ||= now;
+    return {pickupCalledAt:ticket.pickupCalledAt};
   } else if (path === '/api/ticket-lines') {
     const lineId = body.lineId || url.searchParams.get('lineId');
     if (command.method === 'DELETE') {

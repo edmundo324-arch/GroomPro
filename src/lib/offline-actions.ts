@@ -36,6 +36,7 @@ export function offlineAction(url: URL, method: string, body: any): { create?: O
     return null;
   }
   if (path === '/api/tickets' && method === 'POST' && body.bookingSource !== 'ONLINE') return body.draftId ? target('draft', body.draftId) : { create: 'ticket' };
+  if (path === '/api/tickets/visit-history' && method === 'PATCH') return target('ticket', body.ticketId);
   if (path === '/api/tickets' && method === 'PATCH' || ticketWrites.has(path) ||
       path === '/api/tickets/rebook' && method === 'POST' ||
       path === '/api/whiteboard' && method === 'PATCH' && body.action === 'PRIORITY') {

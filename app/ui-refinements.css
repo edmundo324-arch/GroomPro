@@ -131,11 +131,13 @@
 
 .gp-topbar{min-height:44px;flex-wrap:nowrap;gap:8px;padding:0 10px}
 .gp-topbar>.gp-brand{flex:0 1 auto;min-width:0;max-width:22vw}
-.gp-app-navigation{display:flex;align-items:center;justify-content:flex-end;flex:1 1 0;min-width:0}
-.gp-header-menu{display:flex;position:relative;min-width:0;max-width:100%;overflow:hidden}
-.gp-header-menu>.gp-module{flex:none}
-.gp-header-menu>.gp-module,.gp-header-more{min-height:44px;font-size:13px;padding:0 8px}
-.gp-header-more{flex:none;min-width:36px;font-size:21px}
+.gp-app-navigation{display:flex;align-items:center;flex:1 1 0;min-width:0}
+.gp-header-menu{display:flex;position:relative;flex:1 1 0;min-width:0;max-width:100%;overflow:hidden}
+.gp-fitting-tabs{position:relative;justify-content:flex-start;gap:0}
+.gp-fitting-tabs>.gp-btn,.gp-fitting-tabs>.gp-module,.gp-tab-measure>*{flex:none;white-space:nowrap}
+.gp-tab-measure{position:absolute;top:0;left:0;display:flex;width:max-content;visibility:hidden;pointer-events:none}
+.gp-header-menu .gp-module{display:inline-flex;align-items:center;justify-content:center;min-height:44px;font-size:13px;padding:0 8px}
+.gp-header-menu .gp-header-more{min-width:36px;font-size:21px}
 .gp-header-overflow:not([hidden]){display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:2px;position:absolute;top:100%;right:6px;width:min(420px,calc(100vw - 12px));max-height:70dvh;overflow:auto;background:var(--gp-primary);padding:6px;border-radius:0 0 6px 6px;box-shadow:0 8px 18px #0004}
 .gp-header-overflow>.gp-module{text-align:left;min-height:44px}
 .gp-topbar .gp-header-employee,.gp-topbar .gp-offline-indicator>.gp-btn{min-height:44px;padding:0 5px;border:0;box-shadow:none;background:transparent;color:inherit;font:inherit}
@@ -157,10 +159,9 @@
  .gp-topbar{padding:0 4px;gap:3px}
  .gp-topbar>.gp-brand{max-width:none;font-size:13px}
  .gp-topbar .gp-header-employee{max-width:26vw;font-size:12px}
- .gp-app-navigation{flex:1 0 auto}
- .gp-header-menu>.gp-module{font-size:12px;padding:0 6px}
- .gp-header-menu>.gp-header-secondary{display:none}
- .gp-header-more{padding:0 4px;min-width:32px}
+ .gp-app-navigation{flex:1 0 198px}
+ .gp-header-menu .gp-module{font-size:12px;padding:0 6px}
+ .gp-header-menu .gp-header-more{padding:0 4px;min-width:32px}
 }
 .gp-calendar-map { padding: .75rem; }
 .gp-map-stop { display: grid; grid-template-columns: minmax(5rem, auto) minmax(0, 1fr) auto; align-items: start; gap: .75rem; padding: .75rem 0; border-bottom: 1px solid #dce5ec; }

@@ -72,7 +72,7 @@ export function CalendarWorkspace({onSlot,onNewTicket,onOpenTicket,refreshKey=0,
   return appointmentStyle({...full,scheduledStart:t.scheduledStart,...(type?{presentationCategory:type}:{})},presentation);
  }
  const[touchInput,setTouchInput]=useState(false);useEffect(()=>{setTouchInput(window.matchMedia('(any-pointer:coarse)').matches)},[]);
- const longPressed=useRef(false),pointerKind=useRef('mouse'),hold=useRef<ReturnType<typeof setTimeout>|null>(null),touchStart=useRef<{x:number;y:number}|null>(null),ignoreClickUntil=useRef(0),ticketOpen=useRef(false),touchMove=useRef<{ticket:Ticket;x:number;y:number;offsetY:number;moved:boolean}|null>(null);const[touchGhost,setTouchGhost]=useState<{x:number;y:number;ticket:Ticket;destination?:string}|null>(null);
+ const longPressed=useRef(false),pointerKind=useRef('mouse'),hold=useRef<ReturnType<typeof setTimeout>|null>(null),touchStart=useRef<{x:number;y:number}|null>(null),ignoreClickUntil=useRef(0),ticketOpen=useRef(false),touchMove=useRef<{pointerId:number;x:number;y:number;offsetY:number;moved:boolean}|null>(null);const[touchGhost,setTouchGhost]=useState<{x:number;y:number;ticket:Ticket;destination?:string}|null>(null);
  function clearHold(){if(hold.current)clearTimeout(hold.current);hold.current=null;}
  function showHover(t:Ticket,el:HTMLElement,touch=false){if(ticketOpen.current)return;const pos=popupPosition(el.getBoundingClientRect(),window.innerWidth,window.innerHeight);setHoverDetails([]);setHover({ticket:calendarHoverTicket(t,tickets),x:pos.left,y:pos.top,width:pos.width,touch});}
  function openAppointment(t:Ticket,explicit=false){if(!explicit&&Date.now()<ignoreClickUntil.current)return;clearHold();setHover(null);ticketOpen.current=true;onOpenTicket(t.id);}
@@ -120,12 +120,12 @@ export function CalendarWorkspace({onSlot,onNewTicket,onOpenTicket,refreshKey=0,
     const card=e.currentTarget.closest<HTMLElement>('.gp-day-appointment,.gp-week-appointment');
     if(!card)return;
     setHover(null);beginHold(t,card,e.clientX,e.clientY);
-    touchMove.current={ticket:t,x:e.clientX,y:e.clientY,offsetY:e.clientY-card.getBoundingClientRect().top,moved:false};
+    touchMove.current={pointerId:e.pointerId,x:e.clientX,y:e.clientY,offsetY:e.clientY-card.getBoundingClientRect().top,moved:false};
     e.currentTarget.setPointerCapture(e.pointerId);
    }}
    onPointerMove={e=>{
     const motion=touchMove.current;
-    if(!motion||longPressed.current)return;
+    if(motion?.pointerId!==e.pointerId||longPressed.current)return;
     motion.moved=motion.moved||Math.hypot(e.clientX-motion.x,e.clientY-motion.y)>8;
     if(!motion.moved)return;
     clearHold();
@@ -139,20 +139,22 @@ export function CalendarWorkspace({onSlot,onNewTicket,onOpenTicket,refreshKey=0,
    }}
    onPointerUp={e=>{
     const motion=touchMove.current;
-    if(!motion)return;
+    if(motion?.pointerId!==e.pointerId)return;
     e.preventDefault();e.stopPropagation();
-    const move=motion.moved&&!longPressed.current;
+    const held=longPressed.current;
+    const moved=motion.moved||Math.hypot(e.clientX-motion.x,e.clientY-motion.y)>8;
     finishTouch();touchMove.current=null;setTouchGhost(null);
     ignoreClickUntil.current=Date.now()+700;
     if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
-    if(!move)return;
+    if(held)return;
+    if(!moved){openAppointment(t,true);return}
     const target=touchDestination(t,e.clientX,e.clientY,motion.offsetY);
     if(!target)return;
     const start=localToInstant(localInputDate(target.start),timezone);
     if(target.resource)void moveToResource(t,start,target.resource);
     else void moveCalendarPet(t,start);
    }}
-   onPointerCancel={()=>{finishTouch();touchMove.current=null;setTouchGhost(null)}}>⠿</span>;
+   onPointerCancel={e=>{if(touchMove.current?.pointerId===e.pointerId){finishTouch();touchMove.current=null;setTouchGhost(null)}}}>⠿</span>;
  }
 
  const[blocks,setBlocks]=useState<CalendarBlock[]>([]),[blockMode,setBlockMode]=useState(false),[blockEdit,setBlockEdit]=useState<CalendarBlock|null>(null),[blockBusy,setBlockBusy]=useState(false);

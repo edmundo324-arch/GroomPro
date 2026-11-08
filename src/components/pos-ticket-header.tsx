@@ -1,4 +1,5 @@
 "use client";
+import {useEffect,useRef,useState} from 'react';
 
 export function PosCustomerTitle({name,onEdit,onReplace,disabled=false}:{
  name:string;onEdit:()=>void;onReplace:()=>void;disabled?:boolean
@@ -18,13 +19,21 @@ export function PosCustomerTitle({name,onEdit,onReplace,disabled=false}:{
  </div>;
 }
 
-export function PosVisitStamps({checkedIn,completed,timezone,contactNeeded=false}:{
- checkedIn?:string|null;completed?:string|null;timezone:string;contactNeeded?:boolean
+export function PosVisitStamps({checkedIn,completed,called,texted,timezone,contactNeeded=false}:{
+ checkedIn?:string|null;completed?:string|null;called?:string|null;texted?:string|null;timezone:string;contactNeeded?:boolean
 }){
  const format=(value:string)=>new Date(value).toLocaleTimeString(undefined,{timeZone:timezone,hour:'numeric',minute:'2-digit'});
+ const stamps=[
+  ['Checked in',checkedIn,'M3 12h11m-4-4 4 4-4 4M16 4h5v16h-5'],
+  ['Completed',completed,'M5 12l4 4L19 6M5 5h8m6 7v7H5v-3'],
+  ['Called',called,'M6 3h3l2 5-2 2a13 13 0 0 0 5 5l2-2 5 2v3c0 2-2 3-4 3A17 17 0 0 1 3 7c0-2 1-4 3-4Z'],
+  ['Texted',texted,'M3 5h18v12H9l-6 4V5Zm4 5h10m-10 3h6'],
+ ] as const;
  return <div className="gp-pos-visit-stamps" aria-label="Visit times">
-  <span>Checked in {checkedIn?<time dateTime={checkedIn}>{format(checkedIn)}</time>:'—'}</span>
-  <span>Completed {completed?<time dateTime={completed}>{format(completed)}</time>:'—'}</span>
+  {stamps.map(([label,at,path])=><span key={label} title={at?label+' '+format(at):label} aria-label={label}>
+   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path||''}/></svg>
+   {at&&<time dateTime={at}>{format(at)}</time>}
+  </span>)}
   {contactNeeded&&<strong className="gp-pos-contact-needed" role="status"><span aria-hidden="true">!</span> Call and text</strong>}
  </div>;
 }
@@ -36,8 +45,21 @@ export function PosTicketLabel({number,compact=false}:{number?:number;compact?:b
  </span>;
 }
 
-export function PosDetailsButton({expanded,onClick}:{expanded:boolean;onClick:()=>void}){
- return <button type="button" className="gp-btn gp-phone-only gp-pos-details-toggle" aria-expanded={expanded} aria-label="Ticket details" title="Ticket details" onClick={onClick}>
-  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>
- </button>;
+export function PosHeaderMenu({details,onDetails,onCall,callPending=false}:{
+ details?:boolean;onDetails?:()=>void;onCall?:()=>void;callPending?:boolean
+}){
+ const [open,setOpen]=useState(false),root=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null);
+ useEffect(()=>{
+  if(!open)return;
+  const outside=(e:PointerEvent)=>{if(!root.current?.contains(e.target as Node))setOpen(false)};
+  document.addEventListener('pointerdown',outside);
+  return()=>document.removeEventListener('pointerdown',outside);
+ },[open]);
+ return <div ref={root} className="gp-pos-header-menu" onKeyDown={e=>{if(open&&e.key==='Escape'){e.stopPropagation();setOpen(false);button.current?.focus()}}}>
+  <button ref={button} type="button" className="gp-btn" aria-label="Ticket actions" title="Ticket actions" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>⋯</button>
+  {open&&<div className="gp-ticket-tab-menu">
+   {onDetails&&<button type="button" className="gp-btn" onClick={()=>{setOpen(false);onDetails()}}>{details?'Back to ticket':'Details'}</button>}
+   <button type="button" className="gp-btn" disabled={!onCall||callPending} onClick={()=>{setOpen(false);onCall?.()}}>Record pickup call</button>
+  </div>}
+ </div>;
 }

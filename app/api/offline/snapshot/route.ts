@@ -9,6 +9,7 @@ import { attendingPets } from '@/src/lib/appointment-pets';
 import { lineStartsKey } from '@/src/lib/line-time-store';
 import { customerReferrals } from '@/src/lib/customer-referrals';
 import { plannedSettingKey } from '@/src/lib/planned-package-store';
+import { pickupCallAction, pickupCallTime, pickupContacts } from '@/src/lib/pickup-call';
 
 async function snapshot(request: NextRequest) {
   const tenantId = request.headers.get('x-tenant-id') || request.cookies.get('groompro_tenant')?.value || process.env.GROOMPRO_DEV_TENANT_ID || '';
@@ -63,9 +64,20 @@ async function snapshot(request: NextRequest) {
     db.posDraft.findMany({ where: { tenantId, locationId, promotedAt: null } }),
     customerReferrals(tenantId, customerIds),
   ]);
-  const settings = await db.tenantSetting.findMany({ where: { tenantId, settingKey: { in: tickets.flatMap(ticket => [lineStartsKey(ticket.id), plannedSettingKey(ticket.id)]) } }, select: { settingKey: true, value: true } });
+  const readyIds=tickets.filter(ticket=>ticket.pickupAt).map(ticket=>ticket.id);
+  const [settings,calls]=await Promise.all([
+    db.tenantSetting.findMany({ where: { tenantId, settingKey: { in: tickets.flatMap(ticket => [lineStartsKey(ticket.id), plannedSettingKey(ticket.id)]) } }, select: { settingKey: true, value: true } }),
+    readyIds.length?db.auditEntry.findMany({where:{tenantId,entityType:'TICKET',entityId:{in:readyIds},action:pickupCallAction},orderBy:{occurredAt:'asc'},select:{entityId:true,occurredAt:true,details:true}}):[],
+  ]);
   const values = new Map(settings.map(entry => [entry.settingKey, entry.value]));
-  const records = tickets.map(ticket => ({ ...attendingPets(ticket), lineStarts: values.get(lineStartsKey(ticket.id)) || {}, plannedAssignments: (values.get(plannedSettingKey(ticket.id)) as { items?: unknown } | undefined)?.items || [] }));
+  const latestCall=new Map(calls.map(call=>[call.entityId,call]));
+  const contactsByCustomer=new Map(customers.map(customer=>[customer.id,customer.communications.filter(c=>c.direction==='OUTBOUND'&&['SENT','DELIVERED'].includes(c.deliveryStatus))]));
+  const records = tickets.map(ticket => {
+    const call=latestCall.get(ticket.id);
+    return {...attendingPets(ticket),lineStarts:values.get(lineStartsKey(ticket.id))||{},plannedAssignments:(values.get(plannedSettingKey(ticket.id)) as {items?:unknown}|undefined)?.items||[],
+      pickupCalledAt:pickupCallTime(ticket.pickupAt&&call&&call.occurredAt>=ticket.pickupAt?call:null),
+      ...pickupContacts(ticket.id,ticket.pickupAt,contactsByCustomer.get(ticket.customerId)||[])};
+  });
   return NextResponse.json({
     scope: { tenantId, locationId, employeeId: session.user.id },
     employee: { id: session.user.id, displayName: session.user.displayName, firstName: session.user.firstName, lastName: session.user.lastName, role: session.user.role },

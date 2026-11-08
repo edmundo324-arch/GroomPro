@@ -7,13 +7,13 @@ const {validatePlannedPackages,plannedCalendarCard,plannedFor}=require('../src/l
 const {packageKey}=require('../src/lib/package-display.ts');
 const {PosItems}=require('../src/components/pos-items.tsx');
 test('compact POS header shows a ticket number and accessible icon controls',()=>{
- const {PosTicketLabel,PosDetailsButton}=require('../src/components/pos-ticket-header.tsx');
+ const {PosTicketLabel,PosHeaderMenu}=require('../src/components/pos-ticket-header.tsx');
  const render=(component,props)=>renderToStaticMarkup(React.createElement(component,props));
  const compact=render(PosTicketLabel,{number:476,compact:true});
  assert.match(compact,/<svg/);assert.match(compact,/#476/);
  assert.match(render(PosTicketLabel,{number:476}),/POS Ticket.*#476/);
- const details=render(PosDetailsButton,{expanded:false,onClick:()=>{}});
- assert.match(details,/aria-label="Ticket details"/);assert.match(details,/<svg/);assert.doesNotMatch(details,/>Details</);
+ const actions=render(PosHeaderMenu,{onDetails:()=>{},onCall:()=>{}});
+ assert.match(actions,/aria-label="Ticket actions"/);assert.match(actions,/>⋯<\/button>/);assert.doesNotMatch(actions,/>Details</);
  const record=fs.readFileSync('src/components/pos-ticket-record.tsx','utf8');
  assert.match(record,/\{!phone&&ticketTabsControl\}[\s\S]*?<PromotingServices[\s\S]*?\{phone&&ticketTabsControl\}/);
 });
@@ -58,5 +58,34 @@ test('the paper ticket shows pet icons and inline service types without repeatin
  const header=renderToStaticMarkup(React.createElement(PosCustomerTitle,{name:'Betty Smith',onEdit:noop,onReplace:noop}));
  assert.match(header,/Edit customer Betty Smith/);assert.match(header,/Replace customer/);assert.equal((header.match(/<svg /g)||[]).length,2);
  const stamps=renderToStaticMarkup(React.createElement(PosVisitStamps,{timezone:'America/Chicago',completed:'2026-11-09T15:00:00Z',contactNeeded:true}));
- assert.match(stamps,/Completed <time/);assert.match(stamps,/Call and text/);
+ for(const label of ['Checked in','Completed','Called','Texted'])assert.ok(stamps.includes(`aria-label="${label}"`));
+ assert.match(stamps,/<time dateTime="2026-11-09T15:00:00Z"/);assert.match(stamps,/Call and text/);
+});
+test('toolbar fitting reserves required tabs and moves extras as room changes',()=>{
+ const {fittingTabs}=require('../src/lib/fitting-tabs.ts');
+ const tabs=['Items','Rebook','History','Notes','VIP'],widths=new Map(tabs.map(tab=>[tab,50]));
+ assert.deepEqual(fittingTabs(tabs,['Items','Rebook','Notes'],widths,199,32),['Items','Rebook','Notes']);
+ assert.deepEqual(fittingTabs(tabs,['Items','Rebook','Notes'],widths,232,32),['Items','Rebook','History','Notes']);
+ assert.deepEqual(fittingTabs(tabs,['Items','Rebook','Notes'],widths,250,32),tabs);
+});
+test('pickup timestamps use the recorded call and a sent SMS for the current ready event',()=>{
+ const {pickupCallTime,pickupContacts}=require('../src/lib/pickup-call.ts');
+ const ready=new Date('2026-11-09T15:00:00Z'),sms=new Date('2026-11-09T15:04:00Z');
+ const contact=(sentAt,channel,subject='Ready for pickup',ticketId='ticket')=>({sentAt,channel,subject,ticketId});
+ assert.equal(pickupCallTime({occurredAt:sms,details:{calledAt:'2026-11-09T15:02:00Z'}}),'2026-11-09T15:02:00Z');
+ assert.deepEqual(pickupContacts('ticket',ready,[contact(new Date(+ready-1),'SMS'),contact(sms,'SMS','Reminder'),contact(sms,'SMS','Ready for pickup','other')]),{readyContacted:false,pickupTextedAt:null});
+ assert.deepEqual(pickupContacts('ticket',ready,[contact(new Date(+sms+60000),'EMAIL'),contact(sms,'SMS')]),{readyContacted:true,pickupTextedAt:sms});
+});
+test('a saved POS ticket renders the empty ticket layout while its record loads',()=>{
+ const Module=require('node:module'),path=require('node:path'),resolve=Module._resolveFilename;
+ const css=require.extensions['.css'];
+ Module._resolveFilename=function(name,...args){return resolve.call(this,name.startsWith('@/')?path.resolve(name.slice(2)):name,...args)};
+ require.extensions['.css']=()=>{};
+ try{
+  const {PosTicketRecord}=require('../src/components/pos-ticket-record.tsx');
+  const html=renderToStaticMarkup(React.createElement(PosTicketRecord,{ticketId:'loading-ticket',onClose:()=>{}}));
+  for(const label of ['Loading POS Ticket','Ticket sections','Dog','Service / item','Offer Today','Schedule / Leave Open','Payment'])assert.ok(html.includes(label),label);
+  assert.match(html,/class="gp-floating-window[^"]+gp-pos-loading"/);
+  assert.doesNotMatch(html,/\$0\.00|Opening ticket…/);
+ }finally{Module._resolveFilename=resolve;if(css)require.extensions['.css']=css;else delete require.extensions['.css']}
 });

@@ -42,8 +42,9 @@
 .gp-pos-desktop .gp-pos-footer-general{order:var(--gp-footer-general-order,0)}
 .gp-pos-desktop .gp-pos-totals{order:var(--gp-footer-totals-order,1)}
 .gp-pos-desktop .gp-pos-checkout{order:var(--gp-footer-payment-order,2)}
-.gp-ticket-tab-overflow{position:relative;min-width:0}
+.gp-ticket-tab-overflow{min-width:0}
 .gp-ticket-tab-menu{position:absolute;right:0;top:100%;z-index:150;background:white;border:1px solid #bdc8d1;border-radius:5px;padding:5px;min-width:190px;box-shadow:0 5px 15px #0003}
+.gp-ticket-tabs .gp-ticket-tab-menu{left:0;right:auto}
 .gp-ticket-tab-menu>.gp-btn{display:block;width:100%;text-align:left;margin:3px 0}
 .gp-pos-phone .gp-phone-only{display:flex!important}
 .gp-pos-phone>.gp-floating-head{padding:0 7px;gap:3px;flex-wrap:nowrap}
@@ -65,7 +66,7 @@
 .gp-pos-phone .gp-pos-pet-instructions{height:auto;min-height:28px;padding:0 4px;gap:5px;font-size:12px;border-top:1px solid #dce1e5;border-radius:0;background:none}
 .gp-pos-phone .gp-pos-pet-instructions>.gp-btn{min-height:28px;padding:0 4px;text-decoration:underline;text-underline-offset:3px}
 .gp-pos-phone .gp-ticket-tabs{display:flex;flex-wrap:nowrap;gap:0;overflow:visible;border-bottom:1px solid #dce1e5}
-.gp-pos-phone .gp-ticket-tabs>.gp-btn,.gp-pos-phone .gp-ticket-tab-overflow{flex:1;min-width:0}
+.gp-pos-phone .gp-ticket-tabs>.gp-btn,.gp-pos-phone .gp-ticket-tab-overflow{flex:none;min-width:0}
 .gp-pos-phone .gp-ticket-tabs .gp-btn{font-size:12px;min-height:44px;padding:0 4px}
 .gp-pos-phone .gp-ticket-tab-overflow>.gp-btn{width:100%;white-space:normal}
 .gp-pos-phone .gp-pos-footer{display:none}
@@ -164,7 +165,7 @@
 .gp-pos-desktop .gp-pos-pet-chip>.gp-btn{display:flex;flex-direction:row;align-items:center;gap:5px;padding:2px 3px;min-height:0}
 .gp-pos-desktop .gp-pos-pet-instructions{height:30px;padding:2px 5px;margin:0}
 .gp-pos-desktop .gp-ticket-workbar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;flex:none;padding:2px 7px;min-width:0;border-block:1px solid #dce1e5}
-.gp-pos-desktop .gp-ticket-workbar>.gp-ticket-tabs{flex:0 0 auto;flex-wrap:nowrap;gap:4px;padding:0;min-height:30px}
+.gp-pos-desktop .gp-ticket-workbar>.gp-ticket-tabs{flex:0 1 auto;width:min(var(--gp-tab-ideal-width,100%),100%);flex-wrap:nowrap;gap:0;padding:0;min-height:30px}
 .gp-pos-desktop .gp-ticket-workbar .gp-ticket-tabs .gp-btn{padding:4px 6px}
 .gp-pos-desktop .gp-ticket-workbar>.gp-pos-promotions{flex:1 1 340px;min-height:32px;height:32px;max-height:32px;padding:0;border:0;min-width:0}
 .gp-pos-desktop .gp-ticket-workbar .gp-pos-promotions>select{width:105px;padding:3px 4px}
@@ -331,7 +332,7 @@
 
 .gp-calendar-context-menu{position:fixed;z-index:3000;background:white;padding:4px;border:1px solid #b9c6ce;border-radius:4px;box-shadow:0 4px 12px #0003}
 
-.gp-pos-phone>.gp-ticket-workbar>.gp-ticket-tabs{margin:0;padding:0 6px;flex:none}
+.gp-pos-phone>.gp-ticket-workbar>.gp-ticket-tabs{margin:0;padding:0;flex:none}
 .gp-pos-phone .gp-flat-items{width:100%;min-width:760px;table-layout:auto}
 .gp-pos-phone .gp-flat-items .gp-pos-component-row[data-collapsed=true]{display:none}
 .gp-pos-phone .gp-flat-items .gp-inline-item-value>.gp-inline-value-text{min-height:26px;padding:2px 4px;white-space:nowrap}
@@ -399,10 +400,10 @@
 .gp-pos-edit-customer>span{overflow:hidden;text-overflow:ellipsis}
 .gp-pos-customer-title .gp-btn svg{display:block;flex:none}
 .gp-pos-desktop>.gp-ticket-titlebar{justify-content:flex-start;flex-wrap:wrap}
-.gp-pos-desktop>.gp-ticket-titlebar>.gp-pos-visit-stamps{margin-left:auto}
+.gp-ticket-titlebar>.gp-pos-visit-stamps{flex:1 0 auto;justify-content:center}
 .gp-pos-desktop>.gp-ticket-titlebar>.gp-btn:not(.gp-phone-only){flex:none}
 .gp-pos-visit-stamps{display:flex;align-items:center;flex-wrap:wrap;gap:2px 9px;font-size:11px}
-.gp-pos-visit-stamps>span{white-space:nowrap}
+.gp-pos-visit-stamps>span{display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
 .gp-pos-visit-stamps time{font-weight:700}
 .gp-pos-contact-needed{display:inline-flex;align-items:center;gap:3px;background:#fff2c0;color:#603a00;padding:1px 4px;border-radius:3px;white-space:nowrap}
 .gp-pos-contact-needed>span{border:1px solid currentColor;border-radius:50%;width:12px;height:12px;line-height:10px;text-align:center}
@@ -425,10 +426,20 @@
 .gp-pos-desktop .gp-pos-pet-chip>.gp-btn>small{grid-area:2/1/3/3}
 .gp-pos-desktop .gp-pet-strip-indicators{grid-area:1/2;z-index:1}
 .gp-pos-window-actions{display:flex;align-items:center;flex:none;gap:3px;margin-left:auto}
-.gp-pos-desktop .gp-pos-window-actions{margin-left:0}
 .gp-pos-phone .gp-pos-window-actions>.gp-btn:first-child{display:none}
 .gp-pos-phone .gp-pos-window-actions>.gp-btn{min-height:44px}
 .gp-pos-desktop .gp-pos-pet-chip>.gp-btn[aria-pressed]{background:transparent}
 .gp-pos-ticket-label{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
 .gp-pos-ticket-label>svg{flex:none}
-.gp-pos-phone>.gp-ticket-titlebar>.gp-pos-details-toggle{align-items:center;justify-content:center;min-width:44px}
+.gp-ticket-tabs.gp-fitting-tabs{gap:0}
+.gp-ticket-tab-more,.gp-pos-header-menu>.gp-btn{min-width:32px;font-weight:bold}
+.gp-pos-header-menu{position:relative;flex:none}
+.gp-pos-header-menu>.gp-ticket-tab-menu{right:0;left:auto;z-index:12;width:max-content}
+.gp-pos-header-menu>.gp-ticket-tab-menu>.gp-btn{width:100%;text-align:left}
+.gp-pos-phone .gp-pos-header-menu>.gp-btn{min-height:44px;min-width:44px}
+.gp-pos-phone .gp-pos-visit-stamps{flex:0 1 auto}
+@media(max-width:599px),(orientation:landscape) and (max-height:499px){
+ .gp-pos-phone .gp-pos-visit-stamps{display:none}
+}
+.gp-pos-loading .gp-pos-loading-value{visibility:hidden}
+.gp-pos-loading-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
