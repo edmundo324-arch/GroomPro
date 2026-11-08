@@ -34,3 +34,18 @@ test('coverage distinguishes groomers, wash-qualified bathers and bathers who ca
  for(const type of ['FW','FW VIP'])assert.equal(coverageQualified(wash,type),true);
  assert.equal(coverageQualified(wash,'FFT'),false);assert.equal(coverageQualified(fft,'FFT'),true);
 });
+
+test('the paper ticket shows pet icons and inline service types without repeating the planned label',()=>{
+ const {PosPetStrip}=require('../src/components/pos-pet-strip.tsx');
+ const {PosCustomerTitle,PosVisitStamps}=require('../src/components/pos-ticket-header.tsx');
+ const noop=()=>{},pets=[{id:'coco',name:'Coco',vipMember:true},{id:'fluffy',name:'Fluffy',vipEligible:true,careFlags:{vipConversationAt:true}}];
+ const strip=renderToStaticMarkup(React.createElement(PosPetStrip,{pets,indicators:ticketWorkspace(null).petIndicators,packageIds:[],summaries:{},onPackage:noop,onNotes:noop}));
+ assert.doesNotMatch(strip,/>Pets \(2\)/);assert.match(strip,/Coco: VIP member/);assert.match(strip,/Fluffy: VIP conversation recorded/);
+ const items=renderToStaticMarkup(React.createElement(PosItems,{lines,pets,employees:[],catalog:{},selectedPet:'coco',serviceTypeControl:()=>React.createElement('button',null,'GR'),onAdd:noop,onEdit:noop,onRemove:noop,onPet:noop,onPlan:noop}));
+ assert.match(items,/Existing actual package<\/strong><span class="gp-dog-service-type"/);
+ assert.doesNotMatch(items,/>Planned employee</);assert.match(items,/aria-label="Planned employee for Coco"/);
+ const header=renderToStaticMarkup(React.createElement(PosCustomerTitle,{name:'Betty Smith',onEdit:noop,onReplace:noop}));
+ assert.match(header,/Edit customer Betty Smith/);assert.match(header,/Replace customer/);assert.equal((header.match(/<svg /g)||[]).length,2);
+ const stamps=renderToStaticMarkup(React.createElement(PosVisitStamps,{timezone:'America/Chicago',completed:'2026-11-09T15:00:00Z',contactNeeded:true}));
+ assert.match(stamps,/Completed <time/);assert.match(stamps,/Call and text/);
+});

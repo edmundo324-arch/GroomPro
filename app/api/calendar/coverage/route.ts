@@ -35,7 +35,6 @@ async function review(request:NextRequest){
   const selected=parseDate(body.date||today);
   let first=dateKey(selected),through:string|undefined=shiftDate(first,1);
   if(!sickId){
-   if(range==='day'){first=today;through=shiftDate(first,1)}
    if(range==='week')through=shiftDate(first,7);
    if(range==='month'){first=dateKey(new Date(selected.getFullYear(),selected.getMonth(),1,12));through=dateKey(new Date(selected.getFullYear(),selected.getMonth()+1,1,12));}
    if(range==='upcoming'){first=today;through=undefined;}

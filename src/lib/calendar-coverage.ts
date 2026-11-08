@@ -1,4 +1,4 @@
-export const coverageRanges={day:'Today',week:'Week',month:'Month',upcoming:'All Upcoming'} as const;
+export const coverageRanges={day:'Calendar date',week:'Week',month:'Month',upcoming:'All Upcoming'} as const;
 export type CoverageRange=keyof typeof coverageRanges;
 export const coverageManagerRoles=['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER','FLOOR_MANAGER'];
 
