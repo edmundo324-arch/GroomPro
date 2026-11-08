@@ -35,3 +35,43 @@ test('Settings search renders and sends import terms to two distinct controls wi
   assert.ok(importer.includes(text),text);
  }
 });
+
+test('Settings search finds operational controls and routes each result to a real Settings section',()=>{
+ const {findSettings,settingsSearchEntries,settingsBreadcrumb}=require('../src/lib/settings-search.ts');
+ const read=name=>fs.readFileSync('src/components/'+name+'.tsx','utf8');
+ const tabs=read('settings')+read('workflow-settings');
+ const anchors=['customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings'].map(read).join('\n');
+ for(const entry of settingsSearchEntries){
+  const labels=settingsBreadcrumb(entry).split(' → ').slice(1,entry.path.length+1);
+  entry.path.forEach((id,index)=>assert.ok(tabs.includes("id:'"+id+"',label:'"+labels[index]+"'"),entry.title+' → '+id));
+  if(entry.anchor)assert.ok(anchors.includes('data-settings-target="'+entry.anchor+'"'),entry.title);
+ }
+ const queries={
+  'workflow/ticket-layout':['tax','sales taxes','POS header color','remove package discount','planned employee','VIP icon','VIP sales conversation','assign unassigned','called in sick','new POS ticket button','calendar sidebar','three month calendar'],
+  'workflow/appearance':['calendar colors','gradient strength','border thickness','copy appearance','manufacturer colors'],
+  'workflow/popup':['calendar popup','pet weight'],
+  'workflow/profiles':['show inactive pets'],
+  'workflow/booking':['default appointment timing','warning days','missing veterinarian','nearby appointment warning'],
+  'workflow/calendar-preferences':['100 px','reorder assets','unassigned other','device preferences'],
+  'workflow/business-hours-rule':['outside business hours'],
+  'workflow/whiteboard':['bather also prepares','bath team'],
+  'workflow/authorization':['PIN per protected action','commission qualification'],
+  'workflow/billing':['VIP billing'],
+  'locations/hours':['holidays','special hours'],
+  'locations/sharing':['customer sharing'],
+  rewards:['no-show fee','reward points per dollar','first groom credit'],
+  'administration/access':['product name','rename GroomPro','turn business modules off'],
+  'administration/subscription':['texting and calling'],
+  'data/imports':['choose related files','load prepared data','demo customer addresses'],
+  'data/123pet':['123Pet connector'],
+  categories:['employee categories'],
+  'visual-layouts':['customize module layouts']
+ };
+ for(const [path,terms] of Object.entries(queries))for(const term of terms){
+  assert.ok(findSettings(term,'PLATFORM_OWNER').some(entry=>entry.path.join('/')===path),term);
+ }
+ assert.equal(findSettings('sales taxes','ADMIN')[0].anchor,'pos-sales-tax');
+ assert.equal(findSettings('no-show fee','MANAGER')[0].anchor,'no-show-fee');
+ assert.equal(findSettings('product name','DEVELOPER').some(entry=>entry.anchor==='product-name'),false);
+ assert.equal(findSettings('product name','PLATFORM_OWNER')[0].anchor,'product-name');
+});

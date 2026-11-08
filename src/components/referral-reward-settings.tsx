@@ -29,7 +29,7 @@ export function ReferralRewardSettings() {
     finally { setBusy(false); }
   }
   return <form className="gp-settings-card" onSubmit={event => { event.preventDefault(); void save(); }}>
-    <h3>Customer referral credit</h3>
+    <h3 data-settings-target="customer-referral-credit" tabIndex={-1}>Customer referral credit</h3>
     <p>At checkout for the new customer’s first paid groom, each customer receives this account credit once. The factory amount is $10.00 each. Use $0.00 to turn off the credit.</p>
     <label>Credit per customer ($)<input type="number" min="0" max="1000" step="0.01" required value={amount} onChange={event => setAmount(event.target.value)}/></label>
     <button type="submit" className="gp-btn primary" disabled={busy}>Save referral credit</button>

@@ -51,7 +51,7 @@ export function SettingsSearch({role,children}:{role?:string;children:React.Reac
             <strong>{entry.title}</strong>
             <small>{settingsBreadcrumb(entry)}</small>
             <span>{entry.description}</span>
-            {!role&&entry.access&&<small>{entry.access==='platform'?'Owner or Developer PIN required':entry.access==='admin'?'Administrator PIN required':'Manager PIN required'}</small>}
+            {!role&&entry.access&&<small>{entry.access==='owner'?'Owner PIN required':entry.access==='platform'?'Owner or Developer PIN required':entry.access==='admin'?'Administrator PIN required':'Manager PIN required'}</small>}
           </button>
         </li>)}</ul>:<p role="status">No settings match. Try a task like “import customers” or “Calendar colors”.</p>}
       </div>}

@@ -45,20 +45,32 @@ export function SettingsSections({id,label,sections,initial}:{id:string;label:st
   if(!ready||!visible||!destination||!requested||!ids.includes(requested))return;
   if(active!==requested){choose(requested);return;}
   if(path?.length!==branch.length+1)return;
+  let observer:MutationObserver|undefined;
+  let revealed=false;
   const frame=requestAnimationFrame(()=>{
    const panel=root.current?.querySelector<HTMLElement>(':scope > .gp-settings-section-panels > [data-settings-panel="'+active+'"]');
    if(!panel)return;
-   const anchor=destination.entry.anchor;
-   const target=anchor?panel.querySelector<HTMLElement>('[data-settings-target="'+anchor+'"]'):panel;
-   if(!target)return;
-   panel.dispatchEvent(new Event('groompro:settings-reveal'));
-   target.focus({preventScroll:true});
-   target.scrollIntoView({block:'nearest',inline:'nearest'});
-   target.classList.add('gp-settings-search-target');
-   setTimeout(()=>target.classList.remove('gp-settings-search-target'),2200);
-   destination.done();
+   const reveal=()=>{
+    if(revealed)return;
+    const anchor=destination.entry.anchor;
+    const target=anchor?panel.querySelector<HTMLElement>('[data-settings-target="'+anchor+'"]'):panel;
+    if(!target)return;
+    revealed=true;
+    observer?.disconnect();
+    panel.dispatchEvent(new Event('groompro:settings-reveal'));
+    target.focus({preventScroll:true});
+    target.scrollIntoView({block:'nearest',inline:'nearest'});
+    target.classList.add('gp-settings-search-target');
+    setTimeout(()=>target.classList.remove('gp-settings-search-target'),2200);
+    destination.done();
+   };
+   reveal();
+   if(!revealed){
+    observer=new MutationObserver(reveal);
+    observer.observe(panel,{childList:true,subtree:true});
+   }
   });
-  return()=>cancelAnimationFrame(frame);
+  return()=>{cancelAnimationFrame(frame);observer?.disconnect()};
  },[active,ready,visible,requested,destination,signature]);
  return <div ref={root} data-settings-id={id} className={'gp-settings-sections'+(narrow?' is-narrow':'')}>
   <nav className="gp-settings-section-tabs" role="tablist" aria-label={label}>{sections.map((section,index)=><button type="button" role="tab" id={uid+'-tab-'+section.id} aria-controls={uid+'-panel-'+section.id} aria-selected={active===section.id} tabIndex={active===section.id?0:-1} key={section.id} onClick={()=>{destination?.done();choose(section.id)}} onKeyDown={event=>{const offset=event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0;if(!offset&&!['Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?sections.length-1:(index+offset+sections.length)%sections.length;destination?.done();choose(sections[next].id);document.getElementById(uid+'-tab-'+sections[next].id)?.focus()}}><SettingsTabIcon name={section.id}/>{section.label}</button>)}</nav>

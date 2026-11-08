@@ -38,11 +38,11 @@ export function RewardSettings() {
       <h2>Customer Account & Secret Rewards</h2>
       <p>Managers can control the No-Show Fee and how many Reward Points are earned per dollar spent.</p>
       <div className="gp-responsive-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
-        <div>
+        <div data-settings-target="no-show-fee" tabIndex={-1}>
           <span className="gp-label">No-Show Fee</span>
           <input className="gp-search-input" inputMode="decimal" value={fee} onChange={e => setFee(e.target.value)} disabled={loading} />
         </div>
-        <div>
+        <div data-settings-target="reward-points-rate" tabIndex={-1}>
           <span className="gp-label">Reward Points per $1 Spent</span>
           <input className="gp-search-input" inputMode="decimal" value={rate} onChange={e => setRate(e.target.value)} disabled={loading} />
         </div>

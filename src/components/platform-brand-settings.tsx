@@ -33,7 +33,7 @@ export function PlatformBrandSettings() {
     } catch (error) { setMessage((error as Error).message); }
     finally { setBusy(false); }
   }}>
-    <h2>Product name</h2>
+    <h2 data-settings-target="product-name" tabIndex={-1}>Product name</h2>
     <label>Displayed name<input required maxLength={60} value={name} onChange={e => setName(e.target.value)}/></label>
     <button type="submit" className="gp-btn primary" disabled={busy}>Save name</button>
     {message && <p role="status">{message}</p>}
