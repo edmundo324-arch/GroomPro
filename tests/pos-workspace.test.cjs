@@ -6,6 +6,17 @@ const {dogTicketTotals,defaultTicketTax}=require('../src/lib/dog-ticket-summary.
 const {validatePlannedPackages,plannedCalendarCard,plannedFor}=require('../src/lib/planned-package-rules.ts');
 const {packageKey}=require('../src/lib/package-display.ts');
 const {PosItems}=require('../src/components/pos-items.tsx');
+test('compact POS header shows a ticket number and accessible icon controls',()=>{
+ const {PosTicketLabel,PosDetailsButton}=require('../src/components/pos-ticket-header.tsx');
+ const render=(component,props)=>renderToStaticMarkup(React.createElement(component,props));
+ const compact=render(PosTicketLabel,{number:476,compact:true});
+ assert.match(compact,/<svg/);assert.match(compact,/#476/);
+ assert.match(render(PosTicketLabel,{number:476}),/POS Ticket.*#476/);
+ const details=render(PosDetailsButton,{expanded:false,onClick:()=>{}});
+ assert.match(details,/aria-label="Ticket details"/);assert.match(details,/<svg/);assert.doesNotMatch(details,/>Details</);
+ const record=fs.readFileSync('src/components/pos-ticket-record.tsx','utf8');
+ assert.match(record,/\{!phone&&ticketTabsControl\}[\s\S]*?<PromotingServices[\s\S]*?\{phone&&ticketTabsControl\}/);
+});
 const lines=[{id:'c1',petId:'coco',packageId:'p',packageName:'Existing actual package',packageGroupKey:'coco:p',description:'Existing actual package · Prep',role:'PREP',totalCents:2666,unitPriceCents:2666,quantity:1,durationMin:30},{id:'c2',petId:'coco',packageId:'p',packageName:'Existing actual package',packageGroupKey:'coco:p',description:'Existing actual package · Bath',role:'BATH',totalCents:2666,unitPriceCents:2666,quantity:1,durationMin:30},{id:'c3',petId:'coco',packageId:'p',packageName:'Existing actual package',packageGroupKey:'coco:p',description:'Existing actual package · Groom',role:'GROOM',totalCents:2668,unitPriceCents:2668,quantity:1,durationMin:100},{id:'c-extra',petId:'coco',description:'Massage',role:'ADD_ON',totalCents:1800,unitPriceCents:1800,quantity:1},{id:'f',petId:'fluffy',packageId:'f',packageName:'Other actual package',description:'Bath',role:'BATH',totalCents:8800,unitPriceCents:8800,quantity:1}];
 test('factory tabs use the approved order and malformed layouts never remove or repeat controls',()=>{const s=ticketWorkspace({desktop:{rows:[['date','date','bad'],[],[]],bottomRows:[['save','save'],[],[]],tabs:['Notes','bad','Notes'],fontSize:500}});assert.deepEqual(ticketWorkspace(null).desktop.tabs,ticketTabs);assert.equal(s.desktop.rows.flat().length,Object.keys(ticketControls).length);assert.equal(new Set(s.desktop.rows.flat()).size,Object.keys(ticketControls).length);assert.equal(s.desktop.bottomRows.flat().length,Object.keys(ticketBottomControls).length);assert.equal(s.desktop.fontSize,18);assert.equal(s.desktop.tabs.length,ticketTabs.length);assert.equal(s.taxRatePct,8.25);});
 test('desktop and phone placement stay independent and moving controls preserves every action',()=>{const source=ticketWorkspace(null),moved=relocateControl(source.desktop,'date',2,0);assert.equal(moved.rows[2][0],'date');assert.equal(source.phone.rows[0][0],'date');assert.equal(moved.rows.flat().filter(k=>k==='date').length,1);const bottom=relocateBottom(moved,'recordPayment',0,0);assert.equal(bottom.bottomRows[0][0],'recordPayment');assert.equal(bottom.bottomRows.flat().length,10);});

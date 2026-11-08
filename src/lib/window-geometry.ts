@@ -6,6 +6,13 @@ export function fitWindow(g:{left:number;top:number;width:number;height:number},
 }
 
 export type WindowGeometry={left:number;top:number;width:number;height:number};
+export type PosOrientation='landscape'|'portrait';
+export function posWindowOrientation(width:number,height:number):PosOrientation{
+ return width>height?'landscape':'portrait';
+}
+export function posWindowPreferenceKey(scope:string,orientation:PosOrientation){
+ return scope?'groompro:window:v1:'+scope+':pos-ticket:'+orientation:'';
+}
 export function defaultPosGeometry(width:number,height:number){
  if(width<600)return fitWindow({left:8,top:8,width:width-16,height:height-16},width,height);
  if(width>=1000&&height>=700){const w=Math.round(width*.575),h=Math.round(height*.575);return fitWindow({left:Math.round((width-w)/2),top:Math.round((height-h)/2),width:w,height:h},width,height);}

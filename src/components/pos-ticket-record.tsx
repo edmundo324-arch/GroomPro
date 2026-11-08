@@ -11,7 +11,7 @@ import {ticketWorkspace} from '../lib/pos-layout';
 import {defaultTicketTax} from '../lib/dog-ticket-summary';
 import {PlannedPackage,plannedKey} from '../lib/planned-package-rules';
 import {CurrencyInput} from "./currency-input";
-import {PosCustomerTitle,PosVisitStamps} from './pos-ticket-header';
+import {PosCustomerTitle,PosDetailsButton,PosTicketLabel,PosVisitStamps} from './pos-ticket-header';
 import {VisitHistory} from './visit-history';
 import {AppointmentHistory} from './appointment-history';
 import {groomingSummary} from '../lib/grooming-notes-rules';
@@ -21,6 +21,7 @@ import {calendarSelection} from '../lib/pos-calendar-selection';
 import {PosPetStrip} from "./pos-pet-strip";
 import {CustomerIdentification} from "./customer-identification";
 import {ReportCard} from "./report-card";
+import {singlePetBookingLines} from '../lib/single-pet-booking';
 import {expandPackage} from '../lib/package-lines';
 import {groomingEligibility} from '../lib/breed-classification';
 import {packageForPet} from '../lib/pet-package';
@@ -45,7 +46,8 @@ function localInput(date:Date){return`${date.getFullYear()}-${String(date.getMon
 export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCustomerId,initialEmployeeId,onSaved,onScheduled,active=true,onReady,preferredPanel="Items",onPanelChange}:{preferredPanel?:string;onPanelChange?:(panel:string)=>void;onReady?:()=>void;active?:boolean;ticketId?:string;onClose:()=>void;date?:Date;initialEmployeeId?:string;initialCustomerId?:string|null;onSaved?:(id:string)=>void;onScheduled?:(date:string)=>void}){
  const[upcoming,setUpcoming]=useState<any[]>([]),[upcomingError,setUpcomingError]=useState(''),[nearbyWarning,setNearbyWarning]=useState(false);
  const[slotAsset,setSlotAsset]=useState<{id:string;name:string}|null|undefined>(),[rebookAsset,setRebookAsset]=useState<{id:string;name:string}|null>(null);
- const calendarWorkflow=useRef('Items'),customerChoiceVersion=useRef(0);
+ const calendarWorkflow=useRef('Items'),customerChoiceVersion=useRef(0),manualItemsVersion=useRef(0);
+ const [bookingSeed,setBookingSeed]=useState<{customerId:string;choice:number;itemVersion:number;pet:any;history:any[]}|null>(null);
  const phone=usePhoneTicket(),[phoneDetails,setPhoneDetails]=useState(false),[phonePayment,setPhonePayment]=useState(false),[phoneActions,setPhoneActions]=useState(false);
  const taxManual=useRef(false),restoredTax=useRef(false),plannedWrites=useRef(new Map<string,Promise<unknown>>()),failedPlans=useRef(new Map<string,PlannedPackage>());
 
@@ -124,7 +126,47 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  useEffect(()=>{Promise.all([employeeFetch('/api/catalog'),employeeFetch('/api/employees'),employeeFetch('/api/operating-hours'),employeeFetch('/api/workflow-settings')]).then(async rs=>{const [c,e,h,w]=await Promise.all(rs.map(r=>r.json()));if(rs.some(r=>!r.ok))throw Error('Ticket options could not load.');setPresentationOptions(w.settings||{});if(catalogRequest.current===0)setCatalog(c);setWarnVet(!!w.settings?.warnMissingVeterinarian);setEmployees(e.employees||[]);setGroomers((e.employees||[]).filter((x:any)=>x.active&&(["GROOMER","MASTER_GROOMER","BACK"].includes(x.role)||x.id===initialEmployeeId)));if(!initialTicketId)setTimezone(h.timezone);defaultTiming.current=w.settings?.timingMode||'SEQUENTIAL';if(!savedId.current&&!timingChosen.current)setTicket((t:any)=>({...t,timingMode:defaultTiming.current}));setHoursReady(true)}).catch(e=>setError(e.message));},[]);
  useEffect(()=>{if(!choosingCustomer){setCustomerResults([]);return}const c=new AbortController();const timer=setTimeout(()=>employeeFetch(`/api/customers/search?q=${encodeURIComponent(customerQuery)}&limit=50`,{signal:c.signal}).then(r=>r.json()).then(d=>setCustomerResults(d.customers||[])).catch(()=>{}),200);return()=>{clearTimeout(timer);c.abort()}},[customerQuery,choosingCustomer]);
 
- async function chooseCustomer(c:any){if(creating.current){deferredEdits.current.push(()=>handlers.current.chooseCustomer(c));return}if(!c)return;const customerChoice=++customerChoiceVersion.current;setPackagePet(null);if(savedId.current){setPendingOwner(c);setReplacementPet(c.pets?.filter((p:any)=>p.active!==false)[0]?.id||'');return}setTicket((t:any)=>({...t,customer:c,pets:(c.pets||[]).filter((p:any)=>p.active!==false).map((pet:any)=>({pet})),lines:t.lines.map((l:any)=>({...l,petId:l.type==='PRODUCT'?undefined:c.pets?.filter((p:any)=>p.active!==false)[0]?.id}))}));setCustomerPets((c.pets||[]).filter((p:any)=>p.active!==false));setChoosingCustomer(false);setCustomerQuery('');try{const fullPets=employeeFetch('/api/customers/'+encodeURIComponent(c.id)).then(r=>r.json()).then(d=>{if(customerChoiceVersion.current===customerChoice&&d.customer?.id===c.id)setCustomerPets(d.customer.pets||[])}).catch(()=>{});void fullPets;const [a,r]=await Promise.all([employeeFetch(`/api/customers/account?customerId=${c.id}`).then(r=>r.json()),employeeFetch(`/api/customers/rewards?customerId=${c.id}`).then(r=>r.json())]);setAccount(a.customer||{balanceCents:0,creditCents:0,loyaltyPoints:0});setRewards(r.catalog||[])}catch{setError('Customer account could not load.')}}
+ async function chooseCustomer(c:any){
+  if(creating.current){deferredEdits.current.push(()=>handlers.current.chooseCustomer(c));return}
+  if(!c)return;
+  const choice=++customerChoiceVersion.current,itemVersion=manualItemsVersion.current;
+  setBookingSeed(null);
+  setPackagePet(null);
+  const pets=(c.pets||[]).filter((pet:any)=>pet.active!==false);
+  if(savedId.current){setPendingOwner(c);setReplacementPet(pets[0]?.id||'');return}
+  setTicket((t:any)=>({...t,customer:c,pets:pets.map((pet:any)=>({pet})),lines:t.lines.map((l:any)=>({...l,petId:l.type==='PRODUCT'?undefined:pets[0]?.id}))}));
+  setCustomerPets(pets);
+  setChoosingCustomer(false);
+  setCustomerQuery('');
+  const profile=Array.isArray(c.tickets)?Promise.resolve(c):employeeFetch('/api/customers/'+encodeURIComponent(c.id))
+   .then(response=>response.ok?response.json().then(data=>data.customer):null);
+  void profile.then(customer=>{
+   if(!mounted.current||customerChoiceVersion.current!==choice||customer?.id!==c.id)return;
+   setCustomerPets(customer.pets||[]);
+   const activePets=(customer.pets||[]).filter((pet:any)=>pet.active!==false);
+   if(activePets.length===1){
+    const history=customer.tickets||[];
+    setBookingSeed({customerId:c.id,choice,itemVersion,pet:activePets[0],history:customer.lastServiceVisit?[...history,customer.lastServiceVisit]:history});
+   }
+  }).catch(()=>{});
+  try{
+   const [a,r]=await Promise.all([employeeFetch(`/api/customers/account?customerId=${c.id}`).then(r=>r.json()),employeeFetch(`/api/customers/rewards?customerId=${c.id}`).then(r=>r.json())]);
+   if(customerChoiceVersion.current!==choice)return;
+   setAccount(a.customer||{balanceCents:0,creditCents:0,loyaltyPoints:0});
+   setRewards(r.catalog||[]);
+  }catch{if(customerChoiceVersion.current===choice)setError('Customer account could not load.')}
+ }
+ useEffect(()=>{
+  if(!bookingSeed||!hoursReady||!catalog.breeds)return;
+  const {customerId,choice,itemVersion,pet,history}=bookingSeed;
+  if(savedId.current||operationRunning.current||customerChoiceVersion.current!==choice||manualItemsVersion.current!==itemVersion||ticket.lines.length){setBookingSeed(null);return}
+  if(ticket.customer.id!==customerId)return;
+  setBookingSeed(null);
+  try{
+   const lines=singlePetBookingLines(pet,history,catalog).map(line=>({...line,clientKey:crypto.randomUUID()}));
+   if(lines.length)setTicket((current:any)=>current.customer.id===customerId&&!current.lines.length?{...current,pets:[{pet}],lines}:current);
+  }catch(e){setError((e as Error).message)}
+ },[bookingSeed,hoursReady,catalog,ticket.customer.id,ticket.lines.length]);
  async function changeCustomer(){revision.current++;setError('');try{const r=await employeeFetch('/api/tickets/customer',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticketId,customerId:pendingOwner.id,petId:replacementPet})}),d=await r.json();if(!r.ok)throw Error(d.error);setPendingOwner(null);setChoosingCustomer(false);onSaved?.(ticketId);await Promise.all([load(),loadCheckout()])}catch(e){setError(e instanceof Error?e.message:'Customer could not change.')}finally{}}
  function currentTax(){return !savedId.current&&workspace.automaticNewTicketTax&&!taxManual.current&&!restoredTax.current?defaultTicketTax(ticket.lines||[],workspace.taxRatePct,catalog):Number(tax)||0}
  function draftPayload(confirmConflict=false){return {petServiceTypes:ticket.petServiceTypes,lineStartPositions:ticket.lines.map((l:any,sortOrder:number)=>({sortOrder,start:ticket.lineStarts?.[lineTimeKey(l)]})).filter((v:any)=>v.start),plannedAssignments:(ticket.plannedAssignments||[]).filter((p:any)=>bookedPetIds(ticket.lines).includes(p.petId)),groomingNotesDraft:ticket.groomingNotesDraft,draftId:draftRef.current?.id,bookingAssetId:slotAsset===undefined?ticket.bookingAssetId||null:slotAsset?.id||null,tipCents:Number(tip)||0,salesTaxCents:currentTax(),timingMode:ticket.timingMode,customerId:ticket.customer.id,petIds:bookedPetIds(ticket.lines),lines:ticket.lines,scheduledStart:newStart?localToInstant(newStart,timezone).toISOString():undefined,notes:ticket.notes,groomerId:groomerId||undefined,arrivalPriority:ticket.arrivalPriority||undefined,confirmRecentWarning:confirmConflict}}
@@ -161,6 +203,7 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  }
 
  async function toggleOfferToday(item:any,requested?:boolean){
+  manualItemsVersion.current++;
  const present=requested??!offerTodayLine(ticket.lines,item.id,item.petId);
  if(creating.current){deferredEdits.current.push(()=>handlers.current.toggleOfferToday(item,present));return}
  if(terminal)return;
@@ -173,18 +216,21 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  }catch(error){setError(error instanceof Error?error.message:'Offer Today could not update.')}finally{endAction(key)}
  }
  async function removePetItems(petId:string){
+  manualItemsVersion.current++;
  if(creating.current){deferredEdits.current.push(()=>handlers.current.removePetItems(petId));return}if(terminal)return;
  if(!savedId.current){setTicket((t:any)=>({...t,lines:t.lines.filter((l:any)=>(l.petId||l.pet?.id)!==petId)}));return}
  const id=savedId.current,ids=ticket.lines.filter((l:any)=>(l.petId||l.pet?.id)===petId).map((l:any)=>l.id),key='pet-items:'+petId;if(!ids.length||!beginAction(key))return;
  try{const r=await employeeFetch('/api/ticket-lines?'+new URLSearchParams({ticketId:id,petId}),{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({lineIds:ids})}),d=await r.json();if(!r.ok)throw Error(d.error);const removed=new Set(d.removedLineIds);if(savedId.current===id)setTicket((t:any)=>({...t,lines:t.lines.filter((l:any)=>!removed.has(l.id))}));await Promise.all([load(id),loadCheckout(id)]);onSaved?.(id)}catch(e){setError((e as Error).message)}finally{endAction(key)}
  }
  async function itemAction(action:'add'|'edit'|'remove',value:any,index=0){
+  manualItemsVersion.current++;
  const removalLine=action==='remove'?(value?.line||ticket.lines[index]):null;let removalChoice:PackageRemovalChoice|null=null;if(action==='remove'){if(!removalLine||terminal)return false;removalChoice=await packageDeletionChoice(removalLine);if(!removalChoice)return false;}
  if(creating.current){deferredEdits.current.push(()=>handlers.current.itemAction(action,value,index));return}
  if(action==='add'&&value.type==='PACKAGE'){const pet=customerPets.find(p=>p.id===value.petId),pkg=catalog.packages.find((p:any)=>p.id===value.id);if(pet&&pkg)await addPetPackage(pet,pkg);return}
  if(!ticketId){try{const prices=Object.fromEntries((catalog.services||[]).map((service:any)=>[service.id,service.priceCents]));if(action==='remove')removePackageLine(ticket.lines,removalLine,removalChoice||'KEEP_DISCOUNT',prices);setTicket((t:any)=>({...t,lines:action==='add'?[...t.lines,{...value,clientKey:crypto.randomUUID()}]:action==='remove'?removePackageLine(t.lines,removalLine,removalChoice||'KEEP_DISCOUNT',prices):t.lines.map((l:any,i:number)=>i===index?{...l,...value,totalCents:Math.max(0,(l.unitPriceCents||0)*(value.quantity??l.quantity)-(l.discountCents||0))}:l)}));return true}catch(e){setError((e as Error).message);return false}}
  const line=removalLine||ticket.lines[index];const editVersion=revision.current+1;if(action==='edit'){editVersions.current.set(line.id,editVersion);failedEdits.current.set(line.id,{...failedEdits.current.get(line.id),...value})}const actionKey=action==='edit'?null:`line:${action}:${action==='add'?value?.id:line?.id}:${value?.petId||''}`;if(actionKey&&!beginAction(actionKey))return;revision.current++;if(action==='edit')setTicket((t:any)=>({...t,lines:t.lines.map((l:any)=>l.id===line.id?{...l,...value}:l)}));setError('');try{const url=action==='remove'?`/api/ticket-lines?lineId=${line.id}&ticketId=${ticketId}`:'/api/ticket-lines';const r=await employeeFetch(url,{method:action==='add'?'POST':action==='edit'?'PATCH':'DELETE',headers:{'Content-Type':'application/json'},...{body:JSON.stringify(action==='remove'?{packageRemovalChoice:removalChoice}:action==='add'?{...value,ticketId}:{...value,lineId:line.id,ticketId})}}),d=await r.json();if(!r.ok)throw Error(d.error);if(action==='edit'){const pending={...failedEdits.current.get(line.id)};for(const key of Object.keys(value))if(pending[key]===value[key])delete pending[key];if(Object.keys(pending).length)failedEdits.current.set(line.id,pending);else failedEdits.current.delete(line.id);}await Promise.all([load(),loadCheckout()]);onSaved?.(ticketId);return true}catch(e){setError(e instanceof Error?e.message:'Items could not update.');return false}finally{if(actionKey)endAction(actionKey)}}
  async function addPetPackage(pet:any,pkg:any){
+  manualItemsVersion.current++;
  if(creating.current){deferredEdits.current.push(()=>handlers.current.addPetPackage(pet,pkg));return}if(terminal)return;
  const key=`package:${pet.id}:${pkg.id}`,alreadyAdded=ticket.lines.some((l:any)=>l.petId===pet.id&&l.packageId===pkg.id),present=!(packageIntents.current.get(key)??alreadyAdded),eligibility=present?groomingEligibility(pet,pkg,catalog.breeds):{status:'eligible',reason:''};
  if(present&&eligibility.status!=='eligible'){setError(pkg.name+': '+eligibility.reason);return}setPanel('Items');setPackagePet(null);setError('');
@@ -193,7 +239,7 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  const task=(previous||Promise.resolve()).catch(()=>{}).then(async()=>{const r=await employeeFetch('/api/tickets/package',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticketId:id,petId:pet.id,packageId:pkg.id,present})}),d=await r.json();if(!r.ok)throw Error(d.error);onSaved?.(id);await Promise.all([load(id),loadCheckout(id)])});packageQueues.current.set(key,task);
  try{await task}catch(e){setError(String(e))}finally{if(packageQueues.current.get(key)===task){packageQueues.current.delete(key);packageIntents.current.delete(key);endAction(key);renderPackageIntent(v=>v+1)}}
  }
- function clickPet(petId:string){if(terminal)return;const pet=customerPets.find(p=>p.id===petId)||ticket.pets.find((p:any)=>p.pet.id===petId)?.pet;if(!pet||pet.active===false)return;const target=petPackageToggle(pet,ticket.lines,catalog.packages||[],catalog.breeds);if(target){void addPetPackage(pet,target.pkg);return}setPanel('Items');setPackagePet(pet);setPackageQuery('')}
+ function clickPet(petId:string){if(terminal)return;manualItemsVersion.current++;const pet=customerPets.find(p=>p.id===petId)||ticket.pets.find((p:any)=>p.pet.id===petId)?.pet;if(!pet||pet.active===false)return;const target=petPackageToggle(pet,ticket.lines,catalog.packages||[],catalog.breeds);if(target){void addPetPackage(pet,target.pkg);return}setPanel('Items');setPackagePet(pet);setPackageQuery('')}
  async function overridePetServiceType(petId:string,serviceType:string){
   const key='pet-service:'+petId;
   const update=(current:any)=>{
@@ -273,11 +319,10 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  const terminal=!!ticket&&["CLOSED","CANCELLED","NO_SHOW"].includes(ticket.status);
  if(ticketId&&!ticket.id)return <><PosWindowFrame active={active}><div className="gp-floating-head"><div className="gp-floating-title">POS Ticket</div><DismissButton label="Dismiss POS Ticket" onClick={()=>void closeWindow()}/></div><div role="status" style={{padding:24}}>{error||"Opening ticket…"}{error&&<button className="gp-btn" onClick={()=>void load()}>Retry</button>}</div></PosWindowFrame></>;
  return <><PosWindowFrame active={active} className={(phone?"gp-pos-phone ":"gp-pos-desktop ")+(phonePayment?"gp-phone-payment-open ":"")+(phoneActions?"gp-phone-actions-open ":"")} style={{fontSize:layout.fontSize,...Object.fromEntries(layout.footer.map((id,i)=>["--gp-footer-"+id+"-order",i]))} as any}>
- <div className="gp-floating-head gp-ticket-titlebar" style={workspace.colorTicketHeader&&ticketId&&presentationOptions.statusStyles?appointmentStyle(ticket,presentationOptions):undefined}><div className="gp-floating-title">POS Ticket {(ticket?.orderNumber||draft?.orderNumber)?`#${ticket?.orderNumber||draft?.orderNumber}`:""}</div><PosCustomerTitle name={ticket.customer.id?[ticket.customer.firstName,ticket.customer.lastName].filter(Boolean).join(' '):''} disabled={terminal} onEdit={()=>setOwnerView({id:ticket.customer.id})} onReplace={()=>{setPendingOwner(null);setCustomerQuery('');setChoosingCustomer(v=>!v)}}/>{!phone&&<PosVisitStamps checkedIn={ticket.checkedInAt} completed={ticket.pickupAt} timezone={timezone} contactNeeded={ticket.status==='READY'&&!!ticket.pickupAt&&!ticket.pickupCompletedAt&&!ticket.readyContacted}/>}<button type="button" className="gp-btn gp-phone-only" aria-expanded={phoneDetails} onClick={()=>{setPhoneDetails(v=>!v);setPhonePayment(false);setPhoneActions(false)}}>Details</button><div className="gp-pos-window-actions"><PosFullSizeButton/><DismissButton label="Dismiss POS Ticket" onClick={()=>void closeWindow()}/></div></div>
+ <div className="gp-floating-head gp-ticket-titlebar" style={workspace.colorTicketHeader&&ticketId&&presentationOptions.statusStyles?appointmentStyle(ticket,presentationOptions):undefined}><div className="gp-floating-title"><PosTicketLabel compact={phone} number={ticket?.orderNumber||draft?.orderNumber}/></div><PosCustomerTitle name={ticket.customer.id?[ticket.customer.firstName,ticket.customer.lastName].filter(Boolean).join(' '):''} disabled={terminal} onEdit={()=>setOwnerView({id:ticket.customer.id})} onReplace={()=>{setPendingOwner(null);setCustomerQuery('');setChoosingCustomer(v=>!v)}}/>{!phone&&<PosVisitStamps checkedIn={ticket.checkedInAt} completed={ticket.pickupAt} timezone={timezone} contactNeeded={ticket.status==='READY'&&!!ticket.pickupAt&&!ticket.pickupCompletedAt&&!ticket.readyContacted}/>}<PosDetailsButton expanded={phoneDetails} onClick={()=>{setPhoneDetails(v=>!v);setPhonePayment(false);setPhoneActions(false)}}/><div className="gp-pos-window-actions"><PosFullSizeButton/><DismissButton label="Dismiss POS Ticket" onClick={()=>void closeWindow()}/></div></div>
  {error&&<div>{failedPlans.current.size>0&&<button type="button" className="gp-btn" onClick={()=>{for(const assignment of failedPlans.current.values())void planPackage(assignment)}}>Retry planned employee changes</button>}{uncertainPayment&&<button onClick={()=>void verifyPayment()}>Check payment status</button>}{failedEdits.current.size>0&&<button onClick={()=>{for(const [id,patch] of failedEdits.current){const i=ticket.lines.findIndex((l:any)=>l.id===id);if(i>=0)void itemAction('edit',patch,i)}}}>Retry unsaved edits</button>}</div>}
  {!ticket?<div className="gp-search-empty">{error?"Ticket unavailable":"Loading ticket…"}</div>:<>
  <div className="gp-phone-ticket-summary gp-phone-only"><span>{newStart?new Date(newStart).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}):'Choose date'} · {newStart?new Date(newStart).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'Choose time'} · {ticket.displayStatus||ticket.status.split('_').map((s:string)=>s[0]+s.slice(1).toLowerCase()).join(' ')}</span></div>
- {phone&&ticketTabsControl}
  {phone&&<div className="gp-pos-account-strip"><strong>Owes {money(account.balanceCents)}</strong><strong>Credit {money(account.creditCents)}</strong><span>Daycare: {ticket.daycareStatus==='STAYING'?'Staying':'Not added'}</span><span>Rewards: {account.loyaltyPoints} pts</span><strong>{cardOnFile?'Card on File':'No Card on File'}</strong></div>}
  <header className="gp-pos-header gp-pos-compact-header" data-details-open={phoneDetails}>
  <div className="gp-phone-only"><PosFullSizeButton/></div>
@@ -296,6 +341,7 @@ account:phone?null:<div className="gp-pos-account-strip"><span>Daycare: {ticket.
  <div className="gp-ticket-workbar">
  {!phone&&ticketTabsControl}
  <PromotingServices services={catalog.services||[]} pets={customerPets.filter(p=>p.active!==false)} petId={ticketItemPet(customerPets.filter(p=>p.active!==false),itemPetId)} onPetChange={setItemPetId} lines={ticket.lines} onToggle={item=>void toggleOfferToday(item)} disabled={terminal} pending={pendingKeys}/>
+ {phone&&ticketTabsControl}
  </div>
  <main className="gp-pos-body">
  {panel==="Items"&&packagePet&&<section><strong>Choose a package for {packagePet.name}</strong><p>Choose a matching package. Missing measurements can be recorded in the pet profile.</p><input autoFocus aria-label="Search pet packages" placeholder="Search packages" value={packageQuery} onChange={e=>setPackageQuery(e.target.value)}/>{catalog.packages.filter((p:any)=>p.active&&groomingEligibility(packagePet,p,catalog.breeds).status!=='ineligible'&&p.name.toLowerCase().includes(packageQuery.toLowerCase())).slice(0,15).map((p:any)=><button className="gp-btn" key={p.id} disabled={terminal} onClick={()=>addPetPackage(packagePet,p)}>{p.name} · {money(p.priceCents)} {groomingEligibility(packagePet,p,catalog.breeds).reason}</button>)}<button className="gp-btn" onClick={()=>setOwnerView({id:packagePet.customerId||ticket.customerId,petId:packagePet.id})}>Update pet measurements</button><button className="gp-btn" onClick={()=>setPackagePet(null)}>Cancel</button></section>}

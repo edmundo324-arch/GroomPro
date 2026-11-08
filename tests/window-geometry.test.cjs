@@ -10,3 +10,14 @@ test('desktop laptop defaults also start at one third without changing restored 
 
 test('intentional dragging permits 80 percent off screen and recovery fits the viewport',()=>{const {dragWindow}=loaded.exports;for(const [w,h] of [[390,844],[844,390],[1440,900]]){for(const [left,top] of [[-9999,-9999],[9999,9999]]){const g=dragWindow({left,top,width:300,height:300},w,h);assert.ok(g.left>=-240&&g.top>=-240);assert.ok(g.left<=w-60&&g.top<=h-60);const r=fitWindow(g,w,h);assert.ok(r.left>=8&&r.top>=8&&r.left+r.width<=w-8&&r.top+r.height<=h-8)}}});
 test('dragging does not shrink full-size popup content even when taller than the screen',()=>{const g=loaded.exports.dragWindow({left:-2000,top:-2000,width:320,height:2000},390,844);assert.equal(g.height,2000);assert.equal(g.top,-1600);assert.equal(g.left,-256)});
+
+test('POS window preferences have independent portrait and landscape keys per user',()=>{
+ const {posWindowOrientation,posWindowPreferenceKey}=loaded.exports;
+ assert.equal(posWindowOrientation(768,1024),'portrait');
+ assert.equal(posWindowOrientation(1024,768),'landscape');
+ assert.equal(posWindowOrientation(768,768),'portrait');
+ const scope='tenant:location:employee';
+ assert.notEqual(posWindowPreferenceKey(scope,'landscape'),posWindowPreferenceKey(scope,'portrait'));
+ assert.notEqual(posWindowPreferenceKey(scope,'portrait'),posWindowPreferenceKey('tenant:location:other','portrait'));
+ assert.equal(posWindowPreferenceKey('','portrait'),'');
+});

@@ -1,4 +1,4 @@
-import {servicePromotionFields} from '@/src/lib/service-promotion';
+import {serviceIsCurrentOffer,serviceIsPromoting,servicePromotionFields} from '@/src/lib/service-promotion';
 import {withRequestPolicy,catalogFeature} from '@/src/lib/request-policy';
 import {loadBreeds} from '@/src/lib/breed-store';
 import {writeAudit} from '@/src/lib/audit';
@@ -11,11 +11,14 @@ const tenant=(r:NextRequest)=>r.headers.get("x-tenant-id")||r.cookies.get("groom
 const prefix="VIP_PLAN:";
 async function handlePolicyGET(r:NextRequest){
  const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:"Business context is required."},{status:401});
- try{const[services,products,packages,plans]=await Promise.all([
+ try{const offerHistory=r.nextUrl.searchParams.get('offerHistory')==='1';
+ const[services,products,packages,plans,usedOffers]=await Promise.all([
  db.service.findMany({where:{tenantId},orderBy:{name:"asc"}}),db.product.findMany({where:{tenantId},orderBy:{name:"asc"}}),
  db.package.findMany({where:{tenantId},include:{items:{orderBy:{sortOrder:"asc"}}},orderBy:{name:"asc"}}),
- db.tenantSetting.findMany({where:{tenantId,settingKey:{startsWith:prefix}}})]);
- return NextResponse.json({breeds:await loadBreeds(db,tenantId),services,products,packages:packages.map(p=>({...p,priceCents:p.basePriceCents})),plans:plans.map(p=>({...p.value as object,id:p.settingKey.slice(prefix.length)}))},{headers:{"Cache-Control":"no-store"}});
+ db.tenantSetting.findMany({where:{tenantId,settingKey:{startsWith:prefix}}}),
+ offerHistory?db.$queryRaw<{serviceId:string}[]>`SELECT DISTINCT l.serviceId FROM TicketLine l JOIN Service s ON s.id=l.serviceId JOIN Ticket t ON t.id=l.ticketId WHERE s.tenantId=${tenantId} AND t.tenantId=${tenantId} AND l.sourceKey=CONCAT('offer-today:',l.serviceId)`:Promise.resolve([])]);
+ const usedOfferIds=new Set(usedOffers.map(line=>line.serviceId));
+ return NextResponse.json({breeds:await loadBreeds(db,tenantId),services:offerHistory?services.map(service=>({...service,previousOfferRecorded:usedOfferIds.has(service.id)})):services,products,packages:packages.map(p=>({...p,priceCents:p.basePriceCents})),plans:plans.map(p=>({...p.value as object,id:p.settingKey.slice(prefix.length)}))},{headers:{"Cache-Control":"no-store"}});
  }catch(error){console.error("Catalog load",error);return NextResponse.json({error:"Unable to load the catalog. Please retry."},{status:503})}
 }
 async function save(r:NextRequest){
@@ -36,7 +39,8 @@ async function save(r:NextRequest){
  if(data.category!==previous?.category&&(categoryConfig?.value as any[]||[]).some(c=>c.name===data.category&&c.active===false))throw Error('Choose an active service category.');
  if(r.method==="PATCH"&&!await tx.service.findFirst({where:{id,tenantId}}))throw new Error("Item not found.");
  if(data.code&&await tx.service.findFirst({where:{tenantId,code:data.code,id:{not:id}}}))throw Error("Service ID is already used.");
- const values={...common,...(data.promotingServices!==undefined||data.offerTodayLabel!==undefined?{customFields:servicePromotionFields(previous?.customFields,data.promotingServices,data.offerTodayLabel)}:{}),...(data.workflowRole!==undefined?{workflowRole:data.workflowRole as any}:{}),...(data.favorite!==undefined?{favorite:data.favorite}:{}),priceCents:data.priceCents,category:data.category,durationMin:data.durationMin,...(data.code!==undefined?{code:data.code}:{}),...(data.commissionExemptRoles!==undefined?{commissionExemptRoles:data.commissionExemptRoles}:{})};
+ const recordOffer=serviceIsCurrentOffer(previous)||data.active&&(data.promotingServices??serviceIsPromoting(previous));
+ const values={...common,...(recordOffer||data.promotingServices!==undefined||data.offerTodayLabel!==undefined?{customFields:servicePromotionFields(previous?.customFields,data.promotingServices,data.offerTodayLabel,recordOffer)}:{}),...(data.workflowRole!==undefined?{workflowRole:data.workflowRole as any}:{}),...(data.favorite!==undefined?{favorite:data.favorite}:{}),priceCents:data.priceCents,category:data.category,durationMin:data.durationMin,...(data.code!==undefined?{code:data.code}:{}),...(data.commissionExemptRoles!==undefined?{commissionExemptRoles:data.commissionExemptRoles}:{})};
  return r.method==="PATCH"?tx.service.update({where:{id},data:values}):tx.service.create({data:{id,tenantId,...values}});
  }
  if(data.kind==="packages"||data.kind==="plans"){

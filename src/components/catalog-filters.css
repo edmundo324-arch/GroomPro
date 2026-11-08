@@ -1,0 +1,13 @@
+.gp-service-filters{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px}
+.gp-service-filter-icon{display:none}
+@media(max-width:700px),(pointer:coarse){
+ .gp-service-filters{gap:3px}
+ .gp-service-filters .gp-service-filter{
+  position:relative;display:grid;place-items:center;width:44px;height:44px;
+  border:1px solid #b9c6ce;border-radius:5px;background:white;color:#17324d;cursor:pointer
+ }
+ .gp-service-filter-icon{display:block;width:20px;height:20px}
+ .gp-service-filter:has(input:checked){background:#e5edf4;border-color:#527eaa}
+ .gp-service-filter:has(input:focus-visible){outline:2px solid #527eaa;outline-offset:2px}
+ .gp-service-filter>input,.gp-service-filter-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+}

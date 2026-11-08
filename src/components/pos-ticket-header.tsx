@@ -28,3 +28,16 @@ export function PosVisitStamps({checkedIn,completed,timezone,contactNeeded=false
   {contactNeeded&&<strong className="gp-pos-contact-needed" role="status"><span aria-hidden="true">!</span> Call and text</strong>}
  </div>;
 }
+
+export function PosTicketLabel({number,compact=false}:{number?:number;compact?:boolean}){
+ return <span className="gp-pos-ticket-label">{compact?
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" role="img" aria-label="POS Ticket"><title>POS Ticket</title><path d="M5 3h14v18l-3-2-4 2-4-2-3 2V3Zm4 5h6m-6 4h6m-6 4h3"/></svg>:'POS Ticket'}
+  {number?' #'+number:''}
+ </span>;
+}
+
+export function PosDetailsButton({expanded,onClick}:{expanded:boolean;onClick:()=>void}){
+ return <button type="button" className="gp-btn gp-phone-only gp-pos-details-toggle" aria-expanded={expanded} aria-label="Ticket details" title="Ticket details" onClick={onClick}>
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>
+ </button>;
+}
