@@ -271,6 +271,20 @@
 .gp-calendar-commandbar .gp-calendar-view-switch{gap:1px;padding:0}
 .gp-calendar-commandbar .gp-calendar-view-switch [aria-pressed=true]{background:#e5edf4;color:#17324d;font-weight:700}
 .gp-calendar-scroll>.gp-calendar-legend{padding:4px 6px;margin:0}
+@media (hover:hover) and (pointer:fine){
+ @container (min-width:1180px){
+  .gp-calendar-commandbar .gp-calendar-overflow{display:none}
+  .gp-calendar-commandbar .gp-calendar-tools{flex:none}
+  .gp-adaptive-calendar .gp-calendar-commandbar .gp-calendar-options{
+   display:flex;position:static;gap:8px;width:auto;max-height:none;overflow:visible;
+   padding:0;border:0;border-radius:0;box-shadow:none;white-space:nowrap
+  }
+  .gp-calendar-commandbar .gp-calendar-options :is(.gp-cal-show,.gp-cal-columns){
+   flex-direction:row;align-items:center;gap:4px
+  }
+  .gp-calendar-commandbar .gp-calendar-options label select,.gp-cal-install>.gp-btn{width:auto}
+ }
+}
 .gp-inline-value-text{display:none}
 .gp-inline-value-editor,.gp-inline-item-value{display:contents}
 @media(max-width:700px),(pointer:coarse) and (max-width:1000px){
@@ -337,3 +351,46 @@
  body:has(.gp-shell[data-module=Calendar] .gp-pos-phone[data-pos-active=true]) .gp-shell[data-module=Calendar]>.gp-main{width:36vw}
  .gp-shell[data-module=Calendar] .gp-pos-phone[data-pos-active=true]{left:36vw!important;right:0!important;top:var(--gp-topbar-height,64px)!important;width:64vw!important;height:calc(100dvh - var(--gp-topbar-height,64px))!important}
 }
+
+/* Paper-ticket controls share the same resting and focus states. */
+.gp-ticket-titlebar .gp-pos-customer-title,.gp-pos-picker-title{display:flex;align-items:center;gap:4px;min-width:0}
+.gp-ticket-titlebar .gp-pos-customer-title button:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp-ticket-titlebar .gp-pos-created,.gp-ticket-titlebar .gp-floating-title{color:inherit}
+.gp-ticket-titlebar>.gp-floating-title{flex:none}
+.gp-pos-phone>.gp-ticket-titlebar>.gp-floating-title{flex:none;font-size:13px}
+.gp-pos-account-strip{display:flex;flex:none;align-items:center;flex-wrap:wrap;gap:2px 8px;padding:2px 7px;font-size:inherit}
+.gp-ticket-control-row .gp-pos-account-strip{padding:0}
+.gp-pos-desktop>.gp-pos-customer-search,.gp-pos-phone>.gp-pos-customer-search{top:38px;left:8px;right:auto;width:min(440px,calc(100% - 16px));max-height:min(50dvh,calc(100% - 48px))}
+.gp-pos-picker-title{justify-content:space-between;margin-bottom:4px}
+.gp-pos-customer-search>input{width:100%;padding:4px 6px}
+.gp-colored-ticket span,.gp-colored-ticket .gp-actions>a,.gp-colored-ticket .gp-actions>button{color:inherit}
+.gp-colored-ticket .gp-actions>a,.gp-colored-ticket .gp-actions>button{background:transparent}
+:is(.gp-pos-desktop,.gp-pos-phone,.gp-paper-editor) .gp-btn:not(.primary){
+ border-color:transparent;background:transparent;padding:2px 5px;color:inherit;box-shadow:none
+}
+:is(.gp-pos-desktop,.gp-pos-phone,.gp-paper-editor) .gp-btn[aria-pressed=true]{background:#e5edf4;color:#17324d}
+:is(.gp-pos-desktop,.gp-pos-phone,.gp-paper-editor) :is(input:not([type=checkbox],[type=radio]),select,textarea){
+ border:1px solid transparent;border-bottom-color:#cbd6df;border-radius:0;background:transparent;box-shadow:none;padding:2px 4px;color:inherit
+}
+:is(.gp-pos-desktop,.gp-pos-phone,.gp-paper-editor) :is(button,input,select,textarea):focus-visible{
+ outline:2px solid #527eaa;outline-offset:-2px
+}
+:is(.gp-pos-desktop,.gp-pos-phone) :is(.gp-ticket-control-row,.gp-flat-items) .gp-inline-item-value{
+ display:inline-flex;min-width:0;max-width:100%;align-items:center
+}
+:is(.gp-pos-desktop,.gp-pos-phone) :is(.gp-ticket-control-row,.gp-flat-items) .gp-inline-item-value>.gp-inline-value-editor{display:none}
+:is(.gp-pos-desktop,.gp-pos-phone) :is(.gp-ticket-control-row,.gp-flat-items) .gp-inline-item-value>.gp-inline-value-text{
+ display:inline-block;border:0;border-radius:0;background:transparent;color:inherit;padding:2px 4px;font:inherit;min-height:24px;text-align:left
+}
+:is(.gp-pos-desktop,.gp-pos-phone) :is(.gp-ticket-control-row,.gp-flat-items) .gp-inline-item-value.is-editing>.gp-inline-value-editor{display:contents}
+:is(.gp-pos-desktop,.gp-pos-phone) :is(.gp-ticket-control-row,.gp-flat-items) .gp-inline-item-value.is-editing>.gp-inline-value-text{display:none}
+.gp-paper-editor .gp-staff-week-editor{gap:4px 9px}
+.gp-pet-strip-indicators{display:inline-flex;gap:1px;align-items:center}
+.gp-pet-strip-indicators:empty{display:none}
+.gp-pos-pet-chip .gp-pet-indicator{padding:1px;border:0;background:transparent;min-width:13px;min-height:18px;font-size:11px;line-height:1}
+.gp-vip-conversation-row{display:inline-flex;align-items:center;gap:4px;margin-inline-end:10px}
+.gp-cal-coverage{grid-area:3/1/4/5}
+.gp-coverage-review{width:min(560px,calc(100vw - 24px));padding:12px;z-index:65}
+.gp-coverage-review h2{font-size:18px;margin:0}
+.gp-coverage-review li{margin-block:5px}
+:is(.gp-pos-desktop,.gp-pos-phone,.gp-paper-editor) .gp-btn.primary{border-radius:2px;padding:3px 6px}

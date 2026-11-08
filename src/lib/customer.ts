@@ -1,3 +1,5 @@
+import {popupPetMemberships} from './popup-pet-memberships';
+import {customerStates} from './appointment-customer-state';
 import {attendingPets} from './appointment-pets';
 import { db } from "./db";
 import { customerReferrals } from './customer-referrals';
@@ -83,6 +85,6 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
     },
   });
   if(!customer)return null;
-  const referrals=await customerReferrals(tenantId,[customerId]);
-  return {...customer,...referrals.get(customerId),tickets:customer.tickets.map(attendingPets)};
+  const [referrals,memberships]=await Promise.all([customerReferrals(tenantId,[customerId]),popupPetMemberships(db,tenantId,{customerId,pets:customer.pets.map(pet=>({pet}))})]);
+  return {...customer,pets:memberships.pets.map((entry:any)=>entry.pet),...referrals.get(customerId),tickets:await customerStates(tenantId,customer.tickets.map(attendingPets))};
 }

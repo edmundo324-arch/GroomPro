@@ -1,3 +1,6 @@
+import {customerStates} from '@/src/lib/appointment-customer-state';
+import {appointmentStyle} from '@/src/lib/calendar-presentation';
+import {workflowSettings} from '@/src/lib/workflow-settings';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/src/lib/db';
 import { platformSession } from '@/src/lib/platform-access';
@@ -68,12 +71,13 @@ async function mapAppointments(request: NextRequest) {
   const settings = new Map(rows.map(row => [row.settingKey, row.value]));
   const canSeeAll = allowedAll.includes(role);
   const all = canSeeAll && params.get('scope') !== 'mine';
-  const appointments = tickets.flatMap(ticket => {
+  const [presented,appearance]=await Promise.all([customerStates(tenantId,tickets),workflowSettings(tenantId)]);
+  const appointments = presented.flatMap(ticket => {
     const ticketPlans = settings.get(plannedSettingKey(ticket.id)) as { items?: any[] } | undefined;
     const full = { ...ticket, plannedAssignments: ticketPlans?.items || [], lineStarts: (settings.get(lineStartsKey(ticket.id)) || {}) as Record<string, string> };
     const visible = all ? full : plannedCalendarCard(full, id, new Set([id]));
     if (!visible?.scheduledStart) return [];
-    const visits = visible.pets.map(entry => ({ name: entry.pet.name, start: petSchedule(full, entry.pet.id).start }))
+    const visits = (visible.pets as typeof tickets[number]["pets"]).map(entry => ({ name: entry.pet.name, start: petSchedule(full, entry.pet.id).start }))
       .filter(visit => +visit.start >= +start && +visit.start < +end)
       .sort((a, b) => +a.start - +b.start);
     if (!visits.length && (visible.pets.length || +visible.scheduledStart < +start || +visible.scheduledStart >= +end)) return [];
@@ -87,7 +91,7 @@ async function mapAppointments(request: NextRequest) {
     if (!days.size) days.set(zonedParts(visible.scheduledStart, timezone).date, []);
     return [...days].map(([day, group]) => ({
       day, id: visible.id, orderNumber: visible.orderNumber, scheduledStart: group[0]?.start || visible.scheduledStart,
-      customer: [c.firstName, c.lastName].filter(Boolean).join(' '), pets: group.map(visit => visit.name), address: address(c),
+      customer: [c.firstName, c.lastName].filter(Boolean).join(' '), pets: group.map(visit => visit.name), address: address(c), appearance:appointmentStyle(full,appearance),
     }));
   }).sort((a, b) => +a.scheduledStart - +b.scheduledStart);
   const setting = await db.tenantSetting.findUnique({ where: { tenantId_settingKey: { tenantId, settingKey: routeKey(locationId, id) } } });

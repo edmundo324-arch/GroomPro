@@ -10,16 +10,16 @@ export function validatePlannedPackages(value:any,pets:string[],lines:any[],indi
 }
 export function plannedFor(lines:any[],plans:PlannedPackage[],petId:string,key:string,fallback=''){return plans.find(p=>p.petId===petId&&p.packageKey===key)?.userId??(plans.some(p=>p.petId===petId&&p.packageKey===key)?'':plans.find(p=>p.petId===petId&&!p.packageKey)?.userId??(plans.some(p=>p.petId===petId&&!p.packageKey)?'':fallback))}
 // Filter a card's contents to the dogs/packages booked with this resource.
-export function plannedCalendarCard<T extends {pets:any[];lines:any[];assignments:any[];plannedAssignments?:PlannedPackage[];checkedInAt?:any}>(ticket:T,resourceId:string,available:Set<string>):T|null{
+export function plannedCalendarCard<T extends {pets:any[];lines:any[];assignments:any[];plannedAssignments?:PlannedPackage[];checkedInAt?:any}>(ticket:T,resourceId:string,available:Set<string>,plannedAvailable?:(id:string,petId:string)=>boolean):T|null{
  const plans=ticket.plannedAssignments||[];
  const legacy=plans.length?'':(ticket as any).legacyPlannedUserId||ticket.assignments?.find(a=>a.role==='PLANNED_GROOMER')?.userId||ticket.assignments?.find(a=>a.role==='PLANNED_GROOMER')?.user?.id||ticket.assignments?.find(a=>a.role==='GROOMER')?.userId||ticket.assignments?.find(a=>a.role==='GROOMER')?.user?.id||'';
- const lines=ticket.lines.filter(l=>{const petId=l.petId||l.pet?.id;if(!petId)return false;const actual=responsibleEmployee(ticket.lines,petId);const id=actual?(actual.assignmentUnavailable?'':actual.assignedUserId):plannedFor(ticket.lines,plans,petId,packageKey(l),legacy);return (id&&available.has(id)?id:'unassigned')===resourceId});
+ const lines=ticket.lines.filter(l=>{const petId=l.petId||l.pet?.id;if(!petId)return false;const actual=responsibleEmployee(ticket.lines,petId);const id=actual?(actual.assignmentUnavailable?'':actual.assignedUserId):plannedFor(ticket.lines,plans,petId,packageKey(l),legacy);return (id&&available.has(id)&&(actual||!plannedAvailable||plannedAvailable(id,petId))?id:'unassigned')===resourceId});
  const pets=new Set(lines.map(l=>l.petId||l.pet?.id));
  for(const entry of ticket.pets){
   const petId=entry.pet?.id||entry.petId;
   if(!petId||ticket.lines.some(l=>(l.petId||l.pet?.id)===petId))continue;
   const plan=plannedFor(ticket.lines,plans,petId,'',legacy);
-  if((plan&&available.has(plan)?plan:'unassigned')===resourceId)pets.add(petId);
+  if((plan&&available.has(plan)&&(!plannedAvailable||plannedAvailable(plan,petId))?plan:'unassigned')===resourceId)pets.add(petId);
  }
  if(!pets.size){if(!ticket.pets.length&&resourceId===(legacy&&available.has(legacy)?legacy:'unassigned'))return {...ticket,lines:ticket.lines,pets:[],plannedAssignments:[]};return null;}const source=ticket as any,allTimes=source.lineStarts&&ticket.lines.every(l=>l.lineType==='PRODUCT'||source.lineStarts[lineTimeKey(l)])?source.lineStarts:lineSchedule(source);return {...ticket,lineStarts:allTimes,lines,pets:ticket.pets.filter(p=>pets.has(p.pet.id)),plannedAssignments:plans.filter(p=>pets.has(p.petId)&&(!p.packageKey||lines.some(l=>packageKey(l)===p.packageKey)))};
 }

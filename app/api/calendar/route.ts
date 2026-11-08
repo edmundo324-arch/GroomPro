@@ -4,7 +4,6 @@ import {attendingPets} from '@/src/lib/appointment-pets';
 import {plannedSettingKey} from '@/src/lib/planned-package-store';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {customerStates} from '@/src/lib/appointment-customer-state';
-import {groomingSummary} from '@/src/lib/grooming-notes-rules';
 import {calendarBlocks} from '@/src/lib/calendar-blocks';
 import {reconcileEmployeeAssignments} from '@/src/lib/groomer-assignment';
 import {NextRequest,NextResponse} from "next/server";
@@ -32,9 +31,8 @@ async function handlePolicyGET(request:NextRequest){
  ]);
  const plannedRows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:tickets.map(t=>plannedSettingKey(t.id))}}});const plans=new Map(plannedRows.map(r=>[r.settingKey,(r.value as any)?.items||[]]));
  const timeRows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:tickets.map(t=>lineStartsKey(t.id))}}}),times=new Map(timeRows.map(r=>[r.settingKey,r.value]));
- const grooming=await db.groomingNote.findMany({where:{tenantId,ticketId:{in:tickets.map(t=>t.id)}},select:{ticketId:true,petId:true,instructions:true}});
  const scheduleOverrides=ticketId?[]:await db.scheduleOverride.findMany({where:{tenantId,date:{gte:new Date(+start-86400000).toISOString().slice(0,10),lte:new Date(+end+86400000).toISOString().slice(0,10)}}});
- return NextResponse.json({blocks:ticketId?undefined:await calendarBlocks(tenantId,locationId),employees,tickets:(await customerStates(tenantId,tickets)).map(t=>({...t,legacyPlannedUserId:t.assignments.find((a:any)=>a.role==='PLANNED_GROOMER')?.user.id||null,assignments:t.assignments.filter((a:any)=>a.role==='GROOMER'),lineStarts:lineSchedule({...t,lineStarts:times.get(lineStartsKey(t.id)) as any||{}}),plannedAssignments:plans.get(plannedSettingKey(t.id))||[],pets:attendingPets(t).pets.map((p:any)=>({...p,pet:{...p.pet,todaysGroomingNotes:groomingSummary(grooming.find(n=>n.ticketId===t.id&&n.petId===p.pet.id)?.instructions)}})),needsAssignment:t.lines.some((l:any)=>l.assignmentUnavailable&&l.role==='GROOM')})),assets,employeeSchedules,assetSchedules,scheduleOverrides,locationId},{headers:{"Cache-Control":"no-store"}});
+ return NextResponse.json({blocks:ticketId?undefined:await calendarBlocks(tenantId,locationId),employees,tickets:(await customerStates(tenantId,tickets)).map(t=>({...t,legacyPlannedUserId:t.assignments.find((a:any)=>a.role==='PLANNED_GROOMER')?.user.id||null,assignments:t.assignments.filter((a:any)=>a.role==='GROOMER'),lineStarts:lineSchedule({...t,lineStarts:times.get(lineStartsKey(t.id)) as any||{}}),plannedAssignments:plans.get(plannedSettingKey(t.id))||[],pets:attendingPets(t).pets,needsAssignment:t.lines.some((l:any)=>l.assignmentUnavailable&&l.role==='GROOM')})),assets,employeeSchedules,assetSchedules,scheduleOverrides,locationId},{headers:{"Cache-Control":"no-store"}});
  }catch(error){console.error("Calendar load failed",error);return NextResponse.json({error:"Calendar could not load. Retry to see your appointments."},{status:503})}
 }
 

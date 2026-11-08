@@ -47,6 +47,10 @@ export async function reconcileEmployeeAssignments(tenantId:string,scope:{locati
   for(const userId of candidates)if(!await employeeAvailable(tenantId,userId,ticket.locationId,ticket.scheduledStart!,ticket.durationMin,true))unavailable.push(userId);
   if(!unavailable.length)continue;
   await db.$transaction(async tx=>{
+   const legacy=ticket.assignments.find(a=>a.role==='GROOMER');
+   if(legacy&&unavailable.includes(legacy.userId)&&!ticket.assignments.some(a=>a.role==='PLANNED_GROOMER')&&!ticket.lines.some(line=>line.assignedUserId===legacy.userId)){
+    await tx.ticketAssignment.createMany({data:[{ticketId:ticket.id,userId:legacy.userId,role:'PLANNED_GROOMER'}],skipDuplicates:true});
+   }
    const removed=await tx.ticketAssignment.deleteMany({where:{ticketId:ticket.id,role:'GROOMER',userId:{in:unavailable}}});
    const flagged=await tx.ticketLine.updateMany({where:{ticketId:ticket.id,assignedUserId:{in:unavailable},assignmentUnavailable:false},data:{assignmentUnavailable:true}});
    if(removed.count||flagged.count)await tx.auditEntry.create({data:{tenantId,actorType:'SYSTEM',entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:'EMPLOYEE_UNAVAILABLE',summary:'Moved unavailable employee assignments to Unassigned / Other Appointments.',details:{employeeIds:unavailable,removedCalendarAssignments:removed.count,flaggedLines:flagged.count}}});

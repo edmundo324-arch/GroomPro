@@ -19,3 +19,18 @@ test('three-month calendar handles leap years and renders date navigation separa
 test('dog tax displays respect known exempt items without inventing extra charges',()=>{const result=dogTicketTotals([{petId:'exempt',totalCents:1000,service:{taxConfiguration:{taxable:false}}},{petId:'taxable',totalCents:1000}],83);assert.equal(result.exempt.totalCents,1000);assert.equal(result.taxable.totalCents,1083);});
 
 test('adding another dog to a planned appointment leaves that dog unassigned until explicitly chosen',()=>{const t={pets:[{pet:{id:'old'}},{pet:{id:'new'}}],lines:[{petId:'old',description:'Groom'},{petId:'new',description:'Bath'}],assignments:[{user:{id:'groomer'},role:'GROOMER'}],plannedAssignments:[{petId:'old',userId:'groomer'}]};assert.deepEqual(plannedCalendarCard(t,'unassigned',new Set(['groomer'])).pets.map(p=>p.pet.id),['new']);});
+
+test('a schedule exception moves the planned dog to Unassigned without clearing the saved plan',()=>{
+ const ticket={pets:[{pet:{id:'coco'}}],lines:[lines[0]],assignments:[],plannedAssignments:[{petId:'coco',userId:'employee'}]},active=new Set(['employee']);
+ assert.equal(plannedCalendarCard(ticket,'employee',active,()=>false),null);
+ assert.equal(plannedCalendarCard(ticket,'unassigned',active,()=>false).pets[0].pet.id,'coco');
+ assert.equal(plannedCalendarCard(ticket,'employee',active,()=>true).pets[0].pet.id,'coco');
+ assert.equal(ticket.plannedAssignments[0].userId,'employee');
+});
+test('coverage distinguishes groomers, wash-qualified bathers and bathers who can do FFT',()=>{
+ const {coverageQualified}=require('../src/lib/calendar-coverage.ts');
+ const groomer={role:'GROOMER',jobTitle:'Groom'},wash={role:'BACK',jobTitle:'Bath'},fft={role:'BACK',jobTitle:'Bath, FFT'};
+ for(const type of ['GR','GR/FFT VIP']){assert.equal(coverageQualified(groomer,type),true);assert.equal(coverageQualified(fft,type),false)}
+ for(const type of ['FW','FW VIP'])assert.equal(coverageQualified(wash,type),true);
+ assert.equal(coverageQualified(wash,'FFT'),false);assert.equal(coverageQualified(fft,'FFT'),true);
+});
