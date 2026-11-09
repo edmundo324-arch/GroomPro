@@ -6,8 +6,8 @@ import {db} from '@/src/lib/db';
 import {saveWithPin} from '@/src/lib/employee-pin-assignment';
 import {GROOMPRO_ROLES,canManageRole} from '@/src/lib/roles';
 import {reconcileEmployeeAssignments} from '@/src/lib/groomer-assignment';
-import {businessCookie,contextCookieOptions,deviceCookie,sessionCookie} from '@/src/lib/business-context';
-import {openBusinessSession,pilotBusinessInput,platformHome} from '@/src/lib/platform-business';
+import {businessCookie,businessId,contextCookieOptions,deviceCookie,sessionCookie} from '@/src/lib/business-context';
+import {businessOwnerInput,businessOwnerKey,openBusinessSession,pilotBusinessInput,platformHome,saveBusinessOwner} from '@/src/lib/platform-business';
 
 // Only explicit Platform Owner and Developer roles may manage access across businesses.
 async function handle(r:NextRequest){
@@ -20,22 +20,39 @@ async function handle(r:NextRequest){
   const currentTenantId=actor.tenantId;
   if(!tenantId)return NextResponse.json({tenants,currentTenantId,canManageOwners:actor.user.role==='PLATFORM_OWNER'});
   const employees=await db.user.findMany({where:{tenantId},select:{id:true,firstName:true,lastName:true,displayName:true,role:true,active:true}});
-  const row=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:platformAccessKey}}});
-  return NextResponse.json({tenants,employees,currentTenantId,canManageOwners:actor.user.role==='PLATFORM_OWNER',access:row?.value||{suspended:false,blockedUserIds:[]}});
+  const rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[platformAccessKey,businessOwnerKey]}}});
+  const access=rows.find(row=>row.settingKey===platformAccessKey)?.value;
+  const owner=rows.find(row=>row.settingKey===businessOwnerKey)?.value as {userId?:string}|undefined;
+  return NextResponse.json({tenants,employees,currentTenantId,businessOwnerId:owner?.userId,canManageOwners:actor.user.role==='PLATFORM_OWNER',access:access||{suspended:false,blockedUserIds:[]}});
  }
  try{
   const b=await r.json(),tenantId=String(b.tenantId||''),reason=String(b.reason||'').trim();
   if(b.action==='CREATE_BUSINESS'){
    const input=pilotBusinessInput(b);
+   const owner=businessOwnerInput(b.owner);
    const tenant=await db.$transaction(async tx=>{
     const home=await platformHome(tx,actor.user);
     if(!home)throw Error('Platform Owner or Developer access is required.');
     if(await tx.tenant.findFirst({where:{name:input.name},select:{id:true}}))throw Error('A business with that name already exists.');
-    const created=await tx.tenant.create({data:{id:input.id,name:input.name,locations:{create:{name:input.location,timezone:input.timezone}}},select:{id:true,name:true}});
+    const created=await tx.tenant.create({data:{id:input.id,name:input.name,locations:{create:{name:input.location,timezone:input.timezone}}},select:{id:true,name:true,locations:{select:{id:true}}}});
+    await saveBusinessOwner(tx,created.id,created.locations[0].id,owner);
     await tx.auditEntry.create({data:{tenantId:created.id,actorType:'EMPLOYEE',actorUserId:home.id,entityType:'TENANT',entityId:created.id,action:'PLATFORM_BUSINESS_CREATE',summary:'Created a separate business workspace.'}});
-    return created;
+    return {id:created.id,name:created.name};
    });
    return NextResponse.json({tenant},{status:201});
+  }
+  if(b.action==='ADD_BUSINESS_OWNER'){
+   const owner=businessOwnerInput(b.owner);
+   if(!businessId(tenantId))throw Error('Choose a business created through this setup.');
+   await db.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
+    if(await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:businessOwnerKey}}}))throw Error('This business already has an owner.');
+    const location=await tx.location.findFirst({where:{tenantId},orderBy:{createdAt:'asc'},select:{id:true}});
+    if(!location)throw Error('This business needs a location.');
+    const userId=await saveBusinessOwner(tx,tenantId,location.id,owner);
+    await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:actor.user.id,entityType:'USER',entityId:userId,action:'BUSINESS_OWNER_CREATE',summary:'Added the first business owner.'}});
+   });
+   return NextResponse.json({ok:true},{status:201});
   }
   if(b.action==='OPEN_BUSINESS'){
    const deviceId=r.cookies.get(deviceCookie)?.value;

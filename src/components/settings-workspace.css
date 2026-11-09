@@ -88,3 +88,13 @@
 .gp-settings-section-tabs>button>.gp-settings-tab-icon{margin-inline-end:5px}
 .gp-settings-search-target{outline:2px solid #3b78dc;outline-offset:-2px}
 @media(pointer:coarse){.gp-settings-finder-input>input,.gp-settings-finder-results button{min-height:44px}}
+.gp-platform-task{border-top:1px solid #dce1e5;padding:12px 0;margin-top:8px}
+.gp-platform-task>h3,.gp-platform-task>p{margin:0 0 8px}
+.gp-platform-form{display:grid;gap:10px;width:min(100%,600px);margin:8px 0}
+.gp-platform-form-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr));gap:8px 12px;border:1px solid #dce1e5;border-radius:5px;padding:8px 10px;min-width:0;margin:0}
+.gp-platform-form-fields>small{grid-column:1/-1;color:#4f6374}
+.gp-platform-form label,.gp-platform-action-row>label,.gp-platform-field{display:grid;gap:4px;min-width:0;max-width:100%}
+.gp-platform-access input:not([type=checkbox]),.gp-platform-access select{min-width:0;max-width:100%;border:1px solid #b5c2cd;border-radius:4px;padding:6px 8px}
+.gp-platform-form .gp-platform-checkbox{display:flex;align-items:center;gap:6px}
+.gp-platform-action-row{display:flex;align-items:end;flex-wrap:wrap;gap:8px}
+.gp-platform-form .gp-btn{justify-self:start}

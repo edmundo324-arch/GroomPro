@@ -3,9 +3,11 @@ import type { Prisma } from '@prisma/client';
 import { businessId, businessPrefix } from './business-context';
 import { isPlatformRole } from './roles';
 import { platformAccessKey } from './platform-restrictions';
+import { saveWithPin } from './employee-pin-assignment';
 
 const platformUserPrefix='pilot_operator_';
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex').slice(0,40);
+export const businessOwnerKey='BUSINESS_OWNER';
 
 export function pilotBusinessInput(input:any) {
   const name=typeof input?.name==='string'?input.name.trim().replace(/\s+/g,' '):'';
@@ -14,6 +16,22 @@ export function pilotBusinessInput(input:any) {
   if (!name || name.length>100 || !location || location.length>100) throw Error('Enter a business name and location name.');
   try { if(!timezone)throw Error();new Intl.DateTimeFormat('en-US',{timeZone:timezone}); } catch { throw Error('Enter a valid time zone, such as America/Chicago.'); }
   return {id:businessPrefix+hash(name.toLowerCase()),name,location,timezone};
+}
+
+export function businessOwnerInput(input:unknown){
+  const value=input as {firstName?:unknown;lastName?:unknown;pin?:unknown}|null;
+  const firstName=typeof value?.firstName==='string'?value.firstName.trim():'';
+  const lastName=typeof value?.lastName==='string'?value.lastName.trim():'';
+  const pin=typeof value?.pin==='string'?value.pin:'';
+  if(!firstName||!lastName||firstName.length>100||lastName.length>100)throw Error('Enter the business owner’s first and last name.');
+  if(!/^\d{6,10}$/.test(pin))throw Error('Enter a 6–10 digit PIN for the business owner.');
+  return {firstName,lastName,pin};
+}
+
+export async function saveBusinessOwner(tx:Prisma.TransactionClient,tenantId:string,locationId:string,owner:ReturnType<typeof businessOwnerInput>){
+  const user=await saveWithPin(tenantId,owner.pin,undefined,{tenantId,locationId,firstName:owner.firstName,lastName:owner.lastName,role:'ADMIN',active:true},tx);
+  await tx.tenantSetting.create({data:{tenantId,settingKey:businessOwnerKey,value:{userId:user.id}}});
+  return user.id as string;
 }
 
 type Operator={id:string;tenantId:string;role:string;importSourceId?:string|null};

@@ -127,7 +127,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   },
   {
     path: ['administration', 'subscription'], title: 'Create business',
-    description: 'Set up a business with its own name, first location, and time zone.',
+    description: 'Set up a business, its first location, and its owner’s sign-in.',
     keywords: 'create pilot business tenant new add business access controls platform access',
     aliases: ['new', 'new tenant', 'new business'],
     access: 'platform', anchor: 'create-pilot-business', steps: ['GroomPro platform access controls', 'Create business'],

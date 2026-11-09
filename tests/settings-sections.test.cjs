@@ -91,5 +91,6 @@ test('Settings search takes platform staff directly to the Create business form'
  assert.equal(settingsBreadcrumb(result),'Settings → Access & subscription → Subscription → GroomPro platform access controls → Create business');
  assert.equal(findSettings('pilot','ADMIN').length,0);
  const panel=renderToStaticMarkup(React.createElement(PlatformAccessSettings));
- assert.match(panel,/<details><summary data-settings-target="platform-business-controls">GroomPro platform access controls<\/summary>.*<details><summary data-settings-target="create-pilot-business">Create business<\/summary>/);
+ assert.match(panel,/<details[^>]*><summary data-settings-target="platform-business-controls">GroomPro platform access controls<\/summary>.*<details[^>]*><summary data-settings-target="create-pilot-business">Create business<\/summary>/);
+ assert.match(panel,/<legend>First location<\/legend>.*<legend>Business owner<\/legend>.*Sign-in PIN/);
 });
