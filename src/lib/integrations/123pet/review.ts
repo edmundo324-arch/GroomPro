@@ -6,7 +6,7 @@ export async function connectionReview(tx:any,tenantId:string,connectorId:string
  for(const row of rows){if(row.entityType==='OUTBOUND_SNAPSHOT'||row.entityType==='WRITE_COMMAND')continue;const payload=row.payload as any;counts[payload.state||'STAGED']=(counts[payload.state||'STAGED']||0)+1;
   if(!['REVIEW','CONFLICT','AWAITING_OWNER'].includes(payload.state)||reviews.length>=100)continue;
   const data=unseal(payload.encrypted,tenantId) as any;
-  const label=row.entityType==='TICKET_BUNDLE'?'123Pet ticket #'+data.summary.fldTicketID:row.entityType==='SOURCE:tblEmployees'?[data.fldFirstName,data.fldLastName].filter(Boolean).join(' '):data.fldName||data.fldDescription||row.sourceId;
+  const label=row.entityType==='TICKET_BUNDLE'?'123Pet ticket #'+data.summary.fldTicketID:row.entityType==='PACKAGE_BUNDLE'?data.summary.fldName||'123Pet package '+row.sourceId:row.entityType==='SOURCE:tblEmployees'?[data.fldFirstName,data.fldLastName].filter(Boolean).join(' '):data.fldName||data.fldDescription||row.sourceId;
   const type=models[row.entityType];let candidates:any[]=[];
   if(type==='user')candidates=await tx.user.findMany({where:{tenantId,firstName:String(data.fldFirstName||''),lastName:String(data.fldLastName||'')},select:{id:true,firstName:true,lastName:true,displayName:true}});
   if(type==='catalog')candidates=await tx[data.fldPS==='P'?'product':'service'].findMany({where:{tenantId,[data.fldPS==='P'?'sku':'code']:String(data.fldID)},select:{id:true,name:true}});

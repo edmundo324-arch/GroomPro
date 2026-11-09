@@ -2,6 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const ts=require('typescript');
+require('./load-ts.cjs');
 const {migrateOwnerRole,promoteCompanyOwners,isCompanyOwner}=require('../scripts/platform-owner-migration.cjs');
 const compiled=ts.transpileModule(fs.readFileSync(require.resolve('../src/lib/roles.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
 const roles={};new Function('exports',compiled)(roles);
@@ -40,4 +41,37 @@ test('Employee editor offers Developer to Owners for new and existing employees'
  assert.equal(roles.employeeEditorRoles('MANAGER','FRONT').includes('DEVELOPER'),false);
  assert.equal(roles.employeeEditorRoles('DEVELOPER','FRONT').includes('PLATFORM_OWNER'),false);
  assert.ok(roles.employeeEditorRoles('PLATFORM_OWNER','PLATFORM_OWNER').includes('PLATFORM_OWNER'));
+});
+
+test('pilot workspaces use a stable identity and anonymous requests only reach setup and PIN endpoints',()=>{
+ const {pilotBusinessInput}=require('../src/lib/platform-business.ts');
+ const {businessId,mayOpenBusinessWithoutPin}=require('../src/lib/business-context.ts');
+ const input={name:' Grand  Grooming ',location:'Main Location',timezone:'America/Chicago'};
+ const first=pilotBusinessInput(input);
+ assert.equal(first.name,'Grand Grooming');assert.equal(first.id,pilotBusinessInput({...input,name:'grand grooming'}).id);
+ assert.equal(businessId(first.id),true);assert.throws(()=>pilotBusinessInput({...input,timezone:'Invalid'}));
+ assert.equal(mayOpenBusinessWithoutPin('/api/employee/session','POST'),true);
+ for(const path of ['/api/customers/search','/api/tickets','/api/catalog','/api/platform-access'])assert.equal(mayOpenBusinessWithoutPin(path,'GET'),false,path);
+});
+
+test('opening a pilot requires a current platform session and the linked access ends when the home role is revoked',async()=>{
+ const {pilotBusinessInput,openBusinessSession,currentBusinessSession}=require('../src/lib/platform-business.ts');
+ const target=pilotBusinessInput({name:'Grand Grooming',location:'Main Location',timezone:'America/Chicago'}).id;
+ const home={id:'owner',tenantId:'main',role:'PLATFORM_OWNER',active:true,firstName:'Edmundo',lastName:'Saenz'};
+ let operator,session,originalEnded=false;
+ const tx={$queryRaw:async()=>[],tenant:{findUnique:async()=>({id:target,name:'Grand Grooming',locations:[{id:'pilot-location'}]})},
+  user:{findUnique:async({where})=>where.id==='owner'?home:operator?.id===where.id?operator:null,
+   upsert:async({create})=>operator={...create,active:true}},
+  employeeSession:{updateMany:async({where})=>{if(!where.id)return {count:0};if(originalEnded||where.id!=='home-session')return {count:0};originalEnded=true;return {count:1}},
+   create:async({data})=>session={...data,id:'pilot-session',lastActiveAt:new Date(),user:operator},
+   findFirst:async({where})=>where.id===session?.id&&where.tenantId===session.tenantId&&where.deviceId===session.deviceId?session:null},
+  auditEntry:{create:async()=>{}},tenantSetting:{findUnique:async()=>null,findMany:async()=>[]}};
+ await assert.rejects(openBusinessSession(tx,{...home,role:'ADMIN'},'home-session',target,'device'));
+ const opened=await openBusinessSession(tx,home,'home-session',target,'device');
+ assert.equal(opened.tenant.id,target);assert.equal(operator.tenantId,target);assert.equal(operator.pinHash,'IMPORT_DISABLED');
+ assert.ok(await currentBusinessSession(tx,target,'pilot-session','device'));
+ assert.equal(await currentBusinessSession(tx,target,'pilot-session','other-device'),null);
+ await assert.rejects(openBusinessSession(tx,home,'home-session',target,'device'));
+ home.role='ADMIN';
+ assert.equal(await currentBusinessSession(tx,target,'pilot-session','device'),null);
 });

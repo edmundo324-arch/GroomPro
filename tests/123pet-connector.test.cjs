@@ -2,6 +2,35 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 function load(file){const filename=path.resolve(file),module={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module,exports:module.exports,Buffer,process,Date,require:id=>id.startsWith('.')?load(path.resolve(path.dirname(filename),id)+'.ts'):require(id)},{filename});return module.exports;}
 const control=load('src/lib/integrations/123pet/control.ts'),mapping=load('src/lib/integrations/123pet/manifest.ts'),profiles=load('src/lib/integrations/123pet/profiles.ts'),inbox=load('src/lib/integrations/123pet/inbox.ts');
 const tickets=load('src/lib/integrations/123pet/tickets.ts'),ticketMapping=load('src/lib/integrations/123pet/ticket-mapping.ts');
+const packages=load('src/lib/integrations/123pet/packages.ts');
+test('a 123Pet package arrives with ordered services, updates by source ID and stages local conflicts',async()=>{
+ process.env.GROOMPRO_IMPORT_KEY='ab'.repeat(32);
+ const crypto=load('src/lib/import/crypto.ts'),manifest=mapping.readManifest(schema());
+ const blank=table=>Object.fromEntries(manifest.find(x=>x.table===table).columns.map(key=>[key,null]));
+ const summary={...blank('tblPackagesSummary'),fldPK:31,fldPackageID:'TESTPACK',fldName:'123Pet Pilot Package',fldRetail:'89.99',fldInactive:false};
+ const component=(id,order,fldPSID,fldQuantity)=>({...blank('tblPackagesRow'),fldPK:id,fldPackageID:'TESTPACK',fldOrder:order,fldPSID,fldQuantity});
+ const bundle={summary,rows:[component(43,2,'GROOM',2),component(42,1,'BATH',1)],serviceKeys:[{code:'BATH',sourceId:'17'},{code:'GROOM',sourceId:'18'}]};
+ const services=[{id:'bath',sourceId:'17',code:'BATH',workflowRole:'BATH'},{id:'groom',sourceId:'18',code:'GROOM',workflowRole:'GROOM'}];
+ let record=null,native=null,creates=0,updates=0;
+ const tx={tenantSetting:{upsert:async()=>{}},service:{findMany:async({where})=>{assert.equal(where.tenantId,'pilot');return services}},
+  importRecord:{findUnique:async()=>record,findMany:async({where})=>{assert.equal(where.source,'123pet:connector');return services.filter(s=>where.sourceId.in.includes(s.sourceId)).map(s=>({sourceId:s.sourceId,targetId:s.id,payload:{state:'APPLIED',encrypted:crypto.seal({fldPS:'S',fldID:s.code},'pilot')}}))},upsert:async({create,update})=>{record=record?{...record,...update}:create}},
+  package:{findFirst:async({where})=>where.id?native:null,create:async({data})=>{creates++;native={...data,items:data.items.create};return native},
+   update:async({data})=>{updates++;native={...native,...data,items:data.items.upsert.map(entry=>entry.create)};return native}}};
+ assert.throws(()=>packages.validatePackageBundle(schema(),{...bundle,rows:[{...bundle.rows[0],fldPackageID:'OTHER'}]}),/unrelated/);
+ assert.equal((await packages.receivePackageBundle(tx,'pilot','connector',schema(),{...bundle,serviceKeys:[]})).state,'REVIEW');
+ assert.equal(creates,0);
+ assert.equal((await packages.receivePackageBundle(tx,'pilot','connector',schema(),bundle)).state,'APPLIED');
+ assert.equal(native.basePriceCents,8999);
+ assert.deepEqual(JSON.parse(JSON.stringify(native.items.map(i=>[i.serviceId,i.quantity,i.role]))),[['bath',1,'BATH'],['groom',2,'GROOM']]);
+ const id=native.id;
+ assert.equal((await packages.receivePackageBundle(tx,'pilot','connector',schema(),bundle)).unchanged,1);
+ const edit={...bundle,summary:{...summary,fldRetail:'94.50'}};
+ assert.equal((await packages.receivePackageBundle(tx,'pilot','connector',schema(),edit)).state,'APPLIED');
+ assert.equal(native.id,id);assert.equal(native.basePriceCents,9450);assert.equal(creates,1);assert.equal(updates,1);
+ native.name='Edited by a GroomPro employee';
+ assert.equal((await packages.receivePackageBundle(tx,'pilot','connector',schema(),{...edit,summary:{...edit.summary,fldRetail:'99'}})).state,'REVIEW');
+ assert.equal(native.basePriceCents,9450);assert.equal(updates,1);
+});
 test('ticket bundles reject cross-ticket lines and duplicates across pages',()=>{
  const manifest=mapping.readManifest(schema());
  const row=table=>Object.fromEntries(manifest.find(x=>x.table===table).columns.map(k=>[k,null]));

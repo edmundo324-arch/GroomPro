@@ -89,6 +89,7 @@ try{
     try{
      $connection.Open()
      foreach($table in $manifest){
+      if($status.packageBundles -and $table.table -in @('tblPackagesSummary','tblPackagesRow')){continue}
       $columns=($table.columns | ForEach-Object {Quote-Identifier $_}) -join ','
       $source=(Quote-Identifier $table.schema)+'.'+(Quote-Identifier $table.table)
       $key=Quote-Identifier $table.key
@@ -117,6 +118,7 @@ try{
        $offset+=$rows.Count
       }while($rows.Count -eq 100)
      }
+     if($status.packageBundles){Send-PackageBundles $connection $manifest}
      Send-TicketBundles $connection $manifest
      Write-Host ('Source scan acknowledged at '+(Get-Date)+'. Check GroomPro connection settings for records needing review.')
     }finally{$connection.Dispose()}

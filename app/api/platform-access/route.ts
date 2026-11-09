@@ -6,6 +6,8 @@ import {db} from '@/src/lib/db';
 import {saveWithPin} from '@/src/lib/employee-pin-assignment';
 import {GROOMPRO_ROLES,canManageRole} from '@/src/lib/roles';
 import {reconcileEmployeeAssignments} from '@/src/lib/groomer-assignment';
+import {businessCookie,contextCookieOptions,deviceCookie,sessionCookie} from '@/src/lib/business-context';
+import {openBusinessSession,pilotBusinessInput,platformHome} from '@/src/lib/platform-business';
 
 // Only explicit Platform Owner and Developer roles may manage access across businesses.
 async function handle(r:NextRequest){
@@ -15,13 +17,36 @@ async function handle(r:NextRequest){
  if(r.method==='GET'){
   const tenantId=r.nextUrl.searchParams.get('tenantId');
   const tenants=await db.tenant.findMany({select:{id:true,name:true},orderBy:{name:'asc'}});
-  if(!tenantId)return NextResponse.json({tenants,canManageOwners:actor.user.role==='PLATFORM_OWNER'});
+  const currentTenantId=actor.tenantId;
+  if(!tenantId)return NextResponse.json({tenants,currentTenantId,canManageOwners:actor.user.role==='PLATFORM_OWNER'});
   const employees=await db.user.findMany({where:{tenantId},select:{id:true,firstName:true,lastName:true,displayName:true,role:true,active:true}});
   const row=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:platformAccessKey}}});
-  return NextResponse.json({tenants,employees,canManageOwners:actor.user.role==='PLATFORM_OWNER',access:row?.value||{suspended:false,blockedUserIds:[]}});
+  return NextResponse.json({tenants,employees,currentTenantId,canManageOwners:actor.user.role==='PLATFORM_OWNER',access:row?.value||{suspended:false,blockedUserIds:[]}});
  }
  try{
   const b=await r.json(),tenantId=String(b.tenantId||''),reason=String(b.reason||'').trim();
+  if(b.action==='CREATE_BUSINESS'){
+   const input=pilotBusinessInput(b);
+   const tenant=await db.$transaction(async tx=>{
+    const home=await platformHome(tx,actor.user);
+    if(!home)throw Error('Platform Owner or Developer access is required.');
+    if(await tx.tenant.findFirst({where:{name:input.name},select:{id:true}}))throw Error('A business with that name already exists.');
+    const created=await tx.tenant.create({data:{id:input.id,name:input.name,locations:{create:{name:input.location,timezone:input.timezone}}},select:{id:true,name:true}});
+    await tx.auditEntry.create({data:{tenantId:created.id,actorType:'EMPLOYEE',actorUserId:home.id,entityType:'TENANT',entityId:created.id,action:'PLATFORM_BUSINESS_CREATE',summary:'Created a separate business workspace.'}});
+    return created;
+   });
+   return NextResponse.json({tenant},{status:201});
+  }
+  if(b.action==='OPEN_BUSINESS'){
+   const deviceId=r.cookies.get(deviceCookie)?.value;
+   if(!deviceId||deviceId!==actor.deviceId)throw Error('Sign in again on this device.');
+   const {tenant,session}=await db.$transaction(tx=>openBusinessSession(tx,actor.user,actor.id,tenantId,deviceId));
+   const response=NextResponse.json({tenant});
+   const options=contextCookieOptions();
+   response.cookies.set(businessCookie,tenant.id,{...options,maxAge:60*60*24*30});
+   response.cookies.set(sessionCookie,session.id,{...options,maxAge:60*60*12});
+   return response;
+  }
   if(!reason||reason.length>1000)throw Error('Enter a short reason for this access change.');
   if(!await db.tenant.findUnique({where:{id:tenantId}}))throw Error('Business not found.');
   await db.$transaction(async tx=>{
