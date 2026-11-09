@@ -125,6 +125,18 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
     access: 'owner', anchor: 'product-name', steps: ['Product name'],
   },
   {
+    path: ['administration', 'subscription'], title: 'Create a pilot business',
+    description: 'Set up a separate pilot tenant with its own business name, first location, and time zone.',
+    keywords: 'create pilot business tenant new add grand grooming business access controls platform access',
+    access: 'platform', anchor: 'create-pilot-business', steps: ['GroomPro platform access controls', 'Create a pilot business'],
+  },
+  {
+    path: ['administration', 'subscription'], title: 'GroomPro platform access controls',
+    description: 'See your current business, open a pilot, or manage business and employee access.',
+    keywords: 'business access control controls platform owner developer manage tenant switch open business',
+    access: 'platform', anchor: 'platform-business-controls', steps: ['GroomPro platform access controls'],
+  },
+  {
     path: importPath, title: 'Upload customer, pet, or appointment files',
     description: 'Stage a file for review before importing. This upload uses your private import secret.',
     keywords: 'import customers upload CSV Excel XLSX move from 123Pet choose related files client list pet appointment',

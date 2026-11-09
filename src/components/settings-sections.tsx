@@ -58,6 +58,7 @@ export function SettingsSections({id,label,sections,initial}:{id:string;label:st
     revealed=true;
     observer?.disconnect();
     panel.dispatchEvent(new Event('groompro:settings-reveal'));
+    for(let details=target.closest('details');details&&panel.contains(details);details=details.parentElement?.closest('details')||null)details.open=true;
     target.focus({preventScroll:true});
     target.scrollIntoView({block:'nearest',inline:'nearest'});
     target.classList.add('gp-settings-search-target');

@@ -40,7 +40,7 @@ test('Settings search finds operational controls and routes each result to a rea
  const {findSettings,settingsSearchEntries,settingsBreadcrumb}=require('../src/lib/settings-search.ts');
  const read=name=>fs.readFileSync('src/components/'+name+'.tsx','utf8');
  const tabs=read('settings')+read('workflow-settings');
- const anchors=['customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings'].map(read).join('\n');
+ const anchors=['customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings','platform-access-settings'].map(read).join('\n');
  for(const entry of settingsSearchEntries){
   const labels=settingsBreadcrumb(entry).split(' → ').slice(1,entry.path.length+1);
   entry.path.forEach((id,index)=>assert.ok(tabs.includes("id:'"+id+"',label:'"+labels[index]+"'"),entry.title+' → '+id));
@@ -74,4 +74,17 @@ test('Settings search finds operational controls and routes each result to a rea
  assert.equal(findSettings('no-show fee','MANAGER')[0].anchor,'no-show-fee');
  assert.equal(findSettings('product name','DEVELOPER').some(entry=>entry.anchor==='product-name'),false);
  assert.equal(findSettings('product name','PLATFORM_OWNER')[0].anchor,'product-name');
+});
+
+test('Settings search takes platform staff directly to the pilot business form',()=>{
+ const {findSettings,settingsBreadcrumb}=require('../src/lib/settings-search.ts');
+ const {PlatformAccessSettings}=require('../src/components/platform-access-settings.tsx');
+ for(const query of ['create','pilot','business access','control','new tenant','Grand Grooming']){
+  assert.ok(findSettings(query,'PLATFORM_OWNER').some(entry=>entry.anchor==='create-pilot-business'),query);
+ }
+ const result=findSettings('create a pilot business','DEVELOPER')[0];
+ assert.equal(settingsBreadcrumb(result),'Settings → Access & subscription → Subscription → GroomPro platform access controls → Create a pilot business');
+ assert.equal(findSettings('pilot','ADMIN').length,0);
+ const panel=renderToStaticMarkup(React.createElement(PlatformAccessSettings));
+ assert.match(panel,/<details><summary data-settings-target="platform-business-controls">GroomPro platform access controls<\/summary>.*<details><summary data-settings-target="create-pilot-business">Create a pilot business<\/summary>/);
 });
