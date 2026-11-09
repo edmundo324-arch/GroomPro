@@ -4,6 +4,7 @@ export type SettingsSearchEntry = {
   description: string;
   keywords: string;
   access?: 'admin' | 'manager' | 'platform' | 'owner';
+  aliases?: string[];
   anchor?: string;
   steps?: string[];
 };
@@ -125,14 +126,15 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
     access: 'owner', anchor: 'product-name', steps: ['Product name'],
   },
   {
-    path: ['administration', 'subscription'], title: 'Create a pilot business',
-    description: 'Set up a separate pilot tenant with its own business name, first location, and time zone.',
-    keywords: 'create pilot business tenant new add grand grooming business access controls platform access',
-    access: 'platform', anchor: 'create-pilot-business', steps: ['GroomPro platform access controls', 'Create a pilot business'],
+    path: ['administration', 'subscription'], title: 'Create business',
+    description: 'Set up a business with its own name, first location, and time zone.',
+    keywords: 'create pilot business tenant new add business access controls platform access',
+    aliases: ['new', 'new tenant', 'new business'],
+    access: 'platform', anchor: 'create-pilot-business', steps: ['GroomPro platform access controls', 'Create business'],
   },
   {
     path: ['administration', 'subscription'], title: 'GroomPro platform access controls',
-    description: 'See your current business, open a pilot, or manage business and employee access.',
+    description: 'See your current business, open another business, or manage business and employee access.',
     keywords: 'business access control controls platform owner developer manage tenant switch open business',
     access: 'platform', anchor: 'platform-business-controls', steps: ['GroomPro platform access controls'],
   },
@@ -172,7 +174,8 @@ export function findSettings(query: string, role?: string) {
     const title = terms(entry.title), keywords = terms(entry.keywords);
     const haystack = [title, keywords, terms(entry.description), terms(settingsBreadcrumb(entry))].join(' ');
     if (!normalized.split(' ').every(word => haystack.includes(word))) return [];
-    const score = (title === normalized ? 8 : 0) + (title.includes(normalized) ? 4 : 0) + (keywords.includes(normalized) ? 2 : 0) + entry.path.length;
+    const exactShortcut=entry.aliases?.includes(normalized);
+    const score = (exactShortcut ? 20 : 0) + (title === normalized ? 8 : 0) + (title.includes(normalized) ? 4 : 0) + (keywords.includes(normalized) ? 2 : 0) + entry.path.length;
     return [{ entry, score }];
   }).sort((a, b) => b.score - a.score).slice(0, 7).map(({ entry }) => entry);
 }

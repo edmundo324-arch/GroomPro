@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request:NextRequest){
   const tenantId=request.cookies.get(businessCookie)?.value;
-  if(!businessId(tenantId))return NextResponse.json({error:'No pilot business is open.'},{status:400});
+  if(!businessId(tenantId))return NextResponse.json({error:'You are already in the main business workspace.'},{status:400});
   const sessionId=request.cookies.get(sessionCookie)?.value;
   if(sessionId)await endEmployeeSession(tenantId!,sessionId);
   const response=NextResponse.json({ok:true},{headers:{'Cache-Control':'no-store'}});

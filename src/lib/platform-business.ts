@@ -32,7 +32,7 @@ export async function platformHome(tx:Prisma.TransactionClient,user:Operator) {
 export async function openBusinessSession(tx:Prisma.TransactionClient, actor:Operator, fromSession:string, tenantId:string, deviceId:string) {
   const home=await platformHome(tx,actor);
   if(!home)throw Error('Platform Owner or Developer access is required.');
-  if(tenantId!==home.tenantId&&!businessId(tenantId))throw Error('Choose a pilot business or your home business.');
+  if(tenantId!==home.tenantId&&!businessId(tenantId))throw Error('Choose your home business or a business created through this setup.');
   await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
   const tenant=await tx.tenant.findUnique({where:{id:tenantId},select:{id:true,name:true,locations:{select:{id:true},orderBy:{createdAt:'asc'},take:1}}});
   if(!tenant?.locations[0])throw Error('This business needs a location before it can open.');

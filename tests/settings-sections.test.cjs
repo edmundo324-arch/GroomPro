@@ -76,15 +76,20 @@ test('Settings search finds operational controls and routes each result to a rea
  assert.equal(findSettings('product name','PLATFORM_OWNER')[0].anchor,'product-name');
 });
 
-test('Settings search takes platform staff directly to the pilot business form',()=>{
+test('Settings search takes platform staff directly to the Create business form',()=>{
  const {findSettings,settingsBreadcrumb}=require('../src/lib/settings-search.ts');
  const {PlatformAccessSettings}=require('../src/components/platform-access-settings.tsx');
- for(const query of ['create','pilot','business access','control','new tenant','Grand Grooming']){
+ for(const query of ['create','pilot','business access','control','new tenant','new business']){
   assert.ok(findSettings(query,'PLATFORM_OWNER').some(entry=>entry.anchor==='create-pilot-business'),query);
  }
- const result=findSettings('create a pilot business','DEVELOPER')[0];
- assert.equal(settingsBreadcrumb(result),'Settings → Access & subscription → Subscription → GroomPro platform access controls → Create a pilot business');
+ const result=findSettings('create business','DEVELOPER')[0];
+ assert.equal(result.title,'Create business');
+ for(const role of ['PLATFORM_OWNER','DEVELOPER'])for(const query of ['New','new tenant','new business']){
+  assert.equal(findSettings(query,role)[0].anchor,'create-pilot-business',query);
+ }
+ assert.ok(!findSettings('new','ADMIN').some(entry=>entry.anchor==='create-pilot-business'));
+ assert.equal(settingsBreadcrumb(result),'Settings → Access & subscription → Subscription → GroomPro platform access controls → Create business');
  assert.equal(findSettings('pilot','ADMIN').length,0);
  const panel=renderToStaticMarkup(React.createElement(PlatformAccessSettings));
- assert.match(panel,/<details><summary data-settings-target="platform-business-controls">GroomPro platform access controls<\/summary>.*<details><summary data-settings-target="create-pilot-business">Create a pilot business<\/summary>/);
+ assert.match(panel,/<details><summary data-settings-target="platform-business-controls">GroomPro platform access controls<\/summary>.*<details><summary data-settings-target="create-pilot-business">Create business<\/summary>/);
 });
