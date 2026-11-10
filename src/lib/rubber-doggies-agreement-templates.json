@@ -1,0 +1,102 @@
+{
+  "channels": [
+    "link",
+    "tablet",
+    "online"
+  ],
+  "shopEmail": "rubberdoggies@gmail.com",
+  "intake": {
+    "version": "Rubber Doggies 2026 intake",
+    "clauses": [
+      {
+        "title": "Late Pick-Ups",
+        "text": "Acknowledgment of Late Pick-Up Policy: Please be on time to pick up your pet(s). We gladly give a 30-minute grace for all pick-ups. However, we understand that sometimes life gets in the way, for this reason, “Daycare” is always available for $18 for up to 4 hours or $36 for over 4 hours or for Pick ups after closing. Please be aware that all pets left for more than 30 minutes, once the owner is texted or called, will be placed in daycare and charged a Daycare Fee of $ 18.00. Daycare covers pickups up to closing time at 5:00 pm. By signing below, I acknowledge that I have a 30-minute grace period to pick up my pup at Rubber Doggies."
+      },
+      {
+        "title": "Current Vaccinations/Veterinarian Information",
+        "text": "By signing this contract, owners verify their pets are current on Rabies, Distemper and Parvo-Virus. Proof of Vaccination or current Titer testing shall be provided to Rubber Doggies upon request."
+      },
+      {
+        "title": "Aggressive or Dangerous Pets",
+        "text": "Owners MUST inform Rubber Doggies if their pet(s) bite, has bitten, or is aggressive to people, other pets, or specific grooming procedures. Muzzles may be used if necessary. Muzzling will not harm your pet and protects both the pet and the groomer. Rubber Doggies reserves the right to refuse/stop services for such pet(s) at any time before or during the grooming process and charge a handling fee for Aggressive Dogs in addition to the regular grooming fee. If the pet should bite, the owner agrees to be responsible for any and all related medical bills, recovery costs, loss of income, and equipment damage."
+      },
+      {
+        "title": "Health, Medical Problems & Senior Pets",
+        "text": "Grooming procedures can sometimes be stressful, especially for a senior or ill pet, or a pet can expose hidden medical problems or aggravate a current one during or after the groom. Because these pets have a greater chance of injury, these pets will be groomed for cleanliness and comfort. In the best interest of your pet, this contract/agreement will give Rubber Doggies permission to obtain immediate veterinary treatment for your pet should it be deemed necessary. We will do our best to contact you first, then take your pet to your authorized Veterinarian. It is agreed that all expenses for Veterinary care will be covered by the pet’s owner upon signing this contract/agreement."
+      },
+      {
+        "title": "Mat Removal",
+        "text": "Pets with matted coats need extra attention during their grooming session. Mats left in a pet’s coat only grow tighter and can strangle the pet’s skin, or eventually tear it open. Rubber Doggies does not wish to cause serious or undue stress to your pet, and will not continually de-mat your pet for you. Mats can be difficult to remove and may require the pet to be shaved. When necessary, removing a heavily matted coat includes risks of nicks, cuts, or abrasions due to warts, moles, or skin folds trapped in the mats. Heavy matting can also trap moisture and urine near the pet’s skin allowing mold, fungus, or bacteria to grow, causing skin irritations that existed prior to the grooming process. Torn skin from mats can also harbor maggots. After effects of mat removal procedures can include itchiness, skin redness, self-inflicted irritations or abrasions and failure of the hair to re-grow. Shaved pets are also prone to sunburn and should be kept out of the sun until the hair grows sufficiently to protect the skin. In some cases, pets may also exhibit brief behavioral changes. Prevention is the best defense against matting by scheduling regular grooming appointments. There is an extra handling fee for all dogs that come in with mats!"
+      },
+      {
+        "title": "Puppy’s First Haircut",
+        "text": "The first grooming experience for a puppy (or any age dog) requires patience and understanding. More time may be necessary to work with younger pets, because of this younger pets are more expensive to groom. Gradually adding steps to the grooming process on a regular basis will help to minimize any potential stress. Owners can help their pets accept grooming by regularly massaging the pet's paws as well as brushing and combing their coats. Frequent handling of paws can help pets better accept nail clipping or paw trimming."
+      },
+      {
+        "title": "Parasites",
+        "text": "If you suspect your pet has fleas or ticks, prompt and thorough action on YOUR part will be needed. Flea infestations can lead to tapeworms and other health problems. We do offer effective products and can apply monthly treatment if requested. If fleas or ticks are found on a pet during the grooming process, the pet will receive a flea bath to kill the parasites. Ticks found will be removed and an additional fee may be applied for the removal of more than 4 ticks. If ticks are found, we strongly suggest you have your pet tested for Lyme Disease or other tick-borne illnesses. Please note that parasites are a health hazard to our pets as well as to our humans."
+      },
+      {
+        "title": "Accidents",
+        "text": "Rubber Doggies will always take the utmost care of our customer’s dogs, nonetheless, there is always the possibility an accident could occur. Grooming equipment is sharp, even though we use extreme caution and care in all situations, possible problems could occur including cuts, nicks, scratches, hair in the eye (which can cause a scratch on the eye), quicking of nails, etc. In most cases, this can happen when a pet is wiggling or moving around."
+      },
+      {
+        "title": "Pet Safety",
+        "text": "Every effort will be made to ensure your pet is groomed as safely as possible, but an excited pet can be dangerous to continue to work on. Pet owners are NOT allowed in the back at any time. If an owner insists on being present during the grooming process, Rubber Doggies will not be able to continue and the full price will be charged. The safety of our pets is our most important concern."
+      },
+      {
+        "title": "Refund Policy",
+        "text": "All sales are final! You recognize and agree that you shall NOT be entitled to a refund for any purchase under any circumstances. That said, we warrant our work for 5 days. We will bathe and do additional grooming adjustments within this timeframe."
+      },
+      {
+        "title": "Hold Harmless Agreement",
+        "text": "By signing this contract you (or your agent) agree to hold Rubber Doggies, its owners, operators, employees, officers, and directors harmless from any damage, loss, or claim arising from any condition of the undersigned pet, either known or unknown to Rubber Doggies. It is also further understood and agreed that the terms of this agreement can change at any time, without notice, and will overwrite any and all prior signed contracts or releases."
+      }
+    ]
+  },
+  "vip": {
+    "version": "Rubber Doggies 2026 VIP",
+    "clauses": [
+      {
+        "title": "Welcome to Our VIP Membership Program",
+        "text": "Thank you for choosing Rubber Doggies Grooming’s VIP Membership Program! This membership is designed to provide ongoing, unlimited bathing services for your beloved pet. We aim to make pet care accessible, convenient, and enjoyable, and we’re thrilled to support you and your pet as part of our VIP family.",
+        "initialsRequired": false
+      },
+      {
+        "title": "VIP Membership Benefits",
+        "text": "As a VIP member, you are entitled to unlimited bathing services each month. We encourage you to make the most of this membership by bringing your pet in for baths as often as desired! However, the frequency and extent of use are entirely up to you, and there is no requirement for a minimum number of visits.",
+        "initialsRequired": false
+      },
+      {
+        "title": "Membership Activation and Fees",
+        "text": "To activate your VIP Membership, an initial fee of $1 plus tax will be charged to begin your membership for the current month. This small activation fee provides you immediate access to the VIP program, allowing unlimited baths for your pet starting today. After this initial activation, regular membership fees are billed at the beginning of each new month, covering services from the prior month. Billing is structured in arrears, which means you are always billed for the previous month’s services. Please note that the VIP Membership remains active, and the monthly fee will be charged on schedule, even if you choose not to use any bath services in a given month. This helps maintain the continuity of your membership benefits and secures your access to unlimited services whenever you need them.",
+        "initialsRequired": false
+      },
+      {
+        "title": "Billing and Payment Information",
+        "text": "Monthly membership fees are billed in arrears, reflecting available member benefits during the prior month. For instance, your October membership usage will be billed on November 1st. We believe this approach provides flexibility and transparency in billing. For example: November’s Membership Fee: Will be billed on December 1st. December’s Membership Fee: Will be billed on January 1st. January’s Membership Fee: Will be billed on February 1st. February’s Membership Fee: Will be billed on March 1st. March’s Membership Fee: Will be billed on April 1st. April’s Membership Fee: Will be billed on May 1st. May’s Membership Fee: Will be billed on June 1st. June’s Membership Fee: Will be billed on July 1st. July’s Membership Fee: Will be billed on August 1st. August’s Membership Fee: Will be billed on September 1st. September’s Membership Fee: Will be billed on October 1st. October’s Membership Fee: Will be billed on November 1st. This approach ensures that your membership remains continuously active, allowing you to access unlimited services whenever you wish. All billing will be processed to the payment method provided at the time of signup. Should you need to update or change your payment information, please notify us in advance to avoid interruptions to your VIP benefits.",
+        "initialsRequired": true
+      },
+      {
+        "title": "Terms and Conditions of Use",
+        "text": "By activating your VIP Membership with Rubber Doggies Grooming, you agree to the terms and conditions outlined in this agreement. Our membership terms have been created to ensure a clear and mutually beneficial relationship, where the service experience is enjoyable, and expectations are clear. While we aim to be flexible, please be aware that changes to membership terms, including monthly fees, cancellation policy, or service offerings, may occur at our discretion, and we will always notify you in advance of any changes.",
+        "initialsRequired": false
+      },
+      {
+        "title": "Limitation of Liability",
+        "text": "Rubber Doggies Grooming makes every effort to ensure a safe, professional, and enjoyable environment for your pet. However, by agreeing to this membership, you acknowledge that any services provided are subject to certain inherent risks. Rubber Doggies Grooming shall not be liable for any incident outside of our control, and any claims are subject to the limitations provided by state law.",
+        "initialsRequired": false
+      },
+      {
+        "title": "Contact Information and Customer Support",
+        "text": "We’re here to answer any questions, address concerns, and help make the most of your VIP experience. You can reach us during business hours at 210-659-3000 or RubberDoggies@Gmail.com",
+        "initialsRequired": false
+      },
+      {
+        "title": "Recurring payment authorization and cancellation",
+        "text": "I hereby grant Rubber Doggies permission to draft my credit card on file once a month and in perpetuity or until I cancelled with a 30-day notice. My Membership cancellation requests will be submitted in writing i.e. emailed @ RubberDoggies@gmail.com or hard copy submitted @ 3929 Cibolo Valley Drive, suit 240, Cibolo, TX 78108",
+        "initialsRequired": true
+      }
+    ]
+  }
+}

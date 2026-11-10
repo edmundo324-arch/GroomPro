@@ -33,15 +33,17 @@ async function handlePolicyPATCH(request:NextRequest,{params}:{params:Promise<{c
  if(!firstName||!lastName||firstName.length>191||lastName.length>191||email.length>191)return NextResponse.json({error:"Valid first and last names are required (up to 191 characters)."},{status:400});
  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return NextResponse.json({error:"Enter a valid email address."},{status:400});
  const data={...customerDetails(b),firstName,lastName,email:email||null,notes:String(b.notes||"").trim()||null};
+ const expected=b.expectedUpdatedAt===undefined?undefined:new Date(String(b.expectedUpdatedAt));
+ if(expected&&Number.isNaN(expected.getTime()))return NextResponse.json({error:'Reload the customer before saving.'},{status:400});
  const result=await db.$transaction(async tx=>{
-  const changed=await tx.customer.updateMany({where:{id:customerId,tenantId},data});
+  const changed=await tx.customer.updateMany({where:{id:customerId,tenantId,...(expected?{updatedAt:expected}:{})},data});
   if(changed.count){
    if(b.phones!==undefined)await saveCustomerPhones(tx,tenantId,customerId,b.phones);
    await saveCustomerReferral(tx,tenantId,customerId,b);
   }
   return changed;
  });
- if(!result.count)return NextResponse.json({error:"Customer not found."},{status:404});
+ if(!result.count)return expected?NextResponse.json({error:'This profile changed while you were editing. Close and reopen it before saving.'},{status:409}):NextResponse.json({error:"Customer not found."},{status:404});
  await writeAudit({tenantId,actorUserId:session.user.id,entityType:"CUSTOMER",entityId:customerId,customerId,action:"EDIT",summary:"Updated customer profile and contact information."});
  return NextResponse.json({customer:await getCustomerProfile(tenantId,customerId)});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Could not save customer. Please retry."},{status:400})}

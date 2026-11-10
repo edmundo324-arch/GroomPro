@@ -1,0 +1,13 @@
+.gp-agreement{max-width:720px;margin:0 auto;padding:16px;color:#142b43}
+.gp-agreement section,.gp-agreement form{padding:14px;margin:12px 0;border:1px solid #cad7e1;border-radius:8px;background:#fff}
+.gp-agreement h1,.gp-agreement h2,.gp-agreement h3{margin:0 0 8px}
+.gp-agreement label{display:block;margin:8px 0}
+.gp-agreement input:not([type=checkbox]),.gp-agreement textarea{display:block;width:100%;min-height:40px;padding:7px;font:inherit;border:1px solid #9fb0bf;border-radius:4px}
+.gp-agreement button,.gp-agreement a.gp-btn{min-height:40px;margin:3px}
+.gp-agreement-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+.gp-agreement img{width:92px;height:92px;object-fit:cover;border-radius:6px}
+.gp-agreement video{display:block;width:100%;max-height:320px}
+.gp-agreement svg{display:block;max-width:100%;width:230px;height:70px;border:1px solid #8fa2b3;border-radius:4px;background:#fff;touch-action:none;cursor:crosshair}
+.gp-agreement-signature{font:italic 1.6rem Georgia,serif;overflow-wrap:anywhere}
+.gp-agreement [role=alert]{color:#9a241d}
+@media(max-width:500px){.gp-agreement-grid{grid-template-columns:minmax(0,1fr)}}
