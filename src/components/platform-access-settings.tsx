@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
 import {businessId} from '../lib/business-context';
+import {returnToGroomPro} from '../lib/return-to-groompro';
 import {employeeFetch} from '../lib/employee-fetch';
 import {GROOMPRO_ROLES} from '../lib/roles';
 
@@ -61,6 +62,12 @@ export function PlatformAccessSettings(){
    await done(data);
   }catch(e){setNotice({task,text:(e as Error).message})}finally{setBusy(false)}
  }
+ async function backToGroomPro(){
+  if(busy)return;
+  setBusy(true);setNotice(null);
+  try{await returnToGroomPro(true);window.location.reload();}
+  catch(error){setNotice({task:'open',text:(error as Error).message});setBusy(false);}
+ }
  function createBusiness(){
   return send('create',{action:'CREATE_BUSINESS',...business,owner},data=>{
    selectBusiness(data.tenant.id);
@@ -83,7 +90,7 @@ export function PlatformAccessSettings(){
  return <details className="gp-platform-access">
   <summary data-settings-target="platform-business-controls">GroomPro platform access controls</summary>
   <p><strong>Current business</strong> {data?.tenants.find(item=>item.id===data.currentTenantId)?.name||'—'}</p>
-  {data?.canReturnHome&&<button type="button" className="gp-btn primary" disabled={busy} onClick={()=>void send('open',{action:'RETURN_HOME'},()=>window.location.reload())}>Back to GroomPro</button>}
+  {data?.canReturnHome&&<button type="button" className="gp-btn primary" disabled={busy} onClick={()=>void backToGroomPro()}>Back to GroomPro</button>}
   <details ref={createSection} className="gp-platform-task">
    <summary data-settings-target="create-pilot-business">Create business</summary>
    <form className="gp-platform-form" onSubmit={e=>{e.preventDefault();void createBusiness()}}>

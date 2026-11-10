@@ -6,6 +6,7 @@ import {ActionMessage} from "../src/components/action-message";
 import {OfflineIndicator} from "../src/components/offline-indicator";
 import {offlineBootstrap,stopOfflineAccess} from "../src/lib/offline-device";
 import {IntegrationRefresh} from "../src/components/integration-refresh";
+import {returnToGroomPro} from '../src/lib/return-to-groompro';
 import {businessId,platformUserPrefix} from '../src/lib/business-context';
 import {isPlatformRole} from '../src/lib/roles';
 import {employeeName} from "../src/lib/employee-name";
@@ -79,10 +80,7 @@ export default function Home(){
  async function returnHome(){
   setReturningHome(true);
   try{
-   const response=employee
-    ?await fetch('/api/platform-access',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'RETURN_HOME'})})
-    :await fetch('/api/setup/context',{method:'POST'});
-   if(!response.ok){const data=await response.json().catch(()=>null);throw Error(data?.error||'Could not return to GroomPro. Try again.');}
+   await returnToGroomPro(Boolean(employee));
    window.location.reload();
   }catch(error){
    setReturningHome(false);

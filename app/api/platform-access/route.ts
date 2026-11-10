@@ -6,8 +6,8 @@ import {db} from '@/src/lib/db';
 import {saveWithPin} from '@/src/lib/employee-pin-assignment';
 import {GROOMPRO_ROLES,canManageRole} from '@/src/lib/roles';
 import {reconcileEmployeeAssignments} from '@/src/lib/groomer-assignment';
-import {businessCookie,businessId,contextCookieOptions,deviceCookie,sessionCookie} from '@/src/lib/business-context';
-import {businessOwnerInput,businessOwnerKey,openBusinessSession,pilotBusinessInput,platformHome,saveBusinessOwner} from '@/src/lib/platform-business';
+import {businessCookie,businessId,contextCookieOptions,deviceCookie,platformUserPrefix,sessionCookie} from '@/src/lib/business-context';
+import {businessOwnerInput,businessOwnerKey,currentBusinessSession,openBusinessSession,pilotBusinessInput,platformHome,saveBusinessOwner} from '@/src/lib/platform-business';
 
 // Only explicit Platform Owner and Developer roles may manage access across businesses.
 async function handle(r:NextRequest){
@@ -18,8 +18,7 @@ async function handle(r:NextRequest){
   const tenantId=r.nextUrl.searchParams.get('tenantId');
   const tenants=await db.tenant.findMany({select:{id:true,name:true},orderBy:{name:'asc'}});
   const currentTenantId=actor.tenantId;
-  const home=businessId(currentTenantId)?await platformHome(db,actor.user):null;
-  const canReturnHome=!!home&&home.tenantId!==currentTenantId;
+  const canReturnHome=businessId(currentTenantId)&&actor.user.id.startsWith(platformUserPrefix);
   if(!tenantId)return NextResponse.json({tenants,currentTenantId,canReturnHome,canManageOwners:actor.user.role==='PLATFORM_OWNER'});
   const employees=await db.user.findMany({where:{tenantId},select:{id:true,firstName:true,lastName:true,displayName:true,role:true,active:true}});
   const rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[platformAccessKey,businessOwnerKey]}}});
@@ -59,7 +58,12 @@ async function handle(r:NextRequest){
   if(b.action==='OPEN_BUSINESS'||b.action==='RETURN_HOME'){
    const deviceId=r.cookies.get(deviceCookie)?.value;
    if(!deviceId||deviceId!==actor.deviceId)throw Error('Sign in again on this device.');
-   const {tenant,session}=await db.$transaction(tx=>openBusinessSession(tx,actor.user,actor.id,b.action==='RETURN_HOME'?null:tenantId,deviceId));
+   const returning=b.action==='RETURN_HOME';
+   const {tenant,session}=await db.$transaction(async tx=>{
+    const operator=returning?await currentBusinessSession(tx,actor.tenantId,actor.id,deviceId):actor;
+    if(!operator||!isPlatformAdmin(operator))throw Error('Sign in again on this device.');
+    return openBusinessSession(tx,operator.user,operator.id,returning?null:tenantId,deviceId);
+   });
    const response=NextResponse.json({tenant});
    const options=contextCookieOptions();
    response.cookies.set(businessCookie,tenant.id,{...options,maxAge:60*60*24*30});

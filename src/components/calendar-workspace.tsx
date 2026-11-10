@@ -258,7 +258,7 @@ export function CalendarWorkspace({onSlot,onNewTicket,onOpenTicket,refreshKey=0,
  useLayoutEffect(()=>{
   const scroll=gridScroll.current;
   if(!dayGridVisible||!scroll)return;
-  const desktop=window.matchMedia('(min-width:701px) and (hover:hover) and (pointer:fine)');
+  const desktop=window.matchMedia('(min-width:1101px), (min-width:701px) and (hover:hover) and (pointer:fine)');
   const heading=scroll.querySelector<HTMLElement>('.gp-day-corner');
   const legend=scroll.querySelector<HTMLElement>('.gp-calendar-legend');
   const measure=()=>{
