@@ -4,6 +4,8 @@ import { businessId, businessPrefix } from './business-context';
 import { isPlatformRole } from './roles';
 import { platformAccessKey } from './platform-restrictions';
 import { saveWithPin } from './employee-pin-assignment';
+import { hasUsablePinHash, verifyPin } from './pin';
+import { allowPinAttempt } from './pin-attempts';
 
 const platformUserPrefix='pilot_operator_';
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex').slice(0,40);
@@ -45,6 +47,20 @@ export async function platformHome(tx:Prisma.TransactionClient,user:Operator) {
   const access=restriction?.value as {blockedUserIds?:string[]}|null;
   if(access?.blockedUserIds?.includes(home.id))return null;
   return home;
+}
+
+export async function verifyBusinessOperatorPin(tx:Prisma.TransactionClient,tenantId:string,pin:string,checkPin=verifyPin,allowAttempt=allowPinAttempt){
+  if(!businessId(tenantId))return null;
+  const operators=await tx.user.findMany({where:{tenantId,active:true,id:{startsWith:platformUserPrefix},role:{in:['PLATFORM_OWNER','DEVELOPER']}}});
+  const permitted=new Map<string,boolean>();
+  const matches:typeof operators=[];
+  for(const operator of operators){
+    const home=await platformHome(tx,operator);
+    if(!home||home.role!==operator.role||!hasUsablePinHash(home.pinHash))continue;
+    if(!permitted.has(home.tenantId))permitted.set(home.tenantId,await allowAttempt(home.tenantId));
+    if(permitted.get(home.tenantId)&&await checkPin(pin,home.pinHash))matches.push(operator);
+  }
+  return matches.length===1?matches[0]:null;
 }
 
 export async function openBusinessSession(tx:Prisma.TransactionClient, actor:Operator, fromSession:string, tenantId:string, deviceId:string) {

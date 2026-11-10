@@ -55,13 +55,13 @@ test('pilot workspaces use a stable identity and anonymous requests only reach s
 });
 
 test('opening a pilot requires a current platform session and the linked access ends when the home role is revoked',async()=>{
- const {pilotBusinessInput,openBusinessSession,currentBusinessSession}=require('../src/lib/platform-business.ts');
+ const {pilotBusinessInput,openBusinessSession,currentBusinessSession,verifyBusinessOperatorPin}=require('../src/lib/platform-business.ts');
  const target=pilotBusinessInput({name:'Grand Grooming',location:'Main Location',timezone:'America/Chicago'}).id;
- const home={id:'owner',tenantId:'main',role:'PLATFORM_OWNER',active:true,firstName:'Edmundo',lastName:'Saenz'};
+ const home={id:'owner',tenantId:'main',role:'PLATFORM_OWNER',active:true,firstName:'Edmundo',lastName:'Saenz',pinHash:'a'.repeat(32)+':'+ 'b'.repeat(128)};
  let operator,session,originalEnded=false;
  const tx={$queryRaw:async()=>[],tenant:{findUnique:async()=>({id:target,name:'Grand Grooming',locations:[{id:'pilot-location'}]})},
   user:{findUnique:async({where})=>where.id==='owner'?home:operator?.id===where.id?operator:null,
-   upsert:async({create})=>operator={...create,active:true}},
+   findMany:async()=>[operator],upsert:async({create})=>operator={...create,active:true}},
   employeeSession:{updateMany:async({where})=>{if(!where.id)return {count:0};if(originalEnded||where.id!=='home-session')return {count:0};originalEnded=true;return {count:1}},
    create:async({data})=>session={...data,id:'pilot-session',lastActiveAt:new Date(),user:operator},
    findFirst:async({where})=>where.id===session?.id&&where.tenantId===session.tenantId&&where.deviceId===session.deviceId?session:null},
@@ -72,7 +72,12 @@ test('opening a pilot requires a current platform session and the linked access 
  assert.ok(await currentBusinessSession(tx,target,'pilot-session','device'));
  assert.equal(await currentBusinessSession(tx,target,'pilot-session','other-device'),null);
  await assert.rejects(openBusinessSession(tx,home,'home-session',target,'device'));
+ const checkPin=async pin=>pin==='123456';
+ assert.equal(await verifyBusinessOperatorPin(tx,target,'123456',checkPin,async()=>true),operator);
+ assert.equal(await verifyBusinessOperatorPin(tx,target,'123457',checkPin,async()=>true),null);
+ assert.equal(await verifyBusinessOperatorPin(tx,target,'123456',checkPin,async()=>false),null);
  home.role='ADMIN';
+ assert.equal(await verifyBusinessOperatorPin(tx,target,'123456',checkPin,async()=>true),null);
  assert.equal(await currentBusinessSession(tx,target,'pilot-session','device'),null);
 });
 

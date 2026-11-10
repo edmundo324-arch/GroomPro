@@ -9,9 +9,20 @@ import { verifyPin, hashPinPrefixes, hasUsablePinHash } from "@/src/lib/pin";
 import { createDeviceId, endEmployeeSession, getActiveEmployeeSession, startEmployeeSession } from "@/src/lib/employee-session";
 
 import {allowPinAttempt} from "@/src/lib/pin-attempts";
+import {businessId} from '@/src/lib/business-context';
+import {verifyBusinessOperatorPin} from '@/src/lib/platform-business';
 
 const SESSION_COOKIE = "groompro_session";
 const DEVICE_COOKIE = "groompro_device";
+
+async function signedInResponse(tenantId:string,userId:string,deviceId:string){
+  const session = await startEmployeeSession(tenantId, userId, deviceId);
+  const response = NextResponse.json({ employee: session.user });
+  const cookies = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
+  response.cookies.set(DEVICE_COOKIE, deviceId, { ...cookies, maxAge: 60 * 60 * 24 * 365 });
+  response.cookies.set(SESSION_COOKIE, session.id, { ...cookies, maxAge: 60 * 60 * 12 });
+  return response;
+}
 
 function tenantFrom(request: NextRequest) {
   return request.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID || "";
@@ -46,6 +57,11 @@ export async function POST(request: NextRequest) {
   if(!await allowPinAttempt(tenantId))return NextResponse.json({error:"Too many PIN attempts. Wait a minute and try again."},{status:429});
   const users = (await db.user.findMany({ where: { tenantId, active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] })).filter(candidate=>hasUsablePinHash(candidate.pinHash));
   const user = (await Promise.all(users.map(async (candidate) => (await verifyPin(pin, candidate.pinHash)) ? candidate : null))).find(Boolean);
+  if(!user&&businessId(tenantId)&&body.mode!=='APPROVAL'){
+    if(body.automatic)return NextResponse.json({pending:true,message:'Press Continue to verify this PIN.'},{status:202});
+    const operator=await verifyBusinessOperatorPin(db,tenantId,pin);
+    if(operator)return signedInResponse(tenantId,operator.id,deviceId);
+  }
   if (!user) return NextResponse.json({ error: "Employee PIN not recognized." }, { status: 401 });
 
   const restriction=await platformRestriction(tenantId,user.id);
@@ -74,11 +90,7 @@ export async function POST(request: NextRequest) {
     await writeAudit({tenantId,actorUserId:user.id,entityType:'USER',entityId:working.userId,action:'APPROVE_ACTION',summary:'Approved one protected action without switching the working employee.',details:{workingEmployeeId:working.userId,approvalId:approval.id,requestHash:body.requestHash}});
     return NextResponse.json({approval:approval.id});
   }
-  const session = await startEmployeeSession(tenantId, user.id, deviceId);
-  const response = NextResponse.json({ employee: { id: user.id, displayName: user.displayName, firstName: user.firstName, lastName: user.lastName, role: user.role } });
-  response.cookies.set(DEVICE_COOKIE, deviceId, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 * 365 });
-  response.cookies.set(SESSION_COOKIE, session.id, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 12 });
-  return response;
+  return signedInResponse(tenantId,user.id,deviceId);
 }
 
 export async function DELETE(request: NextRequest) {
