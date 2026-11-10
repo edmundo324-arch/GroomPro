@@ -1,5 +1,5 @@
 import {isPlatformRole} from '@/src/lib/roles';
-import {pinVaultKey,sealPin} from '@/src/lib/pin-vault';
+import {pinVaultConfigured,pinVaultKey,sealPin} from '@/src/lib/pin-vault';
 import {platformRestriction} from '@/src/lib/platform-restrictions';
 import {randomBytes} from 'node:crypto';
 import {writeAudit} from '@/src/lib/audit';
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
   }
   if(!Array.isArray(user.pinPrefixHashes))await db.user.updateMany({where:{id:user.id,tenantId,pinHash:user.pinHash},data:{pinPrefixHashes:await hashPinPrefixes(pin)}});
-  if(process.env.GROOMPRO_PIN_VAULT_KEY)await db.$transaction(async tx=>{
+  if(pinVaultConfigured())await db.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
     if(!await tx.user.findFirst({where:{id:user.id,tenantId,pinHash:user.pinHash}}))throw Error('PIN changed. Please sign in again.');
     const settingKey=pinVaultKey(user.id),value=sealPin(pin,tenantId,user.id);

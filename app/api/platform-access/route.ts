@@ -18,12 +18,14 @@ async function handle(r:NextRequest){
   const tenantId=r.nextUrl.searchParams.get('tenantId');
   const tenants=await db.tenant.findMany({select:{id:true,name:true},orderBy:{name:'asc'}});
   const currentTenantId=actor.tenantId;
-  if(!tenantId)return NextResponse.json({tenants,currentTenantId,canManageOwners:actor.user.role==='PLATFORM_OWNER'});
+  const home=businessId(currentTenantId)?await platformHome(db,actor.user):null;
+  const canReturnHome=!!home&&home.tenantId!==currentTenantId;
+  if(!tenantId)return NextResponse.json({tenants,currentTenantId,canReturnHome,canManageOwners:actor.user.role==='PLATFORM_OWNER'});
   const employees=await db.user.findMany({where:{tenantId},select:{id:true,firstName:true,lastName:true,displayName:true,role:true,active:true}});
   const rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[platformAccessKey,businessOwnerKey]}}});
   const access=rows.find(row=>row.settingKey===platformAccessKey)?.value;
   const owner=rows.find(row=>row.settingKey===businessOwnerKey)?.value as {userId?:string}|undefined;
-  return NextResponse.json({tenants,employees,currentTenantId,businessOwnerId:owner?.userId,canManageOwners:actor.user.role==='PLATFORM_OWNER',access:access||{suspended:false,blockedUserIds:[]}});
+  return NextResponse.json({tenants,employees,currentTenantId,canReturnHome,businessOwnerId:owner?.userId,canManageOwners:actor.user.role==='PLATFORM_OWNER',access:access||{suspended:false,blockedUserIds:[]}});
  }
  try{
   const b=await r.json(),tenantId=String(b.tenantId||''),reason=String(b.reason||'').trim();
@@ -54,10 +56,10 @@ async function handle(r:NextRequest){
    });
    return NextResponse.json({ok:true},{status:201});
   }
-  if(b.action==='OPEN_BUSINESS'){
+  if(b.action==='OPEN_BUSINESS'||b.action==='RETURN_HOME'){
    const deviceId=r.cookies.get(deviceCookie)?.value;
    if(!deviceId||deviceId!==actor.deviceId)throw Error('Sign in again on this device.');
-   const {tenant,session}=await db.$transaction(tx=>openBusinessSession(tx,actor.user,actor.id,tenantId,deviceId));
+   const {tenant,session}=await db.$transaction(tx=>openBusinessSession(tx,actor.user,actor.id,b.action==='RETURN_HOME'?null:tenantId,deviceId));
    const response=NextResponse.json({tenant});
    const options=contextCookieOptions();
    response.cookies.set(businessCookie,tenant.id,{...options,maxAge:60*60*24*30});

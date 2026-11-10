@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
-import { businessId, businessPrefix } from './business-context';
+import { businessId, businessPrefix, platformUserPrefix } from './business-context';
 import { isPlatformRole } from './roles';
 import { platformAccessKey } from './platform-restrictions';
 import { saveWithPin } from './employee-pin-assignment';
 import { hasUsablePinHash, verifyPin } from './pin';
 import { allowPinAttempt } from './pin-attempts';
 
-const platformUserPrefix='pilot_operator_';
+
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex').slice(0,40);
 export const businessOwnerKey='BUSINESS_OWNER';
 
@@ -63,9 +63,10 @@ export async function verifyBusinessOperatorPin(tx:Prisma.TransactionClient,tena
   return matches.length===1?matches[0]:null;
 }
 
-export async function openBusinessSession(tx:Prisma.TransactionClient, actor:Operator, fromSession:string, tenantId:string, deviceId:string) {
+export async function openBusinessSession(tx:Prisma.TransactionClient, actor:Operator, fromSession:string, targetTenantId:string|null, deviceId:string) {
   const home=await platformHome(tx,actor);
   if(!home)throw Error('Platform Owner or Developer access is required.');
+  const tenantId=targetTenantId??home.tenantId;
   if(tenantId!==home.tenantId&&!businessId(tenantId))throw Error('Choose your home business or a business created through this setup.');
   await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
   const tenant=await tx.tenant.findUnique({where:{id:tenantId},select:{id:true,name:true,locations:{select:{id:true},orderBy:{createdAt:'asc'},take:1}}});

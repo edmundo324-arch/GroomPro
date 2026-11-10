@@ -1,4 +1,5 @@
 import {isPlatformRole} from '@/src/lib/roles';
+import {businessId, sessionCookie} from './business-context';
 import {platformRestriction} from './platform-restrictions';
 import {requestAuthorization} from './request-authorization';
 import {NextRequest,NextResponse} from 'next/server';
@@ -50,6 +51,13 @@ export function withRequestPolicy<A extends unknown[]>(handler:(request:NextRequ
   }
   return handler(request,...args);
  });
+}
+
+export async function hidePlatformOwners(request:NextRequest,tenantId:string){
+ if(!businessId(tenantId))return false;
+ const sid=request.cookies.get(sessionCookie)?.value;
+ const session=sid?await getActiveEmployeeSession(tenantId,sid):null;
+ return !isPlatformRole(session?.user.role);
 }
 
 export async function catalogFeature(request:NextRequest){

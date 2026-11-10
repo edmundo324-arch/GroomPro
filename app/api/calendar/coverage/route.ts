@@ -1,7 +1,7 @@
 import {Prisma} from '@prisma/client';
 import {NextRequest,NextResponse} from 'next/server';
 import {platformSession} from '@/src/lib/platform-access';
-import {withRequestPolicy} from '@/src/lib/request-policy';
+import {hidePlatformOwners,withRequestPolicy} from '@/src/lib/request-policy';
 import {requestLocation} from '@/src/lib/request-location';
 import {db} from '@/src/lib/db';
 import {employeeName} from '@/src/lib/employee-name';
@@ -49,7 +49,7 @@ async function review(request:NextRequest){
    const indexedIds=indexed.flatMap(row=>{const id=(row.value as {ticketId?:string}|null)?.ticketId;return id?[id]:[]});
    const [tickets,employees,shifts,overrides,blocks]=await Promise.all([
     tx.ticket.findMany({where:{tenantId,locationId,status:{in:[...activeStatuses]},OR:[{scheduledStart:{gte:new Date(+start-86400000),lt:end}},{id:{in:indexedIds}}]},include:{pets:{include:{pet:{select:{id:true,name:true}}}},lines:{include:{service:{select:{name:true,code:true,category:true,durationMin:true,customFields:true}}},orderBy:{sortOrder:'asc'}},assignments:true},orderBy:[{scheduledStart:'asc'},{id:'asc'}]}),
-    tx.user.findMany({where:{tenantId,active:true,OR:[{locationId},{locationId:null}]},orderBy:[{lastName:'asc'},{firstName:'asc'},{id:'asc'}]}),
+    tx.user.findMany({where:{tenantId,...(await hidePlatformOwners(request,tenantId)?{role:{not:'PLATFORM_OWNER' as const}}:{}),active:true,OR:[{locationId},{locationId:null}]},orderBy:[{lastName:'asc'},{firstName:'asc'},{id:'asc'}]}),
     tx.$queryRaw<{userId:string;dayOfWeek:number;startTime:string;endTime:string}[]>`SELECT userId,dayOfWeek,startTime,endTime FROM EmployeeSchedule WHERE tenantId=${tenantId} AND active=1`,
     tx.scheduleOverride.findMany({where:{tenantId,resourceKind:'employee',date:{gte:shiftDate(first,-1),lt:through}}}),
     calendarBlocks(tenantId,locationId,tx)

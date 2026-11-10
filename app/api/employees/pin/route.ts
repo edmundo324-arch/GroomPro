@@ -3,7 +3,9 @@ import {NextRequest,NextResponse} from 'next/server';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {db} from '@/src/lib/db';
-import {openPin,pinVaultKey} from '@/src/lib/pin-vault';
+import {platformHome} from '@/src/lib/platform-business';
+import {hasUsablePinHash} from '@/src/lib/pin';
+import {openPin,pinVaultKey,requirePinVault} from '@/src/lib/pin-vault';
 import {platformRestriction} from '@/src/lib/platform-restrictions';
 import {writeAudit} from '@/src/lib/audit';
 async function handle(r:NextRequest){
@@ -18,8 +20,17 @@ async function handle(r:NextRequest){
   if(!canManageRole(actor.user.role,user.role))throw Error('Only a Platform Owner can manage Owner credentials; Developer credentials require platform authority.');
   if(b.action==='REMOVE'&&id===actor.user.id)throw Error('Another owner or Developer must remove your sign-in PIN.');
   if(!isPlatformRole(actor.user.role)&&await platformRestriction(tenantId,id))throw Error('This account is managed by GroomPro support.');
+  const home=isPlatformRole(user.role)?await platformHome(db,user):null;
+  if(isPlatformRole(user.role)&&home?.role!==user.role)throw Error('This platform account is unavailable.');
+  if(b.action==='REMOVE'&&home&&home.id!==id)throw Error('Open the original business to remove this platform PIN.');
   const settingKey=pinVaultKey(id);let pin:string|undefined;
-  if(b.action==='REVEAL'){const row=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey}}});pin=openPin(row?.value,tenantId,id)}
+  if(b.action==='REVEAL'){
+   const credential=home??user;
+   if(!hasUsablePinHash(credential.pinHash))throw Error('This employee does not have an active sign-in PIN.');
+   requirePinVault();
+   const row=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:credential.tenantId,settingKey:pinVaultKey(credential.id)}}});
+   pin=openPin(row?.value,credential.tenantId,credential.id);
+  }
   else await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;await tx.user.update({where:{id},data:{pinHash:'PIN_REMOVED',pinPrefixHashes:[]}});await tx.tenantSetting.deleteMany({where:{tenantId,settingKey}});await tx.employeeSession.updateMany({where:{tenantId,userId:id,endedAt:null},data:{endedAt:new Date()}})});
   await writeAudit({tenantId,actorUserId:actor.user.id,entityType:'USER',entityId:id,action:b.action==='REVEAL'?'PIN_VIEWED':'PIN_REMOVED',summary:b.action==='REVEAL'?'Owner viewed employee PIN.':'Owner removed employee sign-in PIN.'});
   return NextResponse.json({ok:true,...(pin?{pin}:{})},{headers:{'Cache-Control':'no-store'}});

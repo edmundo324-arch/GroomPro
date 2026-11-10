@@ -135,7 +135,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   {
     path: ['administration', 'subscription'], title: 'GroomPro platform access controls',
     description: 'See your current business, open another business, or manage business and employee access.',
-    keywords: 'business access control controls platform owner developer manage tenant switch open business',
+    keywords: 'business access control controls platform owner developer manage tenant switch open business back to groompro return home developer workspace',
     access: 'platform', anchor: 'platform-business-controls', steps: ['GroomPro platform access controls'],
   },
   {

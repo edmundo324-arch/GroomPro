@@ -1,4 +1,5 @@
 export const businessPrefix = 'pilot_';
+export const platformUserPrefix = 'pilot_operator_';
 export const businessCookie = 'groompro_tenant';
 export const sessionCookie = 'groompro_session';
 export const deviceCookie = 'groompro_device';

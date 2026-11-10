@@ -7,7 +7,7 @@ import {GROOMPRO_ROLES} from '../lib/roles';
 type OwnerForm={firstName:string;lastName:string;pin:string};
 type Business={id:string;name:string};
 type Employee={id:string;firstName:string;lastName:string;displayName?:string;role:string;active:boolean};
-type AccessData={tenants:Business[];currentTenantId:string;canManageOwners:boolean;employees?:Employee[];businessOwnerId?:string;access?:{suspended:boolean}};
+type AccessData={tenants:Business[];currentTenantId:string;canReturnHome:boolean;canManageOwners:boolean;employees?:Employee[];businessOwnerId?:string;access?:{suspended:boolean}};
 type Task='create'|'open'|'business'|'employee'|'owner';
 const blankOwner={firstName:'',lastName:'',pin:''};
 const requestHeaders={'Content-Type':'application/json'};
@@ -83,6 +83,7 @@ export function PlatformAccessSettings(){
  return <details className="gp-platform-access">
   <summary data-settings-target="platform-business-controls">GroomPro platform access controls</summary>
   <p><strong>Current business</strong> {data?.tenants.find(item=>item.id===data.currentTenantId)?.name||'—'}</p>
+  {data?.canReturnHome&&<button type="button" className="gp-btn primary" disabled={busy} onClick={()=>void send('open',{action:'RETURN_HOME'},()=>window.location.reload())}>Back to GroomPro</button>}
   <details ref={createSection} className="gp-platform-task">
    <summary data-settings-target="create-pilot-business">Create business</summary>
    <form className="gp-platform-form" onSubmit={e=>{e.preventDefault();void createBusiness()}}>

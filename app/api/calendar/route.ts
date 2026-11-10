@@ -2,7 +2,7 @@ import {lineSchedule} from '@/src/lib/pet-scheduling';
 import {lineStartsKey} from '@/src/lib/line-time-store';
 import {attendingPets} from '@/src/lib/appointment-pets';
 import {plannedSettingKey} from '@/src/lib/planned-package-store';
-import {withRequestPolicy} from '@/src/lib/request-policy';
+import {hidePlatformOwners,withRequestPolicy} from '@/src/lib/request-policy';
 import {customerStates} from '@/src/lib/appointment-customer-state';
 import {calendarBlocks} from '@/src/lib/calendar-blocks';
 import {reconcileEmployeeAssignments} from '@/src/lib/groomer-assignment';
@@ -23,7 +23,7 @@ async function handlePolicyGET(request:NextRequest){
  const dayKeys:string[]=[];for(let stamp=+start-86400000;stamp<=+end+86400000;stamp+=86400000)dayKeys.push('CALENDAR_DATE:'+locationId+':'+new Date(stamp).toISOString().slice(0,10)+':');
  const indexes=await db.tenantSetting.findMany({where:{tenantId,OR:dayKeys.map(prefix=>({settingKey:{startsWith:prefix}}))},select:{value:true}}),extraIds=indexes.map(r=>(r.value as any)?.ticketId).filter((id):id is string=>typeof id==='string');
  const[employees,tickets,assets,employeeSchedules,assetSchedules]=await Promise.all([
- ticketId?Promise.resolve([]):db.user.findMany({where:{tenantId,active:true,OR:[{locationId},{locationId:null}]},select:{id:true,displayName:true,firstName:true,lastName:true,role:true,active:true},orderBy:[{lastName:"asc"},{firstName:"asc"}]}),
+ ticketId?Promise.resolve([]):db.user.findMany({where:{tenantId,...(await hidePlatformOwners(request,tenantId)?{role:{not:'PLATFORM_OWNER' as const}}:{}),active:true,OR:[{locationId},{locationId:null}]},select:{id:true,displayName:true,firstName:true,lastName:true,role:true,active:true},orderBy:[{lastName:"asc"},{firstName:"asc"}]}),
  db.ticket.findMany({where:{tenantId,locationId,...(ticketId?{id:ticketId}:{}),...(extraIds.length?{OR:[{scheduledStart:{gte:start,lt:end}},{id:{in:extraIds}}]}:{scheduledStart:{gte:start,lt:end}}),status:{not:"CANCELLED"}},include:{customer:{select:{firstName:true,lastName:true,_count:{select:{tickets:{where:{status:"CLOSED"}}}}}},pets:{include:{pet:{select:{id:true,name:true,breed:true,weightLbs:true,vipEligible:true,notes:true,groomingNotes:true}}}},lines:{select:{id:true,lineType:true,serviceId:true,description:true,packageName:true,packageId:true,packageGroupKey:true,totalCents:true,durationMin:true,quantity:true,service:{select:{durationMin:true}},petId:true,assignmentUnavailable:true,role:true,assignedUserId:true},orderBy:{sortOrder:"asc"}},assignments:{where:{role:{in:['GROOMER','PLANNED_GROOMER']}},include:{user:{select:{displayName:true,id:true,firstName:true,lastName:true}}}}},orderBy:{scheduledStart:"asc"}}),
  ticketId?Promise.resolve([]):db.$queryRaw<any[]>`SELECT id,name,category,active FROM BookingAsset WHERE tenantId=${tenantId} AND locationId=${locationId} AND active=1 ORDER BY category,name`,
  ticketId?Promise.resolve([]):db.$queryRaw<any[]>`SELECT s.userId,s.dayOfWeek,s.startTime,s.endTime FROM EmployeeSchedule s JOIN User u ON u.id=s.userId WHERE s.tenantId=${tenantId} AND (u.locationId=${locationId} OR u.locationId IS NULL) AND s.active=1`,

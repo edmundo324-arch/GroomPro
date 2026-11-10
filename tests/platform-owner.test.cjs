@@ -59,10 +59,10 @@ test('opening a pilot requires a current platform session and the linked access 
  const target=pilotBusinessInput({name:'Grand Grooming',location:'Main Location',timezone:'America/Chicago'}).id;
  const home={id:'owner',tenantId:'main',role:'PLATFORM_OWNER',active:true,firstName:'Edmundo',lastName:'Saenz',pinHash:'a'.repeat(32)+':'+ 'b'.repeat(128)};
  let operator,session,originalEnded=false;
- const tx={$queryRaw:async()=>[],tenant:{findUnique:async()=>({id:target,name:'Grand Grooming',locations:[{id:'pilot-location'}]})},
+ const tx={$queryRaw:async()=>[],tenant:{findUnique:async({where})=>({id:where.id,name:where.id===target?'Grand Grooming':'GroomPro',locations:[{id:'location'}]})},
   user:{findUnique:async({where})=>where.id==='owner'?home:operator?.id===where.id?operator:null,
    findMany:async()=>[operator],upsert:async({create})=>operator={...create,active:true}},
-  employeeSession:{updateMany:async({where})=>{if(!where.id)return {count:0};if(originalEnded||where.id!=='home-session')return {count:0};originalEnded=true;return {count:1}},
+  employeeSession:{updateMany:async({where})=>{if(!where.id)return {count:0};if(where.id==='pilot-session'&&where.tenantId===target&&where.deviceId==='device')return {count:1};if(originalEnded||where.id!=='home-session')return {count:0};originalEnded=true;return {count:1}},
    create:async({data})=>session={...data,id:'pilot-session',lastActiveAt:new Date(),user:operator},
    findFirst:async({where})=>where.id===session?.id&&where.tenantId===session.tenantId&&where.deviceId===session.deviceId?session:null},
   auditEntry:{create:async()=>{}},tenantSetting:{findUnique:async()=>null,findMany:async()=>[]}};
@@ -79,6 +79,11 @@ test('opening a pilot requires a current platform session and the linked access 
  home.role='ADMIN';
  assert.equal(await verifyBusinessOperatorPin(tx,target,'123456',checkPin,async()=>true),null);
  assert.equal(await currentBusinessSession(tx,target,'pilot-session','device'),null);
+ await assert.rejects(openBusinessSession(tx,operator,'pilot-session',null,'device'));
+ home.role='PLATFORM_OWNER';
+ const returned=await openBusinessSession(tx,operator,'pilot-session',null,'device');
+ assert.equal(returned.tenant.id,home.tenantId);
+ assert.equal(returned.session.userId,home.id);
 });
 
 test('a business owner needs a name and PIN and is scoped to the business and first location',async()=>{

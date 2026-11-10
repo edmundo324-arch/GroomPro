@@ -6,6 +6,8 @@ import {ActionMessage} from "../src/components/action-message";
 import {OfflineIndicator} from "../src/components/offline-indicator";
 import {offlineBootstrap,stopOfflineAccess} from "../src/lib/offline-device";
 import {IntegrationRefresh} from "../src/components/integration-refresh";
+import {businessId,platformUserPrefix} from '../src/lib/business-context';
+import {isPlatformRole} from '../src/lib/roles';
 import {employeeName} from "../src/lib/employee-name";
 import {EmployeeActivity} from "../src/components/employee-activity";
 import {ModuleView} from "../src/components/module-view";
@@ -71,9 +73,25 @@ export default function Home(){
  navigationRef.current={key:posTicket?.key,active};
  useEffect(()=>{const refresh=()=>fetch('/api/features').then(r=>r.json()).then(d=>setFeatures(d.features||[]));window.addEventListener('groompro:features-changed',refresh);return()=>window.removeEventListener('groompro:features-changed',refresh)},[]);
  useEffect(()=>{const handler=(event:Event)=>{const name=(event as CustomEvent).detail?.module;if(modules.includes(name)&&name!=='Settings')setActive(name);else if(name==='Customer Profile'||name==='Pet Profile')setActive('Customers');else if(name==='Employee'||name==='Booking asset'||name?.endsWith('shift'))setActive('Schedule');else if(name==='POS Ticket')setActive('Calendar');else {const target=({'Service editor':'Services','Product editor':'Products','Package editor':'Packages','VIP editor':'VIP Memberships'} as any)[name];if(target)setActive(target)}};window.addEventListener('groompro:visual-navigate',handler);return()=>window.removeEventListener('groompro:visual-navigate',handler)},[]);
+ const [returningHome,setReturningHome]=useState(false);
+ const inTenantBusiness=businessId(business?.id);
+ const canReturnHome=inTenantBusiness&&(!employee||(isPlatformRole(employee.role)&&employee.id.startsWith(platformUserPrefix)));
+ async function returnHome(){
+  setReturningHome(true);
+  try{
+   const response=employee
+    ?await fetch('/api/platform-access',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'RETURN_HOME'})})
+    :await fetch('/api/setup/context',{method:'POST'});
+   if(!response.ok){const data=await response.json().catch(()=>null);throw Error(data?.error||'Could not return to GroomPro. Try again.');}
+   window.location.reload();
+  }catch(error){
+   setReturningHome(false);
+   window.dispatchEvent(new CustomEvent('groompro:save-error',{detail:{message:(error as Error).message}}));
+  }
+ }
  const allowed=visibleModules(modules,features);
  if(!contextReady)return <main style={{padding:32}}><h1>GroomPro Suite</h1><p>{contextError||"Opening your business…"}</p>{contextError&&<a href="/setup">Open setup</a>}</main>;
- return <VisualLayoutProvider key={scope+':'+employeeScope} scope={scope+':'+employeeScope}><WindowLayoutScope scope={employee?`${scope}:${employee.id}`:''}><div data-module={active} className={`gp-shell ${active==="Whiteboard"?"gp-whiteboard-shell":""}`}><IntegrationRefresh key={employee?.id||'anonymous'} scope={scope} enabled={!!employee}/><EmployeeActivity/><ActionMessage/><header className="gp-topbar"><div className="gp-brand" title={business?.name||brand}>{business?.id.startsWith("pilot_")?business.name:brand}</div>{business?.id.startsWith("pilot_")&&!employee&&<button type="button" className="gp-module" onClick={async()=>{const response=await fetch("/api/setup/context",{method:"POST"});if(response.ok)window.location.reload()}}>Return to main business</button>}<OfflineIndicator scope={scope} employeeId={employee?.id}/><button type="button" className="gp-switch gp-header-employee" title={employee?employeeName(employee):undefined} onClick={()=>void requestEmployeePin(employee?'SWITCH':'SIGN_IN')}>{employee&&<span className="gp-status-dot" aria-hidden="true"/>}<span>{employee?employeeName(employee):"PIN"}</span></button><AppNavigation modules={allowed} active={active}
+ return <VisualLayoutProvider key={scope+':'+employeeScope} scope={scope+':'+employeeScope}><WindowLayoutScope scope={employee?`${scope}:${employee.id}`:''}><div data-module={active} className={`gp-shell ${active==="Whiteboard"?"gp-whiteboard-shell":""}`}><IntegrationRefresh key={employee?.id||'anonymous'} scope={scope} enabled={!!employee}/><EmployeeActivity/><ActionMessage/><header className="gp-topbar"><div className="gp-brand" title={business?.name||brand}>{business?.id.startsWith("pilot_")?business.name:brand}</div>{canReturnHome&&<button type="button" className="gp-module" disabled={returningHome} onClick={()=>void returnHome()}>Back to GroomPro</button>}<OfflineIndicator scope={scope} employeeId={employee?.id}/><button type="button" className="gp-switch gp-header-employee" title={employee?employeeName(employee):undefined} onClick={()=>void requestEmployeePin(employee?'SWITCH':'SIGN_IN')}>{employee&&<span className="gp-status-dot" aria-hidden="true"/>}<span>{employee?employeeName(employee):"PIN"}</span></button><AppNavigation modules={allowed} active={active}
  onSelect={module=>{setRequestsOnly(false);setActive(module)}}
  onCalendarView={view=>{setActive('Calendar');setCalendarShortcut({view})}}
  onRequests={()=>{setRequestsOnly(true);setActive('Tickets')}}/></header><main className="gp-main">
