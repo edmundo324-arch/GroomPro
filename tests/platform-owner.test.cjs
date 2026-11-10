@@ -60,7 +60,7 @@ test('opening a pilot requires a current platform session and the linked access 
  const home={id:'owner',tenantId:'main',role:'PLATFORM_OWNER',active:true,firstName:'Edmundo',lastName:'Saenz',pinHash:'a'.repeat(32)+':'+ 'b'.repeat(128)};
  let operator,session,originalEnded=false;
  const tx={$queryRaw:async()=>[],tenant:{findUnique:async({where})=>({id:where.id,name:where.id===target?'Grand Grooming':'GroomPro',locations:[{id:'location'}]})},
-  user:{findUnique:async({where})=>where.id==='owner'?home:operator?.id===where.id?operator:null,
+  user:{findUnique:async({where})=>where.id==='owner'?home:operator?.id===where.id&&(!where.tenantId||where.tenantId===operator.tenantId)?operator:null,
    findMany:async()=>[operator],upsert:async({create})=>operator={...create,active:true}},
   employeeSession:{updateMany:async({where})=>{if(!where.id)return {count:0};if(where.id==='pilot-session'&&where.tenantId===target&&where.deviceId==='device')return {count:1};if(originalEnded||where.id!=='home-session')return {count:0};originalEnded=true;return {count:1}},
    create:async({data})=>session={...data,id:'pilot-session',lastActiveAt:new Date(),user:operator},
@@ -73,7 +73,7 @@ test('opening a pilot requires a current platform session and the linked access 
  assert.equal(await currentBusinessSession(tx,target,'pilot-session','other-device'),null);
  await assert.rejects(openBusinessSession(tx,home,'home-session',target,'device'));
  const checkPin=async pin=>pin==='123456';
- assert.equal(await verifyBusinessOperatorPin(tx,target,'123456',checkPin,async()=>true),operator);
+ assert.deepEqual(await verifyBusinessOperatorPin(tx,target,'123456',checkPin,async()=>true),{operator,home});
  assert.equal(await verifyBusinessOperatorPin(tx,target,'123457',checkPin,async()=>true),null);
  assert.equal(await verifyBusinessOperatorPin(tx,target,'123456',checkPin,async()=>false),null);
  home.role='ADMIN';
@@ -81,7 +81,10 @@ test('opening a pilot requires a current platform session and the linked access 
  assert.equal(await currentBusinessSession(tx,target,'pilot-session','device'),null);
  await assert.rejects(openBusinessSession(tx,operator,'pilot-session',null,'device'));
  home.role='PLATFORM_OWNER';
- const returned=await openBusinessSession(tx,operator,'pilot-session',null,'device');
+ // Use the same limited user fields as the employee session endpoint.
+ const signedInOperator={id:operator.id,tenantId:operator.tenantId,role:operator.role};
+ await assert.rejects(openBusinessSession(tx,{...signedInOperator,tenantId:'other'},'pilot-session',null,'device'));
+ const returned=await openBusinessSession(tx,signedInOperator,'pilot-session',null,'device');
  assert.equal(returned.tenant.id,home.tenantId);
  assert.equal(returned.session.userId,home.id);
 });

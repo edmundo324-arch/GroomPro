@@ -43,3 +43,19 @@ test('tenant staff cannot see Platform Owners but platform staff retain access',
  assert.equal(await policy.hidePlatformOwners(signedIn,'pilot_business'),false);
  assert.equal(await policy.hidePlatformOwners(anonymous,'original_business'),false);
 });
+
+test('PIN vault accepts a passphrase and binds each encrypted PIN to its employee',()=>{
+ const vault=load('src/lib/pin-vault.ts',{}, {GROOMPRO_PIN_VAULT_KEY:'unique vault test phrase'});
+ const other=load('src/lib/pin-vault.ts',{}, {GROOMPRO_PIN_VAULT_KEY:'different vault test phrase'});
+ const value=vault.sealPin('945123','tenant','worker');
+ assert.equal(value.version,2);
+ assert.equal(vault.openPin(value,'tenant','worker'),'945123');
+ assert.notEqual(vault.sealPin('945123','tenant','worker').salt,value.salt);
+ assert.throws(()=>vault.openPin(value,'other-tenant','worker'),/cannot unlock/);
+ assert.throws(()=>other.openPin(value,'tenant','worker'),/cannot unlock/);
+ const legacy=load('src/lib/pin-vault.ts',{}, {GROOMPRO_PIN_VAULT_KEY:'ab'.repeat(32)});
+ const oldValue=legacy.sealPin('945123','tenant','worker');
+ assert.equal(oldValue.version,1);
+ assert.equal(legacy.openPin(oldValue,'tenant','worker'),'945123');
+ assert.throws(()=>vault.openPin(oldValue,'tenant','worker'),/Restore the original secret/);
+});

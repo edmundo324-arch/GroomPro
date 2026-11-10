@@ -40,7 +40,13 @@ type Operator={id:string;tenantId:string;role:string;importSourceId?:string|null
 export async function platformHome(tx:Prisma.TransactionClient,user:Operator) {
   if(!isPlatformRole(user.role)) return null;
   const linked=user.id.startsWith(platformUserPrefix);
-  const home=await tx.user.findUnique({where:{id:linked?user.importSourceId||'':user.id}});
+  // Employee sessions contain display and role fields only. Resolve their link server-side.
+  const source=linked&&user.importSourceId===undefined
+    ?await tx.user.findUnique({where:{id:user.id,tenantId:user.tenantId,role:user.role,active:true},select:{importSourceId:true}})
+    :user;
+  const homeId=linked?source?.importSourceId:user.id;
+  if(!homeId)return null;
+  const home=await tx.user.findUnique({where:{id:homeId}});
   if(!home?.active||!isPlatformRole(home.role)||home.id.startsWith(platformUserPrefix))return null;
   if(linked&&user.id!==platformUserPrefix+hash(user.tenantId+':'+home.id))return null;
   const restriction=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:home.tenantId,settingKey:platformAccessKey}},select:{value:true}});
@@ -53,12 +59,12 @@ export async function verifyBusinessOperatorPin(tx:Prisma.TransactionClient,tena
   if(!businessId(tenantId))return null;
   const operators=await tx.user.findMany({where:{tenantId,active:true,id:{startsWith:platformUserPrefix},role:{in:['PLATFORM_OWNER','DEVELOPER']}}});
   const permitted=new Map<string,boolean>();
-  const matches:typeof operators=[];
+  const matches=[];
   for(const operator of operators){
     const home=await platformHome(tx,operator);
     if(!home||home.role!==operator.role||!hasUsablePinHash(home.pinHash))continue;
     if(!permitted.has(home.tenantId))permitted.set(home.tenantId,await allowAttempt(home.tenantId));
-    if(permitted.get(home.tenantId)&&await checkPin(pin,home.pinHash))matches.push(operator);
+    if(permitted.get(home.tenantId)&&await checkPin(pin,home.pinHash))matches.push({operator,home});
   }
   return matches.length===1?matches[0]:null;
 }

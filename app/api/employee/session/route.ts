@@ -15,6 +15,15 @@ import {verifyBusinessOperatorPin} from '@/src/lib/platform-business';
 const SESSION_COOKIE = "groompro_session";
 const DEVICE_COOKIE = "groompro_device";
 
+async function rememberVerifiedPin(tenantId:string,user:{id:string;pinHash:string},pin:string){
+  if(pinVaultConfigured())await db.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
+    if(!await tx.user.findFirst({where:{id:user.id,tenantId,pinHash:user.pinHash}}))throw Error('PIN changed. Please sign in again.');
+    const settingKey=pinVaultKey(user.id),value=sealPin(pin,tenantId,user.id);
+    await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value},update:{value}});
+  });
+}
+
 async function signedInResponse(tenantId:string,userId:string,deviceId:string){
   const session = await startEmployeeSession(tenantId, userId, deviceId);
   const response = NextResponse.json({ employee: session.user });
@@ -59,8 +68,11 @@ export async function POST(request: NextRequest) {
   const user = (await Promise.all(users.map(async (candidate) => (await verifyPin(pin, candidate.pinHash)) ? candidate : null))).find(Boolean);
   if(!user&&businessId(tenantId)&&body.mode!=='APPROVAL'){
     if(body.automatic)return NextResponse.json({pending:true,message:'Press Continue to verify this PIN.'},{status:202});
-    const operator=await verifyBusinessOperatorPin(db,tenantId,pin);
-    if(operator)return signedInResponse(tenantId,operator.id,deviceId);
+    const match=await verifyBusinessOperatorPin(db,tenantId,pin);
+    if(match){
+      await rememberVerifiedPin(match.home.tenantId,match.home,pin);
+      return signedInResponse(tenantId,match.operator.id,deviceId);
+    }
   }
   if (!user) return NextResponse.json({ error: "Employee PIN not recognized." }, { status: 401 });
 
@@ -76,12 +88,7 @@ export async function POST(request: NextRequest) {
     }
   }
   if(!Array.isArray(user.pinPrefixHashes))await db.user.updateMany({where:{id:user.id,tenantId,pinHash:user.pinHash},data:{pinPrefixHashes:await hashPinPrefixes(pin)}});
-  if(pinVaultConfigured())await db.$transaction(async tx=>{
-    await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
-    if(!await tx.user.findFirst({where:{id:user.id,tenantId,pinHash:user.pinHash}}))throw Error('PIN changed. Please sign in again.');
-    const settingKey=pinVaultKey(user.id),value=sealPin(pin,tenantId,user.id);
-    await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value},update:{value}});
-  });
+  await rememberVerifiedPin(tenantId,user,pin);
   if(body.mode==='APPROVAL'){
     if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(user.role))return NextResponse.json({error:'Enter an administrator or manager PIN.'},{status:403});
     const working=await db.employeeSession.findFirst({where:{id:sessionId,tenantId,deviceId,endedAt:null,user:{active:true}}});
