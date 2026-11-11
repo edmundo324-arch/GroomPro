@@ -108,3 +108,41 @@ test('a verified form edits the scoped profile in place and an unverified form c
  await assert.rejects(updateAgreementProfile('tenant-a','test',{firstName:'Else'}),/already signed/);
  assert.equal(changes,1);
 });
+
+test('a PIN-opened tablet starts customer-scoped intake without an inactivity timeout',async()=>{
+ const stationToken='a'.repeat(64),tenantId='tenant-a';
+ let tabletVerifyExisting=false,known=true,issued;
+ const station={tabletStation:true,channel:'tablet',kind:'intake',terms,quote:[],shopEmail:'shop@example.com',expires:Number.MAX_SAFE_INTEGER};
+ const db={
+  tenantSetting:{
+   findUnique:async q=>q.where.tenantId_settingKey.settingKey==='CUSTOMER_AGREEMENT_CONFIG'
+    ?{value:{channels:['tablet'],intake:terms,shopEmail:'shop@example.com',tabletVerifyExisting}}:{value:station},
+   upsert:async q=>{issued=q.create.value;},
+  },
+  customerPhone:{findUnique:async()=>known?{customerId:'customer-a',customer:{active:true}}:null},
+ };
+ const file=require.resolve('../src/lib/customer-agreement-store.ts');
+ delete require.cache[file];
+ const load=Module._load;
+ Module._load=function(id,parent,...args){
+  if(parent?.filename.endsWith('customer-agreement-store.ts')){
+   if(id==='./db')return {db};
+   if(id==='./sms')return {configFor:()=>null};
+   if(id==='./breed-store'||id==='./breed-classification'||id==='./customer-referrals')return {};
+  }
+  return load.call(this,id,parent,...args);
+ };
+ let startTabletIntake;
+ try{({startTabletIntake}=require(file));}finally{Module._load=load;}
+ const knownResult=await startTabletIntake(tenantId,stationToken,'5551231234');
+ assert.equal(knownResult.needsCode,false);
+ assert.notEqual(knownResult.token,stationToken);
+ assert.equal(issued.customerId,'customer-a');
+ assert.equal(issued.expires,Number.MAX_SAFE_INTEGER);
+ tabletVerifyExisting=true;
+ await assert.rejects(startTabletIntake(tenantId,stationToken,'5551231234'),/Text verification is unavailable/);
+ known=false;
+ assert.equal((await startTabletIntake(tenantId,stationToken,'5551231235')).needsCode,false);
+ assert.equal(issued.customerId,undefined);
+ assert.equal(issued.expires,Number.MAX_SAFE_INTEGER);
+});

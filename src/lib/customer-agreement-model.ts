@@ -12,8 +12,8 @@ export const dogFields={
 };
 export type Clause={title:string;text:string;video?:string;initialsRequired?:boolean};
 export type Terms={version:string;clauses:Clause[]};
-export type AgreementConfig={channels:AgreementChannel[];intake:Terms;vip:Terms;shopEmail:string;bookingUrl?:string};
-export type Quote={petId:string;priceCents:number};
+export type AgreementConfig={channels:AgreementChannel[];intake:Terms;vip:Terms;shopEmail:string;bookingUrl?:string;tabletVerifyExisting?:boolean};
+export type Quote={petId:string;priceCents:number;planId?:string;planName?:string;billing?:string};
 export type AgreementPet={id:string;pictureUrl?:string|null}&Partial<Record<keyof typeof dogFields,string|number|null>>;
 export type AgreementProfile={id:string;phone:string;pets:AgreementPet[]}&Partial<Record<keyof typeof customerFields,string|null>>;
 export type Stroke=Array<[number,number]>;

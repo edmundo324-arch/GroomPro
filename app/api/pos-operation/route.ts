@@ -19,6 +19,7 @@ async function handlePolicyPOST(request:NextRequest){
  if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  let body:any;try{body=await request.json()}catch{return NextResponse.json({error:'Invalid operation.'},{status:400})}
  if(!['SAVE','PAYMENT','CLOSE','REBOOK','REDEEM','ENROLL','STATUS','NO_SHOW'].includes(body.kind)||! /^[a-zA-Z0-9-]{16,80}$/.test(body.requestKey||''))return NextResponse.json({error:'Choose a valid ticket action.'},{status:400});
+ if(body.kind==='ENROLL'&&typeof body.details?.signedAgreementId!=='string')return NextResponse.json({error:'Sign the VIP agreement before enrolling this dog.'},{status:400});
  const {requestKey,...intent}=body;
  const requestHash=createHash('sha256').update(JSON.stringify(intent)).digest('hex');
  const key={tenantId,requestKey};

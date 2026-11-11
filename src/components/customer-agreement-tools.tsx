@@ -33,6 +33,7 @@ function AgreementSettings({tenantId,initial,onSaved}:{tenantId:string;initial:A
     onChange={e=>setConfig({...config,channels:e.target.checked?[...config.channels,channel]:config.channels.filter(c=>c!==channel)})}/> {channels[channel]}</label>)}
    <button className="gp-btn" type="button" onClick={()=>setConfig({...config,channels:[...agreementChannels]})}>Restore factory channels</button>
   </fieldset>
+  {config.channels.includes('tablet')&&<label><input type="checkbox" checked={config.tabletVerifyExisting===true} onChange={e=>setConfig({...config,tabletVerifyExisting:e.target.checked})}/> Text code needed for existing profiles</label>}
   <label>Shop email for signed copies<input type="email" value={config.shopEmail} onChange={e=>setConfig({...config,shopEmail:e.target.value})}/></label>
   {config.channels.includes('online')&&<label>Online booking page (optional)<input type="url" placeholder="https://" value={config.bookingUrl||''} onChange={e=>setConfig({...config,bookingUrl:e.target.value})}/></label>}
   <label>Agreement <select value={kind} onChange={e=>setKind(e.target.value as AgreementKind)}><option value="intake">New Customer Intake</option><option value="vip">VIP Signup Agreement</option></select></label>
@@ -50,48 +51,42 @@ function AgreementSettings({tenantId,initial,onSaved}:{tenantId:string;initial:A
  </section>;
 }
 export function CustomerAgreementTools({customerId}:{customerId?:string}){
- const [opened,setOpened]=useState(false),[context,setContext]=useState<Context|null>(null),[setup,setSetup]=useState(false);
- const [kind,setKind]=useState<AgreementKind>('intake'),[prices,setPrices]=useState<Record<string,string>>({});
+ const [context,setContext]=useState<Context|null>(null),[setup,setSetup]=useState(false);
  const [path,setPath]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{
-  if(!opened||!customerId)return;
+  if(!customerId)return;
   let live=true;
   const load=()=>call('?customer='+encodeURIComponent(customerId)).then(data=>{if(live)setContext(old=>({...old,...data}));}).catch(e=>{if(live)setError(e.message);});
   void load();
   const timer=setInterval(()=>{if(document.visibilityState==='visible')void load();},12000);
   return()=>{live=false;clearInterval(timer);};
- },[opened,customerId]);
+ },[customerId]);
  async function openSettings(){
+  if(setup){setSetup(false);return;}
   setBusy(true);setError('');
   try{const data=await call('');setContext(old=>({...old,...data}));setSetup(true);}
   catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
  async function prepare(channel:'link'|'tablet'){
   setBusy(true);setError('');setPath('');
-  // Open immediately on the user gesture so the shop tablet does not hit a popup blocker.
   const tablet=channel==='tablet'?window.open('about:blank','_blank'):null;
   if(tablet)tablet.opener=null;
   try{
-   const data=await call('','POST',{kind,customerId,channel,prices});
+   const data=await createCustomerAgreement({kind:'intake',customerId,channel});
    const url=new URL(data.path,window.location.origin).href;
-   if(tablet)tablet.location.href=url;
-   setPath(url);
+   if(channel==='tablet'){if(tablet)tablet.location.href=url;else window.location.assign(url);}
+   else setPath(url);
   }catch(e){tablet?.close();setError((e as Error).message);}
   finally{setBusy(false);}
  }
  const available=context?.config?.channels||context?.channels||agreementChannels;
- return <details open={customerId?true:undefined} onToggle={e=>setOpened(e.currentTarget.open)}>
-  <summary>{customerId?'Forms & signed agreements':'Customer intake & agreement settings'}</summary>
-  {opened&&<div className="gp-agreement">
-   {customerId&&<label>Form <select value={kind} onChange={e=>{setKind(e.target.value as AgreementKind);setPath('');}}><option value="intake">{agreementTitle.intake}</option><option value="vip">{agreementTitle.vip}</option></select></label>}
-   {kind==='vip'&&<fieldset><legend>Choose dogs and quote a recurring price for each</legend>
-    {context?.profile?.pets.map(p=><div key={p.id}>
-     <label><input type="checkbox" checked={p.id in prices} onChange={e=>{setPath('');if(e.target.checked)setPrices({...prices,[p.id]:''});else{const next={...prices};delete next[p.id];setPrices(next);}}}/> {p.name}</label>
-     {p.id in prices&&<label>{p.name} recurring price ($)<input inputMode="decimal" placeholder="0.00" value={prices[p.id]} onChange={e=>{setPath('');setPrices({...prices,[p.id]:e.target.value});}}/></label>}
-    </div>)}
-   </fieldset>}
-   {available.includes('link')&&<button type="button" className="gp-btn" disabled={busy||kind==='vip'&&!Object.keys(prices).length} onClick={()=>void prepare('link')}>Create customer link</button>}
-   {available.includes('tablet')&&<button type="button" className="gp-btn" disabled={busy||kind==='vip'&&!Object.keys(prices).length} onClick={()=>void prepare('tablet')}>Open on shop tablet</button>}
+ return <div className="gp-intake-tools">
+  <div className="gp-intake-actions">
+   {(!customerId||context?.canConfigure)&&<button type="button" className="gp-btn" onClick={()=>void openSettings()} disabled={busy} aria-expanded={setup}>Agreement Settings</button>}
+   {available.includes('link')&&<button type="button" className="gp-btn" disabled={busy} onClick={()=>void prepare('link')}>Create Link</button>}
+   {available.includes('tablet')&&<button type="button" className="gp-btn" disabled={busy} onClick={()=>void prepare('tablet')}>Open Tablet</button>}
+  </div>
+  {(path||error||setup||!!context?.documents?.length)&&<div className="gp-agreement gp-intake-panel">
    {path&&<div><label>Customer form link<input value={path} readOnly onFocus={e=>e.target.select()}/></label>
     <button type="button" className="gp-btn" onClick={()=>void navigator.clipboard.writeText(path).catch(()=>setError('Select the link above and copy it.'))}>Copy link</button>
     <a className="gp-btn" href={path} target="_blank" rel="noreferrer">Open form</a>
@@ -99,10 +94,12 @@ export function CustomerAgreementTools({customerId}:{customerId?:string}){
    {error&&<p role="alert">{error}</p>}
    {!!context?.documents?.length&&<section><h3>Signed copies</h3>{context.documents.map(doc=><p key={doc.id}>
     <a href={endpoint+'?document='+encodeURIComponent(doc.id)}>{doc.title} · {new Date(doc.signedAt).toLocaleDateString()}</a>
-    {' · '}{doc.sentCopy?'Email sent':'Email pending or unavailable'}
+    {' · '}{doc.sentCopy?'Email accepted':'Email pending or unavailable'}
    </p>)}</section>}
-   {(!customerId||context?.canConfigure)&&!setup&&<button type="button" className="gp-btn" onClick={()=>void openSettings()} disabled={busy}>Agreement settings</button>}
    {setup&&context?.config&&<AgreementSettings tenantId={context.tenantId} initial={context.config} onSaved={config=>setContext(old=>old?{...old,config}:old)}/>}
   </div>}
- </details>;
+ </div>;
+}
+export function createCustomerAgreement(input:object){
+ return call('','POST',input) as Promise<{path:string;token:string}>;
 }

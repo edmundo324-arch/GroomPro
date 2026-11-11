@@ -40,7 +40,7 @@ export function renderAgreementPdf(agreement:SignedAgreement){
  for(const pet of agreement.profile.pets){
   text('Dog: '+pet.name,13);
   const quote=agreement.quote.find(q=>q.petId===pet.id);
-  if(quote)text('Agreed recurring price: '+formatAgreementPrice(quote.priceCents));
+  if(quote){if(quote.planName)text('VIP plan: '+quote.planName);text('Agreed recurring price: '+formatAgreementPrice(quote.priceCents));if(quote.billing)text('Billing schedule: '+quote.billing);}
   for(const [key,label] of Object.entries(dogFields)){
    const value=pet[key as keyof typeof dogFields];
    if(key!=='name'&&value)text(label+': '+value);

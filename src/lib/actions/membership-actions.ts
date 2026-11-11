@@ -40,7 +40,17 @@ export async function POST(request: NextRequest) {
     await db.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM Pet WHERE id=${petId} AND tenantId=${tenantId} FOR UPDATE`;
     const duplicate=await tx.$queryRaw<any[]>`SELECT id FROM Membership WHERE tenantId=${tenantId} AND petId=${petId} AND status IN ('ACTIVE','PAUSED','PAUSE_REQUESTED','CANCELLATION_REQUESTED') LIMIT 1`;if(duplicate.length)throw new Error("This dog already has a current membership. Manage it below.");
+    const agreementId=typeof b.signedAgreementId==='string'?b.signedAgreementId:'';
+    if(agreementId){
+      const [document]=await tx.$queryRaw<{signatureData:string|null;membershipId:string|null}[]>`SELECT signatureData,membershipId FROM SignedDocument WHERE id=${agreementId} AND tenantId=${tenantId} AND customerId=${customerId} AND documentType='VIP_SIGNUP' AND status='SIGNED' FOR UPDATE`;
+      const quote=document?.signatureData?JSON.parse(document.signatureData).quote?.find((q:any)=>q.petId===petId&&q.planId===b.planId&&q.billing===cadence+':'+day):null;
+      if(!quote||document?.membershipId||!Number.isSafeInteger(quote.priceCents)||quote.priceCents<0)throw Error('Sign a VIP agreement for this dog, plan and billing day first.');
+      recurringPriceCents=quote.priceCents;
+      if(typeof quote.planName==='string'&&quote.planName)name=quote.planName;
+      if(planSnapshot)planSnapshot={...planSnapshot,priceCents:recurringPriceCents};
+    }
     await tx.$executeRaw`INSERT INTO Membership (id,tenantId,customerId,petId,name,status,startFeeCents,recurringPriceCents,billingDay,billingDaySecond,billingInArrears,startedAt) VALUES (${id},${tenantId},${customerId},${petId},${name},'ACTIVE',100,${recurringPriceCents},${cadence==='MONTHLY'?day:1},${billingDays[1]||null},true,NOW(3))`;
+    if(agreementId)await tx.$executeRaw`UPDATE SignedDocument SET membershipId=${id} WHERE id=${agreementId} AND tenantId=${tenantId}`;
     if(enrollmentTicketId){await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${enrollmentTicketId} AND tenantId=${tenantId} FOR UPDATE`;const ticket=await tx.ticket.findFirst({where:{id:enrollmentTicketId,tenantId,customerId,status:{notIn:['CLOSED','CANCELLED','NO_SHOW']}}});if(!ticket)throw Error('Choose an open POS ticket for this customer.');}
     else{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;const draft=b.draftId?await tx.posDraft.findFirst({where:{id:String(b.draftId),tenantId,locationId,promotedAt:null}}):null;if(b.draftId&&!draft)throw Error('Draft not found.');const number=draft?.orderNumber||await nextTicketNumber(tx,tenantId);const ticket=await tx.ticket.create({data:{...(draft?{id:draft.id,createdAt:draft.createdAt}:{}),tenantId,locationId,customerId,orderNumber:number,status:'OPEN',pets:{create:{petId}}}});enrollmentTicketId=ticket.id;if(draft)await tx.posDraft.update({where:{id:draft.id},data:{promotedAt:new Date()}});}
     await tx.ticketPet.upsert({where:{ticketId_petId:{ticketId:enrollmentTicketId,petId}},create:{ticketId:enrollmentTicketId,petId},update:{}});

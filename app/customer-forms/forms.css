@@ -10,4 +10,18 @@
 .gp-agreement svg{display:block;max-width:100%;width:230px;height:70px;border:1px solid #8fa2b3;border-radius:4px;background:#fff;touch-action:none;cursor:crosshair}
 .gp-agreement-signature{font:italic 1.6rem Georgia,serif;overflow-wrap:anywhere}
 .gp-agreement [role=alert]{color:#9a241d}
+.gp-customer-intake-heading,.gp-intake-actions{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+.gp-customer-intake-heading{gap:8px;position:relative}
+.gp-customer-intake-heading .gp-intake-tools{position:static}
+.gp-intake-actions .gp-btn{padding:3px 7px;font-size:.82rem;min-height:32px}
+.gp-intake-tools{position:relative}
+.gp-intake-panel{padding:6px 0;margin:0}
+.gp-customer-intake-heading .gp-intake-panel{position:absolute;top:100%;left:0;z-index:15;width:min(560px,calc(100vw - 48px));box-sizing:border-box;max-height:65dvh;overflow:auto;background:#fff;border:1px solid #cad7e1;border-radius:6px;box-shadow:0 4px 14px #17324d26;padding:12px}
+.gp-profile-menu{position:relative;flex:none}
+.gp-profile-menu summary{list-style:none;cursor:pointer;touch-action:manipulation;padding:4px 9px;font-weight:700}
+.gp-profile-menu summary::-webkit-details-marker{display:none}
+.gp-profile-menu nav{position:absolute;right:0;top:100%;z-index:25;display:grid;min-width:165px;padding:4px;border:1px solid #cad7e1;border-radius:6px;background:white;box-shadow:0 4px 14px #17324d26}
+.gp-profile-menu nav button{text-align:left}
+.gp-profile-menu nav button[aria-current]{font-weight:700}
+.gp-editor-form[hidden]{display:none}
 @media(max-width:500px){.gp-agreement-grid{grid-template-columns:minmax(0,1fr)}}

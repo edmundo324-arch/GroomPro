@@ -1,12 +1,12 @@
 # Customer intake and VIP agreements
 
-Open **Customers → Customer intake & agreement settings** to choose channels and edit policy sections. All three channels are enabled by default. The supplied Rubber Doggies policy templates apply to the Rubber Doggies business. Other businesses can enter their own terms and shop email. Use an HTTPS video link for an optional policy video.
+Open **Customers → Agreement Settings** to choose channels and edit policy sections. All three channels are enabled by default. The supplied Rubber Doggies policy templates apply to the Rubber Doggies business. Other businesses can enter their own terms and shop email. Use an HTTPS video link for an optional policy video.
 
-For an existing customer, open **Customer Profile → Agreements**. Choose intake or VIP, then create a private link or open the form on the shop tablet. For VIP, choose the dogs to offer and enter the recurring price in dollars for each one. The customer selects the dogs they agree to enroll. Signing records the agreement and the quoted prices. Staff complete membership activation through the existing VIP workflow.
+For an existing customer, open **Customer Profile → ⋯ → Agreements** to open intake or retrieve signed copies. For VIP signup, open the customer’s **POS Ticket → VIP Memberships**, choose the dog, plan, billing day and quoted price, and click **Enroll Dog**. Once the agreement is signed, click **Finish enrollment** to complete the existing membership workflow.
 
-For a new customer, issue a form from **Customers → Customer intake & agreement settings**. Public self-service and new-customer links verify the mobile number before accessing or creating a profile. Enable the online channel and use its intake link as the entry point for new customers on the booking site. Set the optional HTTPS booking page address to offer **Continue to booking** after signing.
+On the shop device, sign in with an employee PIN and choose **Customers → Open Tablet** once. Customers enter their phone number to start, and the open form does not inherit the staff PIN timeout. **Text code needed for existing profiles** is optional in Agreement Settings. Public self-service and links for new customers verify the mobile number before accessing or creating a profile. Enable the online channel and use its intake link as the entry point for new customers on the booking site. Set the optional HTTPS booking page address to offer **Continue to booking** after signing.
 
-The form saves edits to the live profile when a customer completes each field. The signed PDF records the profile details and terms the customer reviewed. Staff can open it in the Agreements tab. Completing the shop tablet form and clicking **Done** clears it from that tab.
+The form saves edits to the live profile when a customer completes each field. The signed PDF records the profile details and terms the customer reviewed. Staff can open it in the Agreements tab. The dedicated intake tablet resets to a clean form after both emails are accepted. If email is unavailable, the signed PDF can be downloaded and **Done** clears the tablet for the next customer.
 
 ## Hosting setup
 

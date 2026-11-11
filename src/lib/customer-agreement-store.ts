@@ -12,12 +12,12 @@ import {agreementChannels,customerFields,dogFields,type AgreementChannel,type Ag
 export type AgreementAccess={
  kind:AgreementKind;channel:AgreementChannel;expires:number;terms:Terms;shopEmail:string;
  customerId?:string;phone?:string;proof?:string;pinExpires?:number;attempts?:number;quote:Quote[];
- documentId?:string;actorId?:string;bookingUrl?:string;
+ documentId?:string;actorId?:string;bookingUrl?:string;tabletStation?:boolean;
 };
 const configKey='CUSTOMER_AGREEMENT_CONFIG';
 const tokenKey=(token:string)=>'CUSTOMER_AGREEMENT:'+digest(token);
 const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
-const defaults:AgreementConfig={channels:[...agreementChannels],intake:{version:'',clauses:[]},vip:{version:'',clauses:[]},shopEmail:''};
+const defaults:AgreementConfig={channels:[...agreementChannels],intake:{version:'',clauses:[]},vip:{version:'',clauses:[]},shopEmail:'',tabletVerifyExisting:false};
 export const allowedAgreementEmail=(email:string)=>email.length<=191&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 export const settingWhere=(tenantId:string,settingKey:string)=>({tenantId_settingKey:{tenantId,settingKey}});
 export const agreementPicturePath=(tenantId:string,petId:string)=>'/api/customer-agreement/photo?tenant='+encodeURIComponent(tenantId)+'&pet='+encodeURIComponent(petId);
@@ -49,7 +49,7 @@ export async function saveAgreementConfig(tenantId:string,input:AgreementConfig)
  };
  const bookingUrl=String(input.bookingUrl||'').trim();
  if(bookingUrl){let valid=false;try{const url=new URL(bookingUrl);valid=url.protocol==='https:'&&!url.username&&!url.password;}catch{}if(!valid||bookingUrl.length>1000)throw agreementError('Enter a valid HTTPS booking page address.');}
- const value={channels:[...new Set(input.channels)],intake:terms(input.intake),vip:terms(input.vip),shopEmail,bookingUrl};
+ const value={channels:[...new Set(input.channels)],intake:terms(input.intake),vip:terms(input.vip),shopEmail,bookingUrl,tabletVerifyExisting:input.tabletVerifyExisting===true};
  await db.tenantSetting.upsert({where:settingWhere(tenantId,configKey),create:{tenantId,settingKey:configKey,value},update:{value}});
  return value;
 }
@@ -72,8 +72,30 @@ export async function issueAgreement(tenantId:string,kind:AgreementKind,channel:
  const terms=config[kind];
  if(!terms.clauses.length||!config.shopEmail)throw agreementError('The shop must set up this agreement and its copy email first.');
  const token=newToken();
- await saveAccess(db,tenantId,token,{kind,channel,customerId,quote,terms,shopEmail:config.shopEmail,expires:Date.now()+86400000,actorId} as AgreementAccess);
+ const tabletStation=kind==='intake'&&channel==='tablet'&&!customerId;
+ await saveAccess(db,tenantId,token,{kind,channel,customerId,quote,terms,shopEmail:config.shopEmail,expires:tabletStation?Number.MAX_SAFE_INTEGER:Date.now()+86400000,actorId,tabletStation});
  return token;
+}
+export async function clearTabletForm(tenantId:string,token:string){
+ await db.$transaction(async tx=>{
+  const state=await readAccess(tx,tenantId,token,true);
+  if(state.channel!=='tablet'||state.tabletStation)throw agreementError('This form cannot be cleared.');
+  await tx.tenantSetting.delete({where:settingWhere(tenantId,tokenKey(token))});
+ });
+}
+export async function startTabletIntake(tenantId:string,stationToken:string,input:string){
+ const station=await readAccess(db,tenantId,stationToken);
+ const config=await readAgreementConfig(tenantId);
+ if(!station.tabletStation||!config.channels.includes('tablet'))throw agreementError('This tablet is no longer set up for intake.');
+ const phone=normalizePhone(input);
+ if(!/^\d{10}$/.test(phone))throw agreementError('Enter a 10-digit mobile number.');
+ const registered=await db.customerPhone.findUnique({where:{tenantId_normalized:{tenantId,normalized:phone}},select:{customerId:true,customer:{select:{active:true}}}});
+ if(registered&&!registered.customer.active)throw agreementError('This profile is inactive. Ask the shop for help.');
+ if(registered&&config.tabletVerifyExisting)return {token:await startPhoneVerification(tenantId,phone,{...station,terms:config.intake,shopEmail:config.shopEmail}),needsCode:true};
+ const token=newToken();
+ await saveAccess(db,tenantId,token,{kind:'intake',channel:'tablet',terms:config.intake,shopEmail:config.shopEmail,
+  phone,customerId:registered?.customerId,quote:[],expires:Number.MAX_SAFE_INTEGER});
+ return {token,needsCode:false};
 }
 export async function startPhoneVerification(tenantId:string,input:string,entry?:AgreementAccess){
  const normalized=normalizePhone(input);
@@ -118,6 +140,7 @@ export async function verifyAgreementPhone(tenantId:string,token:string,pin:stri
   if(phone&&(!phone.isPrimary||!phone.customer.active))throw agreementError('Ask the shop to help update your profile.');
   const {proof,pinExpires,attempts,...verified}=state;
   if(phone)verified.customerId=phone.customerId;
+  if(state.channel==='tablet')verified.expires=Number.MAX_SAFE_INTEGER;
   await saveAccess(tx,tenantId,token,verified);
   return true;
  });
@@ -227,5 +250,5 @@ export async function getAgreementPhoto(tenantId:string,petId:string){
  return Buffer.from(value.slice(23),'base64');
 }
 export function markAgreementSigned(tx:Prisma.TransactionClient,tenantId:string,token:string,state:AgreementAccess,documentId:string){
- return saveAccess(tx,tenantId,token,{...state,documentId});
+ return saveAccess(tx,tenantId,token,{...state,documentId,expires:Math.min(state.expires,Date.now()+86400000)});
 }

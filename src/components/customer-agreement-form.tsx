@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState,type PointerEvent} from 'react';
 import {agreementTitle,customerFields,dogFields,formatAgreementPrice,type AgreementKind,type AgreementPet,type AgreementProfile,type Quote,type Stroke,type Terms} from '../lib/customer-agreement-model';
 
-type AgreementView={profile:AgreementProfile;kind:AgreementKind;quote:Quote[];terms:Terms;revision:string;business:string};
+type AgreementView={profile:AgreementProfile;kind:AgreementKind;quote:Quote[];terms:Terms;tablet?:boolean;revision:string;business:string};
 type Result={id:string;pdf:string;filename:string;emailed:boolean;bookingUrl?:string};
 type Requester=(action:string,data?:object,override?:string)=>Promise<any>;
 
@@ -62,14 +62,14 @@ function downloadPdf(result:Result){
 }
 
 export function CustomerAgreementForm(){
- const [token,setToken]=useState(''),[stage,setStage]=useState('loading'),[view,setView]=useState<AgreementView|null>(null);
+ const [station,setStation]=useState(false),[token,setToken]=useState(''),[stage,setStage]=useState('loading'),[view,setView]=useState<AgreementView|null>(null);
  const [phone,setPhone]=useState(''),[code,setCode]=useState(''),[firstName,setFirst]=useState(''),[lastName,setLast]=useState(''),[dogName,setDogName]=useState(''),[email,setEmail]=useState('');
  const [notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[pending,setPending]=useState(0);
  const [selected,setSelected]=useState<string[]>([]),[adopted,setAdopted]=useState(false),[name,setName]=useState('');
  const [checked,setChecked]=useState<number[]>([]),[initials,setInitials]=useState<Record<string,Stroke[]>>({});
  const [result,setResult]=useState<Result|null>(null);
  const queue=useRef<Promise<unknown>>(Promise.resolve()),failedFields=useRef(new Set<string>());
- const connection=useRef({tenant:'',token:''});
+ const connection=useRef({tenant:'',token:''}),attemptedPhone=useRef(''),startedProfile=useRef(false);
  const latestView=useRef<AgreementView|null>(null);
  const request=useRef<Requester>(async(action,data={},override)=>{
   const current=connection.current;
@@ -84,8 +84,10 @@ export function CustomerAgreementForm(){
   const url=new URL(window.location.href),id=url.searchParams.get('tenant')||'',secret=url.hash.slice(1);
   connection.current={tenant:id,token:secret};setToken(secret);
   if(!id){setNotice('Ask the shop for a customer form link.');setStage('unavailable');return;}
-  if(!secret){setStage('phone');return;}
-  request('view').then(data=>{
+  const resume=url.searchParams.get('tablet')==='1';
+  if(!secret&&!resume){setStage('phone');return;}
+  request('view',{station:resume}).then(data=>{
+   if(data.tabletStation){connection.current.token='';setToken('');history.replaceState(null,'','/customer-forms?tenant='+encodeURIComponent(id)+'&tablet=1');setStation(true);setStage('phone');return;}
    if(data.needsPhone){setStage('phone');return;}
    if(data.signed){setStage('signed');return;}
    apply(data);
@@ -96,6 +98,19 @@ export function CustomerAgreementForm(){
   setBusy(true);setNotice('');
   try{await callback();}catch(e){setNotice((e as Error).message||'Please try again.');}finally{setBusy(false);}
  }
+ async function startPhone(){
+  const data=await request(station?'startTablet':'sendCode',{phone,station},station?'':undefined);
+  connection.current.token=data.token;setToken(data.token);
+  if(station&&!data.needsCode)apply(await request('view'));
+  else setStage('code');
+ }
+ useEffect(()=>{
+  if(!station||stage!=='phone'||busy)return;
+  const digits=phone.replace(/\D/g,'').replace(/^1(?=\d{10}$)/,'');
+  if(digits.length!==10||attemptedPhone.current===digits)return;
+  const timer=setTimeout(()=>{attemptedPhone.current=digits;void action(startPhone);},400);
+  return()=>clearTimeout(timer);
+ },[station,stage,phone,busy]);
  function save(fields:Record<string,unknown>){
   const key=String(fields.petId||'customer')+':'+Object.keys(fields).filter(k=>k!=='petId').join(',');
   setPending(n=>n+1);setNotice('');
@@ -110,31 +125,41 @@ export function CustomerAgreementForm(){
   if(!latestView.current)return;
   const signed=await request('sign',{revision:latestView.current.revision,selectedPets:selected,
    signature:{name,adopted,initials,acknowledged:[...checked].sort((a,b)=>a-b)}});
+  if((station||latestView.current.tablet)&&signed.emailed){finish(true);return;}
   setResult(signed);setView(null);setName('');setInitials({});setChecked([]);setSelected([]);setStage('complete');
  }
- function finish(){
+ function finish(emailed=false){
   window.speechSynthesis?.cancel();
-  connection.current={tenant:'',token:''};latestView.current=null;
+  if(station&&connection.current.token)void request('clearTabletForm').catch(()=>{});
+  connection.current=station?{tenant:connection.current.tenant,token:''}:{tenant:'',token:''};latestView.current=null;
+  attemptedPhone.current='';startedProfile.current=false;setName('');setInitials({});setChecked([]);setSelected([]);
   setResult(null);setView(null);setPhone('');setCode('');setFirst('');setLast('');setDogName('');setEmail('');setToken('');
   setNotice('');setAdopted(false);failedFields.current.clear();
-  history.replaceState(null,'','/customer-forms');
-  setStage('finished');
+  if(station){setStage('phone');if(emailed)setNotice('Signed copies sent. Ready for the next customer.');}
+  else{history.replaceState(null,'','/customer-forms');setStage('finished');if(emailed)setNotice('Signed copies sent.');}
+ }
+ function startProfile(){
+  if(startedProfile.current||!firstName.trim()||!lastName.trim()||!/^\S+@\S+\.\S+$/.test(email.trim()))return;
+  startedProfile.current=true;
+  void action(async()=>{try{await save({firstName,lastName,email});}catch(error){startedProfile.current=false;throw error;}});
  }
  return <main className="gp-agreement">
-  <h1>{view?agreementTitle[view.kind]:'Customer forms'}</h1>
+  <h1>{view?agreementTitle[view.kind]:station?'New Customer Intake':'Customer forms'}</h1>
   {view?.business&&<p>{view.business}</p>}
   {notice&&<p role="alert">{notice}</p>}
   {stage==='loading'&&<p>Opening form…</p>}
-  {stage==='phone'&&<form onSubmit={e=>{e.preventDefault();void action(async()=>{
-   const data=await request('sendCode',{phone});connection.current.token=data.token;setToken(data.token);setStage('code');
-  });}}><label>Mobile phone<input type="tel" autoComplete="tel" required value={phone} onChange={e=>setPhone(e.target.value)}/></label><button className="gp-btn primary" disabled={busy}>Text me a code</button></form>}
+  {stage==='phone'&&<form onSubmit={e=>{e.preventDefault();if(!busy)void action(startPhone);}}><label>Mobile phone<input type="tel" autoComplete={station?'off':'tel'} required value={phone} onChange={e=>setPhone(e.target.value)}/></label>
+   {!station&&<button className="gp-btn primary" disabled={busy}>Text me a code</button>}
+   {station&&busy&&<p role="status">Finding your profile…</p>}
+   {station&&notice&&phone&&<button className="gp-btn" disabled={busy}>Try again</button>}
+  </form>}
   {stage==='code'&&<form onSubmit={e=>{e.preventDefault();void action(async()=>{await request('verifyCode',{code},token);apply(await request('view'));});}}>
    <label>Verification code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required value={code} onChange={e=>setCode(e.target.value)}/></label><button className="gp-btn primary" disabled={busy}>Verify phone</button></form>}
-  {stage==='create'&&<form onSubmit={e=>{e.preventDefault();void action(()=>save({firstName,lastName,email}));}}>
+  {stage==='create'&&<form onSubmit={e=>{e.preventDefault();startProfile();}}>
    <label>First name<input autoComplete="given-name" required value={firstName} onChange={e=>setFirst(e.target.value)}/></label>
    <label>Last name<input autoComplete="family-name" required value={lastName} onChange={e=>setLast(e.target.value)}/></label>
-   <label>Email<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>
-   <button className="gp-btn primary" disabled={busy}>Start my profile</button></form>}
+   <label>Email<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} onBlur={station?startProfile:undefined}/></label>
+   {!station&&<button className="gp-btn primary" disabled={busy}>Start my profile</button>}{station&&<button type="submit" hidden>Save profile</button>}</form>}
   {stage==='form'&&view&&<>
    <section><h2>Your profile</h2><p>Changes save to your GroomPro profile as you complete each field.</p>
     <p><strong>Primary phone</strong> {view.profile.phone||'Ask the shop to add your primary phone.'}</p>
@@ -147,7 +172,7 @@ export function CustomerAgreementForm(){
     return <section key={dog.id}><h2>{dog.name}</h2>
      <DogPhoto dog={dog} request={request} save={photo=>save({petId:dog.id,photo})}/>
      {quote&&<label><input type="checkbox" checked={selected.includes(dog.id)} onChange={e=>setSelected(e.target.checked?[...selected,dog.id]:selected.filter(id=>id!==dog.id))}/>
-      Enroll {dog.name} · {formatAgreementPrice(quote.priceCents)} recurring</label>}
+      Enroll {dog.name}{quote.planName?' · '+quote.planName:''} · {formatAgreementPrice(quote.priceCents)} recurring</label>}
      <div className="gp-agreement-grid">{Object.entries(dogFields).map(([key,label])=><LiveField key={key} label={label} value={dog[key as keyof typeof dogFields]}
       save={value=>save({petId:dog.id,[key]:value})}/>)}</div>
     </section>;
@@ -174,10 +199,11 @@ export function CustomerAgreementForm(){
   </>}
   {result&&<section><h2>Agreement signed</h2><p>{result.emailed?'The signed copies were accepted for email delivery.':'Your agreement is saved. Email delivery is unavailable or incomplete.'}</p>
    <button className="gp-btn primary" onClick={()=>downloadPdf(result)}>Download signed PDF</button>
-   {!result.emailed&&<button className="gp-btn" disabled={busy} onClick={()=>void action(async()=>setResult(await request('sign')))}>Retry email</button>}
-   {result.bookingUrl&&<a className="gp-btn" href={result.bookingUrl} rel="noreferrer" onClick={finish}>Continue to booking</a>}
-   <button className="gp-btn" onClick={finish}>Done</button></section>}
+   {!result.emailed&&<button className="gp-btn" disabled={busy} onClick={()=>void action(async()=>{const signed=await request('sign');if(station&&signed.emailed)finish(true);else setResult(signed);})}>Retry email</button>}
+   {result.bookingUrl&&<a className="gp-btn" href={result.bookingUrl} rel="noreferrer" onClick={()=>finish()}>Continue to booking</a>}
+   <button className="gp-btn" onClick={()=>finish()}>Done</button></section>}
   {stage==='signed'&&<section><h2>Already signed</h2><button className="gp-btn" onClick={()=>void action(async()=>{setResult(await request('sign'));setStage('complete');})}>Open signed copy</button></section>}
+  {station&&['code','create','form'].includes(stage)&&<button className="gp-btn" disabled={busy||pending>0} onClick={()=>finish()}>Start over</button>}
   {stage==='finished'&&<p>Thank you. The shop can open another form when ready.</p>}
  </main>;
 }
