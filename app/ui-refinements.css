@@ -179,3 +179,8 @@
 .gp-dismiss-button{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:32px;min-height:32px}
 .gp-dismiss-button svg{flex:none}
 @media(pointer:coarse){.gp-dismiss-button{min-width:44px;min-height:44px}}
+
+.gp-desktop-module-icon{display:none}
+@media(min-width:701px) and (hover:hover) and (pointer:fine){
+ .gp-app-navigation .gp-desktop-module-icon{display:inline-block;width:16px;height:16px;flex:none;margin-inline-end:5px;vertical-align:middle}
+}
