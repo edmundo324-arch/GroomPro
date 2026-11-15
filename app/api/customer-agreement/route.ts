@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {platformRestriction} from '@/src/lib/platform-restrictions';
-import {isAgreementToken,validTenant,readAccess,clearTabletForm,startTabletIntake,startPhoneVerification,verifyAgreementPhone,readableAgreement,agreementProfile,updateAgreementProfile,getAgreementPhoto,agreementPicturePath} from '@/src/lib/customer-agreement-store';
+import {isAgreementToken,validTenant,readAccess,readAgreementConfig,tabletIntakeProfiles,clearTabletForm,startTabletIntake,startPhoneVerification,verifyAgreementPhone,readableAgreement,agreementProfile,updateAgreementProfile,getAgreementPhoto,agreementPicturePath} from '@/src/lib/customer-agreement-store';
 import {agreementRevision} from '@/src/lib/customer-agreement-pdf';
 import {signAgreement} from '@/src/lib/customer-agreement-signing';
 
@@ -14,7 +14,7 @@ export async function POST(request:NextRequest){
   if(raw.length>300000)return reply({error:'This form update is too large.'},413);
   const body=JSON.parse(raw);
   const {tenant,action}=body;
-  const token=body.token||((action==='view'||action==='startTablet')&&body.station===true?request.cookies.get('groompro_intake_station')?.value:undefined);
+  const token=body.token||((action==='view'||action==='startTablet'||action==='prepareTablet')&&body.station===true?request.cookies.get('groompro_intake_station')?.value:undefined);
   if(!validTenant(tenant)||await platformRestriction(tenant))return reply({error:'This form is unavailable.'},404);
   if(action==='sendCode'){
    const entry=isAgreementToken(token)?await readAccess(db,tenant,token):undefined;
@@ -22,13 +22,17 @@ export async function POST(request:NextRequest){
    return reply({token:await startPhoneVerification(tenant,String(body.phone||''),entry)});
   }
   if(!isAgreementToken(token))return reply({error:'Open a valid form link.'},401);
-  if(action==='startTablet')return reply(await startTabletIntake(tenant,token,String(body.phone||'')));
+  if(action==='startTablet')return reply(await startTabletIntake(tenant,token,String(body.phone||''),body.offlineId,typeof body.expectedCustomerId==='string'?body.expectedCustomerId:undefined));
   if(action==='verifyCode'){
    return await verifyAgreementPhone(tenant,token,String(body.code||''))?reply({verified:true}):reply({error:'Incorrect or expired verification code.'},400);
   }
   const state=await readAccess(db,tenant,token);
-  if(action==='view'&&state.tabletStation){
-   const response=reply({tabletStation:true});
+  if((action==='view'||action==='prepareTablet')&&state.tabletStation){
+   const config=await readAgreementConfig(tenant);
+   if(!config.channels.includes('tablet'))return reply({error:'Tablet intake is disabled.'},403);
+   const business=await db.tenant.findUniqueOrThrow({where:{id:tenant},select:{name:true}});
+   const records=action==='prepareTablet'?await tabletIntakeProfiles(tenant,config.intake,config.tabletVerifyExisting===true):{};
+   const response=reply({tabletStation:true,terms:config.intake,business:business.name,verifyExisting:config.tabletVerifyExisting===true,...records});
    response.cookies.set('groompro_intake_station',token,{httpOnly:true,sameSite:'strict',secure:process.env.NODE_ENV==='production'||request.nextUrl.protocol==='https:',path:'/api/customer-agreement',maxAge:365*86400});
    return response;
   }
@@ -48,7 +52,7 @@ export async function POST(request:NextRequest){
    return image?reply({photo:'data:image/jpeg;base64,'+image.toString('base64')}):reply({error:'Photo not found.'},404);
   }
   if(action!=='view'&&action!=='edit')return reply({error:'Choose a valid form action.'},400);
-  const profile=action==='edit'?await updateAgreementProfile(tenant,token,body.fields||{}):await agreementProfile(db,tenant,state);
+  const profile=action==='edit'?await updateAgreementProfile(tenant,token,body.fields||{},Number.isSafeInteger(body.offlineEditIndex)&&typeof body.expectedRevision==='string'?{index:body.offlineEditIndex,revision:body.expectedRevision}:undefined):await agreementProfile(db,tenant,state);
   const business=await db.tenant.findUnique({where:{id:tenant},select:{name:true}});
   return reply({profile,kind:state.kind,tablet:state.channel==='tablet',quote:state.quote,terms:state.terms,business:business?.name||'',
    revision:agreementRevision(profile,state.terms,state.quote)});

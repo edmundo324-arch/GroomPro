@@ -111,12 +111,13 @@ test('a verified form edits the scoped profile in place and an unverified form c
 
 test('a PIN-opened tablet starts customer-scoped intake without an inactivity timeout',async()=>{
  const stationToken='a'.repeat(64),tenantId='tenant-a';
+ const stationKey='CUSTOMER_AGREEMENT:'+require('node:crypto').createHash('sha256').update(stationToken).digest('hex');
  let tabletVerifyExisting=false,known=true,issued;
  const station={tabletStation:true,channel:'tablet',kind:'intake',terms,quote:[],shopEmail:'shop@example.com',expires:Number.MAX_SAFE_INTEGER};
  const db={
   tenantSetting:{
    findUnique:async q=>q.where.tenantId_settingKey.settingKey==='CUSTOMER_AGREEMENT_CONFIG'
-    ?{value:{channels:['tablet'],intake:terms,shopEmail:'shop@example.com',tabletVerifyExisting}}:{value:station},
+    ?{value:{channels:['tablet'],intake:terms,shopEmail:'shop@example.com',tabletVerifyExisting}}:q.where.tenantId_settingKey.settingKey===stationKey?{value:station}:null,
    upsert:async q=>{issued=q.create.value;},
   },
   customerPhone:{findUnique:async()=>known?{customerId:'customer-a',customer:{active:true}}:null},
@@ -139,7 +140,12 @@ test('a PIN-opened tablet starts customer-scoped intake without an inactivity ti
  assert.notEqual(knownResult.token,stationToken);
  assert.equal(issued.customerId,'customer-a');
  assert.equal(issued.expires,Number.MAX_SAFE_INTEGER);
+ const offlineId=crypto.randomUUID();
+ await assert.rejects(startTabletIntake(tenantId,stationToken,'5551231234',offlineId,'wrong-customer'),/phone or its verification/);
+ await startTabletIntake(tenantId,stationToken,'5551231234',offlineId,'customer-a');
+ assert.equal(issued.customerId,'customer-a');
  tabletVerifyExisting=true;
+ await assert.rejects(startTabletIntake(tenantId,stationToken,'5551231234',offlineId,'customer-a'),/phone or its verification/);
  await assert.rejects(startTabletIntake(tenantId,stationToken,'5551231234'),/Text verification is unavailable/);
  known=false;
  assert.equal((await startTabletIntake(tenantId,stationToken,'5551231235')).needsCode,false);

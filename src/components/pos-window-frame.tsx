@@ -1,4 +1,5 @@
 "use client";
+import {useNeutralFormFocus} from './use-neutral-form-focus';
 import {useVisualRoot} from './visual-layout-studio';
 import {useWindowRecovery} from './window-recovery';
 import {usePreferenceScope} from './floating-editor-window';
@@ -71,6 +72,7 @@ export function PosWindowFrame({children,active=true,className='',style}:{childr
   window.addEventListener('resize',resize);
   return()=>{observer.disconnect();window.removeEventListener('resize',resize)};
  },[active,scope]);
+ useNeutralFormFocus(root,active);
  useWindowRecovery(root,()=>{
   const direction=orientation();
   if(readPlacement(scope,direction)?.full)return;
@@ -113,7 +115,7 @@ export function PosWindowFrame({children,active=true,className='',style}:{childr
 
  return <WindowContext.Provider value={{full,toggle}}>
   <div ref={root} data-pos-active={active} data-floating-recoverable className={"gp-floating-window gp-ticket-window gp-pos-window gp-pos-adjustable "+className}
-   role="dialog" aria-label="POS Ticket" style={{...style,resize:'none'}} onPointerDown={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish}>
+   tabIndex={-1} role="dialog" aria-label="POS Ticket" style={{...style,resize:'none'}} onPointerDown={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish}>
    {children}{!full&&<span data-pos-resize="true" className="gp-pos-resize" title="Drag to resize POS Ticket" aria-hidden="true">◢</span>}
   </div>
  </WindowContext.Provider>;

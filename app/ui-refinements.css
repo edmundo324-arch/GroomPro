@@ -180,7 +180,23 @@
 .gp-dismiss-button svg{flex:none}
 @media(pointer:coarse){.gp-dismiss-button{min-width:44px;min-height:44px}}
 
+.gp-editor-existing > [hidden]{display:none}
+.gp-pet-editor-head{gap:8px}
+.gp-pet-inactive{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:.875rem}
+.gp-pet-inactive-help summary{cursor:pointer;list-style:none;border:1px solid #9aaec0;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-weight:700}
+.gp-pet-inactive-help p{position:absolute;z-index:22;top:var(--gp-editor-head-height,48px);right:12px;width:min(18rem,calc(100% - 24px));padding:10px;margin:0;border:1px solid #9aaec0;border-radius:6px;background:white;box-shadow:0 4px 12px #17202a26;color:#17202a}
+.gp-paper-editor .gp-editor-fields label,
+.gp-paper-editor .gp-editor-fields .gp-grooming-notes label{font-weight:600;color:#455767}
+.gp-paper-editor .gp-editor-fields label :is(input,textarea,select){font-weight:400;color:#17202a}
+.gp-paper-editor .gp-editor-fields label small{display:block;font-weight:400;line-height:1.35}
+.gp-grooming-notes .gp-note-heading{padding:6px 9px;border-radius:3px}
+.gp-note-permanent{background:#e6eef8;color:#203f60}
+.gp-note-appointment{background:#e1f1e9;color:#1d4a35}
+.gp-note-history{background:#ece7f5;color:#493460}
+.gp-grooming-history > article{padding:6px 8px;border-bottom:1px solid #dfe4e8;background:#fff}
+.gp-grooming-history > article[data-history-shade=gray]{background:#f3f5f7}
 .gp-desktop-module-icon{display:none}
 @media(min-width:701px) and (hover:hover) and (pointer:fine){
  .gp-app-navigation .gp-desktop-module-icon{display:inline-block;width:16px;height:16px;flex:none;margin-inline-end:5px;vertical-align:middle}
 }
+.gp-profile-balance-warning{flex:none;margin:0 10px;padding:4px 8px;color:#9e1c2e;font-weight:700}

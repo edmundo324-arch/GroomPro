@@ -5,6 +5,7 @@ import {useWindowRecovery} from "./window-recovery";
 import {createContext,useContext,useLayoutEffect,useRef,useState} from 'react';
 import type {CSSProperties,ReactNode} from 'react';
 import {fitWindow,dragWindow,resizeEditorWindow,validWindowGeometry,WindowGeometry} from '../lib/window-geometry';
+import {useNeutralFormFocus} from './use-neutral-form-focus';
 import {useModuleVisible} from './module-view';
 const PreferenceScope=createContext('');
 export const usePreferenceScope=()=>useContext(PreferenceScope);
@@ -19,6 +20,7 @@ type Preference={geometry:WindowGeometry;restore?:WindowGeometry;maximized:boole
 export function FloatingEditorWindow({windowKey,title,children,onClose,closeDisabled=false,existing=false,style,className=''}:{windowKey:string;title:string;children:ReactNode;onClose?:()=>void;closeDisabled?:boolean;existing?:boolean;style?:CSSProperties;className?:string}){
  const scope=useContext(PreferenceScope),visible=useModuleVisible(),key=scope?'groompro:window:v1:'+scope+':'+windowKey:'';
  const root=useRef<HTMLDivElement>(null),preferred=useRef<Preference|null>(null),drag=useRef<{start:WindowGeometry;x:number;y:number;edge:string}|null>(null);
+ useNeutralFormFocus(root,visible);
  const[maximized,setMaximized]=useState(false);useVisualRoot(root,visualWindowName(windowKey),visible);
  const bounds=()=>{const r=root.current!.getBoundingClientRect();return {left:r.left,top:r.top,width:r.width,height:r.height}};
  function apply(g:WindowGeometry){const el=root.current;if(!el)return;const f=dragWindow({...g,width:Math.min(g.width,document.documentElement.clientWidth-16),height:Math.min(g.height,window.innerHeight-16)},document.documentElement.clientWidth,window.innerHeight);for(const n of ['left','top','width','height'] as const)el.style[n]=f[n]+'px';}
@@ -32,8 +34,8 @@ export function FloatingEditorWindow({windowKey,title,children,onClose,closeDisa
  useWindowRecovery(root,()=>{const g=fitWindow(bounds(),document.documentElement.clientWidth,window.innerHeight);apply(g);remember({...preferred.current!,geometry:g})});
  function toggle(){if(!maximized){const g=bounds();remember({geometry:g,restore:g,maximized:true});apply(full());setMaximized(true)}else{const g=preferred.current?.restore||preferred.current!.geometry;apply(g);remember({geometry:g,maximized:false});setMaximized(false)}}
  function finish(e:React.PointerEvent<HTMLDivElement>){if(drag.current){remember({geometry:bounds(),maximized:false});drag.current=null}if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId)}
- return <Controls.Provider value={{maximized,toggle}}><div ref={root} data-floating-recoverable role="dialog" aria-label={title} className={'gp-floating-window gp-editor-window'+(existing?' gp-editor-existing':'')+' '+className} style={{...style,...(!visible?{display:'none'}:{})}}
- onPointerDown={e=>{if(maximized)return;const target=e.target as HTMLElement,handle=target.closest<HTMLElement>('[data-editor-resize]'),header=target.closest('.gp-floating-head');if(target.closest('.gp-editor-window')!==e.currentTarget||(!handle&&(!header||target.closest('button,input,select,textarea,a,summary'))))return;e.preventDefault();e.stopPropagation();drag.current={start:bounds(),x:e.clientX,y:e.clientY,edge:handle?.dataset.editorResize||''};e.currentTarget.setPointerCapture(e.pointerId)}}
+ return <Controls.Provider value={{maximized,toggle}}><div ref={root} data-floating-recoverable tabIndex={-1} role="dialog" aria-label={title} className={'gp-floating-window gp-editor-window'+(existing?' gp-editor-existing':'')+' '+className} style={{...style,...(!visible?{display:'none'}:{})}}
+ onPointerDown={e=>{if(maximized)return;const target=e.target as HTMLElement,handle=target.closest<HTMLElement>('[data-editor-resize]'),header=target.closest('.gp-floating-head');if(target.closest('.gp-editor-window')!==e.currentTarget||(!handle&&(!header||target.closest('button,input,select,textarea,a,label,details'))))return;e.preventDefault();e.stopPropagation();drag.current={start:bounds(),x:e.clientX,y:e.clientY,edge:handle?.dataset.editorResize||''};e.currentTarget.setPointerCapture(e.pointerId)}}
  onPointerMove={e=>{const d=drag.current;if(!d)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;apply(d.edge?resizeEditorWindow(d.start,d.edge,dx,dy,document.documentElement.clientWidth,window.innerHeight):{...d.start,left:d.start.left+dx,top:d.start.top+dy})}} onPointerUp={finish} onPointerCancel={finish}>
  {existing?children:<><div className="gp-floating-head"><div className="gp-floating-title">{title}</div><EditorWindowControls/>{onClose&&<DismissButton label={"Dismiss "+title} disabled={closeDisabled} onClick={onClose}/>}</div><div className="gp-editor-content">{children}</div></>}
  {!maximized&&['n','e','s','w','se'].map(edge=><span key={edge} data-editor-resize={edge} className={'gp-editor-resize gp-editor-resize-'+edge} title="Drag to resize" aria-hidden="true">{edge==='se'?'◢':''}</span>)}

@@ -1,4 +1,5 @@
 import type {Prisma} from '@prisma/client';
+import {agreementRevision} from './customer-agreement-pdf';
 import {createHash,randomBytes,randomInt,randomUUID} from 'node:crypto';
 import {db} from './db';
 import {normalizePhone} from './phone-normalization';
@@ -12,7 +13,7 @@ import {agreementChannels,customerFields,dogFields,type AgreementChannel,type Ag
 export type AgreementAccess={
  kind:AgreementKind;channel:AgreementChannel;expires:number;terms:Terms;shopEmail:string;
  customerId?:string;phone?:string;proof?:string;pinExpires?:number;attempts?:number;quote:Quote[];
- documentId?:string;actorId?:string;bookingUrl?:string;tabletStation?:boolean;
+ documentId?:string;actorId?:string;bookingUrl?:string;tabletStation?:boolean;lastOfflineEdit?:number;lastOfflineRevision?:string;
 };
 const configKey='CUSTOMER_AGREEMENT_CONFIG';
 const tokenKey=(token:string)=>'CUSTOMER_AGREEMENT:'+digest(token);
@@ -83,18 +84,26 @@ export async function clearTabletForm(tenantId:string,token:string){
   await tx.tenantSetting.delete({where:settingWhere(tenantId,tokenKey(token))});
  });
 }
-export async function startTabletIntake(tenantId:string,stationToken:string,input:string){
+export async function startTabletIntake(tenantId:string,stationToken:string,input:string,offlineId?:string,expectedCustomerId?:string){
  const station=await readAccess(db,tenantId,stationToken);
  const config=await readAgreementConfig(tenantId);
  if(!station.tabletStation||!config.channels.includes('tablet'))throw agreementError('This tablet is no longer set up for intake.');
  const phone=normalizePhone(input);
  if(!/^\d{10}$/.test(phone))throw agreementError('Enter a 10-digit mobile number.');
+ const replayToken=offlineId&&/^[0-9a-f-]{36}$/i.test(offlineId)?digest(stationToken+':'+offlineId):undefined;
+ if(offlineId&&!replayToken)throw agreementError('Invalid saved intake.');
+ if(replayToken&&await db.tenantSetting.findUnique({where:settingWhere(tenantId,tokenKey(replayToken))}))return {token:replayToken,needsCode:false};
  const registered=await db.customerPhone.findUnique({where:{tenantId_normalized:{tenantId,normalized:phone}},select:{customerId:true,customer:{select:{active:true}}}});
+ if(replayToken&&(registered?.customerId!==expectedCustomerId||(registered&&config.tabletVerifyExisting)))throw agreementError('This phone or its verification requirement changed. Review the saved intake with staff before applying changes.');
  if(registered&&!registered.customer.active)throw agreementError('This profile is inactive. Ask the shop for help.');
  if(registered&&config.tabletVerifyExisting)return {token:await startPhoneVerification(tenantId,phone,{...station,terms:config.intake,shopEmail:config.shopEmail}),needsCode:true};
- const token=newToken();
- await saveAccess(db,tenantId,token,{kind:'intake',channel:'tablet',terms:config.intake,shopEmail:config.shopEmail,
-  phone,customerId:registered?.customerId,quote:[],expires:Number.MAX_SAFE_INTEGER});
+ const token=replayToken||newToken();
+ const state={kind:'intake',channel:'tablet',terms:config.intake,shopEmail:config.shopEmail,
+  phone,customerId:registered?.customerId,quote:[],expires:Number.MAX_SAFE_INTEGER} satisfies AgreementAccess;
+ if(replayToken){
+  const settingKey=tokenKey(token),value=JSON.parse(JSON.stringify(state)) as Prisma.InputJsonValue;
+  await db.tenantSetting.upsert({where:settingWhere(tenantId,settingKey),create:{tenantId,settingKey,value},update:{}});
+ }else await saveAccess(db,tenantId,token,state);
  return {token,needsCode:false};
 }
 export async function startPhoneVerification(tenantId:string,input:string,entry?:AgreementAccess){
@@ -146,20 +155,40 @@ export async function verifyAgreementPhone(tenantId:string,token:string,pin:stri
  });
 }
 
+const agreementProfileFields=(tenantId:string)=>({
+ id:true,firstName:true,lastName:true,email:true,address1:true,address2:true,city:true,state:true,postalCode:true,
+ phones:{where:{tenantId},select:{number:true},orderBy:[{isPrimary:'desc'},{id:'asc'}]},
+ pets:{where:{tenantId,active:true},orderBy:{id:'asc'},select:{id:true,name:true,breed:true,weightLbs:true,color:true,groomingNotes:true,
+  medicalNotes:true,behaviorNotes:true,veterinarian:true,pictureUrl:true}},
+} satisfies Prisma.CustomerSelect);
+type ProfileRow=Prisma.CustomerGetPayload<{select:ReturnType<typeof agreementProfileFields>}>;
+
+function toAgreementProfile(row:ProfileRow,referralSource:string,quote?:Quote[]):AgreementProfile{
+ const {phones,pets,...profile}=row;
+ return {...profile,referralSource,phone:phones[0]?.number||'',additionalPhone:phones[1]?.number||'',thirdPhone:phones[2]?.number||'',
+  pets:pets.filter(p=>!quote||quote.some(q=>q.petId===p.id)).map(p=>({...p,weightLbs:p.weightLbs?.toNumber()??null}))};
+}
+
+export async function tabletIntakeProfiles(tenantId:string,terms:Terms,verifyExisting:boolean){
+ const rows=await db.customer.findMany({
+  where:{tenantId,active:true,phones:{some:{tenantId}}},
+  select:verifyExisting?{id:true,phones:{where:{tenantId},select:{number:true}}}:agreementProfileFields(tenantId),
+ });
+ if(verifyExisting)return {profiles:[],verificationPhones:rows.flatMap(row=>row.phones.map(phone=>normalizePhone(phone.number)))};
+ const referrals=await customerReferrals(tenantId,rows.map(row=>row.id));
+ const profiles=rows.map(row=>{
+  const profile=toAgreementProfile(row as ProfileRow,referrals.get(row.id)?.referralSource||'');
+  return {phones:row.phones.map(phone=>normalizePhone(phone.number)),profile,revision:agreementRevision(profile,terms,[])};
+ });
+ return {profiles,verificationPhones:[]};
+}
+
 export async function agreementProfile(tx:Prisma.TransactionClient,tenantId:string,state:AgreementAccess):Promise<AgreementProfile>{
  if(!state.customerId)return {id:'',phone:state.phone||'',pets:[]};
- const c=await tx.customer.findFirst({
-  where:{id:state.customerId,tenantId,active:true},
-  select:{id:true,firstName:true,lastName:true,email:true,address1:true,address2:true,city:true,state:true,postalCode:true,
-   phones:{where:{tenantId},select:{number:true},orderBy:[{isPrimary:'desc'},{id:'asc'}]},
-   pets:{where:{tenantId,active:true},orderBy:{id:'asc'},select:{id:true,name:true,breed:true,weightLbs:true,color:true,groomingNotes:true,
-    medicalNotes:true,behaviorNotes:true,veterinarian:true,pictureUrl:true}}},
- });
- if(!c)throw agreementError('The shop must update this customer profile before signing.');
- const {phones,pets,...profile}=c;
- const referral=(await customerReferrals(tenantId,[c.id],tx)).get(c.id);
- return {...profile,referralSource:referral?.referralSource||'',phone:phones[0]?.number||'',additionalPhone:phones[1]?.number||'',thirdPhone:phones[2]?.number||'',
-  pets:pets.filter(p=>state.kind==='intake'||state.quote.some(q=>q.petId===p.id)).map(p=>({...p,weightLbs:p.weightLbs?.toNumber()??null}))};
+ const row=await tx.customer.findFirst({where:{id:state.customerId,tenantId,active:true},select:agreementProfileFields(tenantId)});
+ if(!row)throw agreementError('The shop must update this customer profile before signing.');
+ const referrals=await customerReferrals(tenantId,[row.id],tx);
+ return toAgreementProfile(row,referrals.get(row.id)?.referralSource||'',state.kind==='vip'?state.quote:undefined);
 }
 function field(value:unknown,max=191){
  if(typeof value!=='string'||value.trim().length>max)throw agreementError('Enter a shorter value.');
@@ -168,11 +197,20 @@ function field(value:unknown,max=191){
 export function readableAgreement(state:AgreementAccess){
  if(state.proof||(!state.customerId&&!state.phone))throw agreementError('Verify your phone number first.');
 }
-export async function updateAgreementProfile(tenantId:string,token:string,input:Record<string,unknown>){
+export async function updateAgreementProfile(tenantId:string,token:string,input:Record<string,unknown>,replay?:{index:number;revision:string}){
  return db.$transaction(async tx=>{
   const state=await readAccess(tx,tenantId,token,true);readableAgreement(state);
   if(state.documentId)throw agreementError('This agreement is already signed.');
   if(state.customerId)await tx.$queryRaw`SELECT id FROM Customer WHERE id=${state.customerId} AND tenantId=${tenantId} FOR UPDATE`;
+  if(replay){
+   const current=await agreementProfile(tx,tenantId,state);
+   const revision=agreementRevision(current,state.terms,state.quote);
+   if((state.lastOfflineEdit??-1)>=replay.index){
+    if(state.lastOfflineRevision!==revision)throw agreementError('The profile changed on another device. Review the saved intake before applying it.');
+    return current;
+   }
+   if(state.channel!=='tablet'||replay.index!==(state.lastOfflineEdit??-1)+1||revision!==replay.revision)throw agreementError('The profile changed on another device. Review the saved intake before applying it.');
+  }
   if(!state.customerId){
    const firstName=field(input.firstName),lastName=field(input.lastName),email=field(input.email).toLowerCase();
    if(!firstName||!lastName||!allowedAgreementEmail(email))throw agreementError('Enter your name and email.');
@@ -202,7 +240,7 @@ export async function updateAgreementProfile(tenantId:string,token:string,input:
     }else data[key]=field(input[key],key.endsWith('Notes')?2000:191)||null;
    }
    if((!pet||input.name!==undefined)&&!data.name)throw agreementError('Enter the dog’s name.');
-   const id=pet?.id||randomUUID();
+   const id=pet?.id||(replay&&typeof input.newPetId==='string'&&/^[0-9a-f-]{36}$/i.test(input.newPetId)?input.newPetId:randomUUID());
    if(input.photo!==undefined){
     const photo=String(input.photo);
     if(!/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]+={0,2}$/.test(photo)||photo.length>240000)throw agreementError('Choose a smaller photo.');
@@ -240,7 +278,9 @@ export async function updateAgreementProfile(tenantId:string,token:string,input:
    }
   }
   await tx.customer.updateMany({where:{id:state.customerId,tenantId},data:{updatedAt:new Date()}});
-  return agreementProfile(tx,tenantId,state);
+  const profile=await agreementProfile(tx,tenantId,state);
+  if(replay)await saveAccess(tx,tenantId,token,{...state,lastOfflineEdit:replay.index,lastOfflineRevision:agreementRevision(profile,state.terms,state.quote)});
+  return profile;
  });
 }
 export async function getAgreementPhoto(tenantId:string,petId:string){
@@ -250,5 +290,5 @@ export async function getAgreementPhoto(tenantId:string,petId:string){
  return Buffer.from(value.slice(23),'base64');
 }
 export function markAgreementSigned(tx:Prisma.TransactionClient,tenantId:string,token:string,state:AgreementAccess,documentId:string){
- return saveAccess(tx,tenantId,token,{...state,documentId,expires:Math.min(state.expires,Date.now()+86400000)});
+ return saveAccess(tx,tenantId,token,{...state,documentId,expires:state.channel==='tablet'?state.expires:Math.min(state.expires,Date.now()+86400000)});
 }

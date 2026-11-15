@@ -1,8 +1,10 @@
 "use client";
 import {useEffect,useRef,useState,type PointerEvent} from 'react';
-import {agreementTitle,customerFields,dogFields,formatAgreementPrice,type AgreementKind,type AgreementPet,type AgreementProfile,type Quote,type Stroke,type Terms} from '../lib/customer-agreement-model';
+import {agreementTitle,customerFields,dogFields,formatAgreementPrice,type AgreementPet,type Stroke} from '../lib/customer-agreement-model';
 
-type AgreementView={profile:AgreementProfile;kind:AgreementKind;quote:Quote[];terms:Terms;tablet?:boolean;revision:string;business:string};
+import {normalizePhone} from '../lib/phone-normalization';
+import {verifiedSignature} from '../lib/customer-agreement-model';
+import {projectAgreementEdit,readIntakeStation,saveIntakeStation,readTabletDraft,saveTabletDraft,readTabletQueue,updateTabletQueue,syncTabletAgreements,replayTabletEdits,type AgreementView,type IntakeStation,type TabletDraft} from '../lib/offline-agreement';
 type Result={id:string;pdf:string;filename:string;emailed:boolean;bookingUrl?:string};
 type Requester=(action:string,data?:object,override?:string)=>Promise<any>;
 
@@ -33,7 +35,7 @@ function DogPhoto({dog,request,save}:{dog:AgreementPet;request:Requester;save:(d
   if(dog.pictureUrl?.startsWith('/api/customer-agreement/photo')){
    setImage('');
    request('photo',{petId:dog.id}).then(result=>{if(mounted)setImage(result.photo)}).catch(()=>{});
-  }else setImage(/^(https:\/\/|\/(?!\/))/.test(dog.pictureUrl||'')?dog.pictureUrl||'':'');
+  }else setImage((dog.pictureUrl?.startsWith('data:image/jpeg;base64,')||/^(https:\/\/|\/(?!\/))/.test(dog.pictureUrl||''))?dog.pictureUrl||'':'');
   return()=>{mounted=false};
  },[dog.id,dog.pictureUrl,request]);
  async function upload(file:File){
@@ -70,15 +72,22 @@ export function CustomerAgreementForm(){
  const [result,setResult]=useState<Result|null>(null);
  const queue=useRef<Promise<unknown>>(Promise.resolve()),failedFields=useRef(new Set<string>());
  const connection=useRef({tenant:'',token:''}),attemptedPhone=useRef(''),startedProfile=useRef(false);
- const latestView=useRef<AgreementView|null>(null);
+ const latestView=useRef<AgreementView|null>(null),stationConfig=useRef<IntakeStation|null>(null),tabletDraft=useRef<TabletDraft|null>(null);
+ const [reviewing,setReviewing]=useState(false),[reviewItems,setReviewItems]=useState<TabletDraft[]>([]);
+ const [offline,setOffline]=useState(false),[waiting,setWaiting]=useState(0),[syncIssue,setSyncIssue]=useState(''),[lookupReady,setLookupReady]=useState(false);
  const request=useRef<Requester>(async(action,data={},override)=>{
   const current=connection.current;
-  const response=await fetch('/api/customer-agreement',{method:'POST',headers:{'Content-Type':'application/json'},
+  const response=await fetch('/api/customer-agreement',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(action==='sign'?30000:12000),
    cache:'no-store',body:JSON.stringify({tenant:current.tenant,token:override??current.token,action,...data})});
   const payload=await response.json();
-  if(!response.ok)throw Error(payload.error||'Could not complete this step.');
+  if(!response.ok)throw Object.assign(Error(payload.error||'Could not complete this step.'),{name:'AgreementResponseError'});
   return payload;
  }).current;
+ async function persistDraft(draft:TabletDraft){
+  await saveTabletDraft(connection.current.tenant,draft);
+  tabletDraft.current=draft;
+  apply(draft.view);
+ }
  function apply(data:AgreementView){latestView.current=data;setView(data);setStage(data.profile.id?'form':'create');}
  useEffect(()=>{
   const url=new URL(window.location.href),id=url.searchParams.get('tenant')||'',secret=url.hash.slice(1);
@@ -87,22 +96,101 @@ export function CustomerAgreementForm(){
   const resume=url.searchParams.get('tablet')==='1';
   if(!secret&&!resume){setStage('phone');return;}
   request('view',{station:resume}).then(data=>{
-   if(data.tabletStation){connection.current.token='';setToken('');history.replaceState(null,'','/customer-forms?tenant='+encodeURIComponent(id)+'&tablet=1');setStation(true);setStage('phone');return;}
+   if(data.tabletStation){
+    const config={terms:data.terms,business:data.business,verifyExisting:data.verifyExisting===true};
+    stationConfig.current=config;
+    if(config.verifyExisting)void saveIntakeStation(id,config).catch(()=>setNotice('This tablet could not save its offline setup.'));
+    openStation(id);
+    return;
+   }
    if(data.needsPhone){setStage('phone');return;}
    if(data.signed){setStage('signed');return;}
    apply(data);
-  }).catch(e=>{setNotice(e.message);setStage('unavailable');});
+  }).catch(async e=>{
+   if(resume&&e.name!=='AgreementResponseError'){
+    const config=await readIntakeStation(id).catch(()=>undefined);
+    if(config){stationConfig.current=config;setLookupReady(Array.isArray(config.profiles));setOffline(true);openStation(id);return;}
+   }
+   setNotice(e.message);setStage('unavailable');
+  });
   return()=>{window.speechSynthesis?.cancel();};
  },[request]);
+ function openStation(tenant:string){
+  connection.current.token='';setToken('');
+  history.replaceState(null,'','/customer-forms?tenant='+encodeURIComponent(tenant)+'&tablet=1');
+  setStation(true);
+  void Promise.all([readTabletDraft(tenant),readTabletQueue(tenant)]).then(([saved,queued])=>{
+   const draft=queued?.some(item=>item.id===saved?.id)?undefined:saved;
+   if(draft){tabletDraft.current=draft;connection.current.token=draft.token;apply(draft.view);}
+   else setStage('phone');
+  }).catch(()=>setStage('phone'));
+ }
+ useEffect(()=>{
+  if(!station)return;
+  const tenant=connection.current.tenant;
+  const refresh=async()=>{
+   setOffline(!navigator.onLine);
+   if(navigator.onLine){
+    void syncTabletAgreements(tenant,request).then(refreshCount).catch(()=>{});
+   }
+   await refreshCount();
+  };
+  async function refreshCount(){
+   const saved=await readTabletQueue(tenant).catch(()=>undefined);
+   setWaiting(saved?.length||0);
+   setSyncIssue(saved?.find(item=>item.issue)?.issue||'');
+  }
+  let active=true;
+  const refreshProfiles=async()=>{
+   if(!navigator.onLine)return;
+   const data=await request('prepareTablet',{station:true},'');
+   if(!active)return;
+   const config: IntakeStation={terms:data.terms,business:data.business,verifyExisting:data.verifyExisting,profiles:data.profiles,verificationPhones:data.verificationPhones};
+   await saveIntakeStation(tenant,config);
+   stationConfig.current=config;
+   setLookupReady(!config.verifyExisting&&Array.isArray(config.profiles));
+  };
+  const prepare=async()=>{
+   if(!navigator.onLine||!navigator.serviceWorker)return;
+   await navigator.serviceWorker.register('/groompro-offline-worker.js');
+   const worker=await navigator.serviceWorker.ready;
+   if(navigator.storage?.persist)void navigator.storage.persist().catch(()=>{});
+   const assets=[...document.querySelectorAll<HTMLScriptElement|HTMLLinkElement>('script[src],link[rel="stylesheet"]')].map(node=>'src' in node?node.src:node.href);
+   assets.push(...performance.getEntriesByType('resource').map(entry=>entry.name));
+   worker.active?.postMessage({type:'prepare-shell',assets});
+  };
+  void prepare().catch(()=>{});void refresh();
+  const reconnect=()=>{void refresh();void prepare().catch(()=>{});void refreshProfiles().catch(()=>{});};
+  void refreshProfiles().catch(()=>{});
+  const profileTimer=setInterval(()=>void refreshProfiles().catch(()=>{}),300000);
+  window.addEventListener('online',reconnect);window.addEventListener('offline',refresh);
+  const timer=setInterval(()=>void refresh(),15000);
+  return()=>{active=false;clearInterval(timer);clearInterval(profileTimer);window.removeEventListener('online',reconnect);window.removeEventListener('offline',refresh);};
+ },[station,request]);
  async function action(callback:()=>Promise<void>){
   setBusy(true);setNotice('');
   try{await callback();}catch(e){setNotice((e as Error).message||'Please try again.');}finally{setBusy(false);}
  }
  async function startPhone(){
-  const data=await request(station?'startTablet':'sendCode',{phone,station},station?'':undefined);
-  connection.current.token=data.token;setToken(data.token);
-  if(station&&!data.needsCode)apply(await request('view'));
-  else setStage('code');
+  try{
+   if(station&&!navigator.onLine)throw Error('This tablet is offline.');
+   const data=await request(station?'startTablet':'sendCode',{phone,station},station?'':undefined);
+   connection.current.token=data.token;setToken(data.token);
+   if(station&&!data.needsCode)await loadTabletProfile(data.token);
+   else setStage('code');
+  }catch(error){
+   if(!station||!stationConfig.current||(error as Error).name==='AgreementResponseError')throw error;
+    const normalized=normalizePhone(phone);
+   if(normalized.length!==10)throw Error('Enter a 10-digit mobile number.');
+   const id=crypto.randomUUID(),config=stationConfig.current;
+   if(config.verifyExisting&&(!config.verificationPhones||config.verificationPhones.includes(normalized)))throw Error('Reconnect to Wi-Fi to verify this phone number.');
+   const cached=config.profiles?.find(record=>record.phones.includes(normalized));
+   const revision=cached?.revision||'';
+   const view:AgreementView={terms:config.terms,business:config.business,kind:'intake',tablet:true,profile:cached?.profile||{id:'',phone:normalized,pets:[]},revision,quote:[]};
+   connection.current.token='';
+   await persistDraft({id,token:'',phone:normalized,expectedCustomerId:cached?.profile.id,view,serverRevision:revision,edits:[]});
+   setOffline(true);
+  }
  }
  useEffect(()=>{
   if(!station||stage!=='phone'||busy)return;
@@ -111,10 +199,35 @@ export function CustomerAgreementForm(){
   const timer=setTimeout(()=>{attemptedPhone.current=digits;void action(startPhone);},400);
   return()=>clearTimeout(timer);
  },[station,stage,phone,busy]);
+ async function loadTabletProfile(token:string){
+  const view=await request('view') as AgreementView;
+  await persistDraft({id:crypto.randomUUID(),token,phone:normalizePhone(phone),view,serverRevision:view.revision,edits:[]});
+ }
  function save(fields:Record<string,unknown>){
   const key=String(fields.petId||'customer')+':'+Object.keys(fields).filter(k=>k!=='petId').join(',');
   setPending(n=>n+1);setNotice('');
-  const update=queue.current.catch(()=>{}).then(async()=>{apply(await request('edit',{fields}));failedFields.current.delete(key);});
+  const update=queue.current.catch(()=>{}).then(async()=>{
+   const draft=tabletDraft.current;
+   if(draft){
+    // Persist before sending so a dropped connection cannot lose a completed field.
+    const projected=projectAgreementEdit(draft,fields);
+    await persistDraft(projected);
+    if(draft.token&&navigator.onLine){
+     try{
+      const synced=await replayTabletEdits(projected,request);
+      await persistDraft({...projected,view:synced});
+      setOffline(false);
+     }catch(error){
+      if((error as Error).name==='AgreementResponseError'){
+       await persistDraft(draft);
+       throw error;
+      }
+      setOffline(true);
+     }
+    }
+   }else apply(await request('edit',{fields}));
+   failedFields.current.delete(key);
+  });
   queue.current=update;
   void update.catch(e=>{failedFields.current.add(key);setNotice(e.message);}).finally(()=>setPending(n=>n-1));
   return update;
@@ -123,6 +236,21 @@ export function CustomerAgreementForm(){
   await queue.current.catch(()=>{});
   if(failedFields.current.size)throw Error('Correct the unsaved fields before signing.');
   if(!latestView.current)return;
+  const draft=tabletDraft.current;
+  if(draft){
+   const {profile,terms}=draft.view;
+   if(!profile.email||!profile.address1||!profile.city||!profile.postalCode||!profile.pets.length)throw Error('Enter your email, address, city, ZIP code and at least one dog.');
+   const signature=verifiedSignature({name,adopted,initials,acknowledged:[...checked].sort((a,b)=>a-b)},terms.clauses);
+   const tenant=connection.current.tenant;
+   await updateTabletQueue(tenant,items=>[...items.filter(item=>item.id!==draft.id),{...draft,submission:{signature,selectedPets:selected}}]);
+   await saveTabletDraft(tenant);
+   tabletDraft.current=null;
+   finish();
+   setWaiting(count=>count+1);
+   setNotice('Intake saved on this tablet. Signed copies will be sent when it syncs.');
+   if(navigator.onLine)void syncTabletAgreements(tenant,request).then(()=>readTabletQueue(tenant)).then(items=>setWaiting(items?.length||0)).catch(()=>{});
+   return;
+  }
   const signed=await request('sign',{revision:latestView.current.revision,selectedPets:selected,
    signature:{name,adopted,initials,acknowledged:[...checked].sort((a,b)=>a-b)}});
   if((station||latestView.current.tablet)&&signed.emailed){finish(true);return;}
@@ -130,7 +258,11 @@ export function CustomerAgreementForm(){
  }
  function finish(emailed=false){
   window.speechSynthesis?.cancel();
-  if(station&&connection.current.token)void request('clearTabletForm').catch(()=>{});
+  if(tabletDraft.current){
+   tabletDraft.current=null;
+   void saveTabletDraft(connection.current.tenant).catch(()=>{});
+  }
+  if(station&&connection.current.token&&!latestView.current?.profile.id)void request('clearTabletForm').catch(()=>{});
   connection.current=station?{tenant:connection.current.tenant,token:''}:{tenant:'',token:''};latestView.current=null;
   attemptedPhone.current='';startedProfile.current=false;setName('');setInitials({});setChecked([]);setSelected([]);
   setResult(null);setView(null);setPhone('');setCode('');setFirst('');setLast('');setDogName('');setEmail('');setToken('');
@@ -147,13 +279,26 @@ export function CustomerAgreementForm(){
   <h1>{view?agreementTitle[view.kind]:station?'New Customer Intake':'Customer forms'}</h1>
   {view?.business&&<p>{view.business}</p>}
   {notice&&<p role="alert">{notice}</p>}
+  {station&&(offline||waiting>0)&&<p role="status">{offline?'Working offline. ':''}{waiting>0?waiting+' intake form(s) waiting to sync.':''}</p>}
+  {station&&syncIssue&&<p role="alert">A saved intake needs staff review before syncing.</p>}
+  {station&&stage==='phone'&&!!syncIssue&&!offline&&<button type="button" className="gp-btn" onClick={()=>void action(async()=>{
+   const response=await fetch('/api/customer-agreement/staff',{cache:'no-store'});
+   if(!response.ok||(await response.json()).tenantId!==connection.current.tenant)throw Error('Sign in as an owner or manager in GroomPro to review saved intakes.');
+   setReviewItems((await readTabletQueue(connection.current.tenant)||[]).filter(item=>item.issue));setReviewing(true);
+  })}>Review saved intakes</button>}
+  {reviewing&&<section><h2>Saved intakes</h2>{reviewItems.map(item=><div key={item.id}><p>{item.issue}</p><button type="button" className="gp-btn" onClick={()=>{
+   const url=URL.createObjectURL(new Blob([JSON.stringify({profile:item.view.profile,terms:item.view.terms,signature:item.submission?.signature},null,2)],{type:'application/json'}));
+   const link=document.createElement('a');link.href=url;link.download='saved-intake.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }}>Download saved intake</button></div>)}<button type="button" className="gp-btn" onClick={()=>{setReviewing(false);setReviewItems([]);}}>Close review</button></section>}
   {stage==='loading'&&<p>Opening form…</p>}
-  {stage==='phone'&&<form onSubmit={e=>{e.preventDefault();if(!busy)void action(startPhone);}}><label>Mobile phone<input type="tel" autoComplete={station?'off':'tel'} required value={phone} onChange={e=>setPhone(e.target.value)}/></label>
+  {stage==='phone'&&!reviewing&&<form onSubmit={e=>{e.preventDefault();if(!busy)void action(startPhone);}}><label>Mobile phone<input type="tel" autoComplete={station?'off':'tel'} required value={phone} onChange={e=>setPhone(e.target.value)}/></label>
    {!station&&<button className="gp-btn primary" disabled={busy}>Text me a code</button>}
+   {station&&offline&&<p>{lookupReady?'Saved profiles on this tablet can open by phone number. If yours is missing, enter your details.':'Enter your details manually if your profile hasn’t been loaded.'}</p>}
+   {station&&lookupReady&&!offline&&<p role="status">Phone lookup ready offline</p>}
    {station&&busy&&<p role="status">Finding your profile…</p>}
    {station&&notice&&phone&&<button className="gp-btn" disabled={busy}>Try again</button>}
   </form>}
-  {stage==='code'&&<form onSubmit={e=>{e.preventDefault();void action(async()=>{await request('verifyCode',{code},token);apply(await request('view'));});}}>
+  {stage==='code'&&<form onSubmit={e=>{e.preventDefault();void action(async()=>{await request('verifyCode',{code},token);if(station)await loadTabletProfile(token);else apply(await request('view'));});}}>
    <label>Verification code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required value={code} onChange={e=>setCode(e.target.value)}/></label><button className="gp-btn primary" disabled={busy}>Verify phone</button></form>}
   {stage==='create'&&<form onSubmit={e=>{e.preventDefault();startProfile();}}>
    <label>First name<input autoComplete="given-name" required value={firstName} onChange={e=>setFirst(e.target.value)}/></label>
@@ -161,7 +306,7 @@ export function CustomerAgreementForm(){
    <label>Email<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} onBlur={station?startProfile:undefined}/></label>
    {!station&&<button className="gp-btn primary" disabled={busy}>Start my profile</button>}{station&&<button type="submit" hidden>Save profile</button>}</form>}
   {stage==='form'&&view&&<>
-   <section><h2>Your profile</h2><p>Changes save to your GroomPro profile as you complete each field.</p>
+   <section><h2>Your profile</h2><p>{station&&offline?'Changes save on this tablet until it reconnects.':'Changes save as you complete each field.'}</p>
     <p><strong>Primary phone</strong> {view.profile.phone||'Ask the shop to add your primary phone.'}</p>
     <div className="gp-agreement-grid">{Object.entries(customerFields).map(([key,label])=><LiveField key={key} label={label}
      value={view.profile[key as keyof typeof customerFields]} type={key==='email'?'email':key.endsWith('Phone')?'tel':'text'} save={value=>save({[key]:value})}/>)}</div>
@@ -194,7 +339,7 @@ export function CustomerAgreementForm(){
     {name&&<p className="gp-agreement-signature">{name}</p>}
     <label><input type="checkbox" checked={adopted} onChange={e=>setAdopted(e.target.checked)}/> I adopt this signature and agree to the terms above</label>
     <button className="gp-btn primary" disabled={busy||pending>0||!adopted}>Sign and submit</button>
-    <button type="button" className="gp-btn" disabled={busy||pending>0} onClick={()=>void action(async()=>{apply(await request('view'));setAdopted(false);failedFields.current.clear();})}>Reload profile</button>
+    {!tabletDraft.current&&<button type="button" className="gp-btn" disabled={busy||pending>0} onClick={()=>void action(async()=>{apply(await request('view'));setAdopted(false);failedFields.current.clear();})}>Reload profile</button>}
    </form>
   </>}
   {result&&<section><h2>Agreement signed</h2><p>{result.emailed?'The signed copies were accepted for email delivery.':'Your agreement is saved. Email delivery is unavailable or incomplete.'}</p>

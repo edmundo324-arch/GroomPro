@@ -21,11 +21,11 @@ self.addEventListener('message', event => {
   event.waitUntil((async () => {
     await saveAssets(event.data.assets || []);
     const url = new URL(event.source.url);
-    if (url.pathname !== '/') return;
+    if (url.pathname !== '/' && url.pathname !== '/customer-forms') return;
     const response = await fetch(url, { cache: 'no-store' });
     if (response.ok && !response.redirected && response.headers.get('content-type')?.includes('text/html')) {
       const cache = await caches.open(cacheName);
-      await cache.put(shellKey, response);
+      await cache.put(url.pathname === '/' ? shellKey : '/customer-forms', response);
       event.source.postMessage({ type: 'shell-ready' });
     }
   })().catch(() => {}));
@@ -35,16 +35,16 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
-  const navigation = url.origin === self.location.origin && url.pathname === '/' && request.mode === 'navigate';
+  const navigation = url.origin === self.location.origin && ['/', '/customer-forms'].includes(url.pathname) && request.mode === 'navigate';
   if (!navigation && !staticAsset(url)) return;
   event.respondWith((async () => {
     const cache = await caches.open(cacheName);
     try {
       const response = await fetch(request);
-      if (response.ok && !response.redirected) await cache.put(navigation ? shellKey : request, response.clone());
+      if (response.ok && !response.redirected) await cache.put(navigation ? (url.pathname === '/' ? shellKey : '/customer-forms') : request, response.clone());
       return response;
     } catch {
-      return await cache.match(navigation ? shellKey : request) || Response.error();
+      return await cache.match(navigation ? (url.pathname === '/' ? shellKey : '/customer-forms') : request) || Response.error();
     }
   })());
 });

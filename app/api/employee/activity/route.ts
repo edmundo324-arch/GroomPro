@@ -5,7 +5,9 @@ import {workflowSettings} from '@/src/lib/workflow-settings';
 export async function POST(request:NextRequest){
  const origin=request.headers.get('origin');
  const expectedOrigin=process.env.GROOMPRO_APP_ORIGIN?new URL(process.env.GROOMPRO_APP_ORIGIN).origin:request.nextUrl.origin;
- if(origin&&origin!==expectedOrigin)return NextResponse.json({error:'Invalid origin.'},{status:403});
+ // Local review ports and reverse proxies can differ from the configured app origin.
+ const sameOriginBrowser=request.headers.get('sec-fetch-site')==='same-origin';
+ if(origin&&origin!==request.nextUrl.origin&&origin!==expectedOrigin&&!sameOriginBrowser)return NextResponse.json({error:'Invalid origin.'},{status:403});
  const tenantId=request.headers.get('x-tenant-id')||process.env.GROOMPRO_DEV_TENANT_ID||'';
  const id=request.cookies.get('groompro_session')?.value,deviceId=request.cookies.get('groompro_device')?.value;
  if(!tenantId||!id||!deviceId)return new NextResponse(null,{status:401});

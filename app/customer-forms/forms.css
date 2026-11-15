@@ -17,11 +17,26 @@
 .gp-intake-tools{position:relative}
 .gp-intake-panel{padding:6px 0;margin:0}
 .gp-customer-intake-heading .gp-intake-panel{position:absolute;top:100%;left:0;z-index:15;width:min(560px,calc(100vw - 48px));box-sizing:border-box;max-height:65dvh;overflow:auto;background:#fff;border:1px solid #cad7e1;border-radius:6px;box-shadow:0 4px 14px #17324d26;padding:12px}
-.gp-profile-menu{position:relative;flex:none}
-.gp-profile-menu summary{list-style:none;cursor:pointer;touch-action:manipulation;padding:4px 9px;font-weight:700}
+.gp-editor-window>.gp-customer-profile-head{flex-wrap:wrap;overflow:visible}
+.gp-customer-profile-head .gp-profile-header-tabs{position:relative;flex:0 0 100%;min-width:0;flex-wrap:nowrap;overflow:visible;padding:0;touch-action:pan-y;cursor:auto}
+.gp-profile-header-tabs button{flex:none;white-space:nowrap;padding:5px 8px}
+.gp-profile-header-tabs .gp-tab-measure{clip-path:inset(100%)}
+.gp-profile-menu{position:static;flex:none}
+.gp-profile-header-tabs .gp-profile-more{display:grid;place-items:center;box-sizing:border-box;width:34px;min-height:30px;padding:0;font-weight:700}
+.gp-profile-menu summary{list-style:none;cursor:pointer;touch-action:manipulation}
 .gp-profile-menu summary::-webkit-details-marker{display:none}
-.gp-profile-menu nav{position:absolute;right:0;top:100%;z-index:25;display:grid;min-width:165px;padding:4px;border:1px solid #cad7e1;border-radius:6px;background:white;box-shadow:0 4px 14px #17324d26}
-.gp-profile-menu nav button{text-align:left}
-.gp-profile-menu nav button[aria-current]{font-weight:700}
+.gp-profile-overflow{position:absolute;right:0;top:100%;z-index:25;display:grid;min-width:165px;padding:4px;border:1px solid #cad7e1;border-radius:6px;background:white;box-shadow:0 4px 14px #17324d26}
+.gp-profile-overflow button{text-align:left}
+
 .gp-editor-form[hidden]{display:none}
 @media(max-width:500px){.gp-agreement-grid{grid-template-columns:minmax(0,1fr)}}
+
+.gp-agreement-settings-header,.gp-agreement-field-label{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gp-agreement-settings-header{justify-content:space-between}
+.gp-agreement-settings-header h3,.gp-agreement-field-label label{margin:0}
+.gp-agreement-settings-header .gp-dismiss-button svg{width:16px;height:16px;border:0;cursor:inherit}
+.gp-agreement-field,.gp-agreement-field-label{margin:6px 0}
+.gp-agreement-help{display:contents}
+.gp-agreement-help summary{display:grid;place-items:center;min-width:28px;min-height:28px;border:1px solid #9aaec0;border-radius:50%;cursor:pointer;font-weight:700;list-style:none}
+.gp-agreement-help summary::-webkit-details-marker{display:none}
+.gp-agreement-help p{flex:0 0 100%;margin:0;padding:7px 9px;background:#eef4fa;border-radius:4px;font-size:.875rem;line-height:1.4;overflow-wrap:anywhere}
