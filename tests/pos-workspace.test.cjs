@@ -84,8 +84,8 @@ test('a saved POS ticket renders the empty ticket layout while its record loads'
  try{
   const {PosTicketRecord}=require('../src/components/pos-ticket-record.tsx');
   const html=renderToStaticMarkup(React.createElement(PosTicketRecord,{ticketId:'loading-ticket',onClose:()=>{}}));
-  for(const label of ['Loading POS Ticket','Ticket sections','Dog','Service / item','Offer Today','Schedule / Leave Open','Payment'])assert.ok(html.includes(label),label);
-  assert.match(html,/class="gp-floating-window[^"]+gp-pos-loading"/);
-  assert.doesNotMatch(html,/\$0\.00|Opening ticket…/);
+  for(const label of ['Ticket sections','Grooming instructions','Owes','Credit','Dog','Service / item','Offer Today','Schedule / Leave Open','Payment'])assert.ok(html.includes(label),label);
+  assert.match(html,/class="gp-pos-blank-item-row"/);
+  assert.doesNotMatch(html,/\$0\.00|Loading POS Ticket|Opening ticket…/);
  }finally{Module._resolveFilename=resolve;if(css)require.extensions['.css']=css;else delete require.extensions['.css']}
 });

@@ -195,8 +195,9 @@
 .gp-note-history{background:#ece7f5;color:#493460}
 .gp-grooming-history > article{padding:6px 8px;border-bottom:1px solid #dfe4e8;background:#fff}
 .gp-grooming-history > article[data-history-shade=gray]{background:#f3f5f7}
-.gp-desktop-module-icon{display:none}
-@media(min-width:701px) and (hover:hover) and (pointer:fine){
- .gp-app-navigation .gp-desktop-module-icon{display:inline-block;width:16px;height:16px;flex:none;margin-inline-end:5px;vertical-align:middle}
+.gp-app-navigation .gp-module-icon{display:inline-block;width:16px;height:16px;flex:none;margin-inline-end:5px;vertical-align:middle}
+@media(max-width:700px),(pointer:coarse) and (max-width:1000px){
+ .gp-app-navigation .gp-module-icon{width:13px;height:13px;margin-inline-end:3px}
+ .gp-header-menu .gp-module:not(.gp-header-more){padding-inline:4px}
 }
 .gp-profile-balance-warning{flex:none;margin:0 10px;padding:4px 8px;color:#9e1c2e;font-weight:700}

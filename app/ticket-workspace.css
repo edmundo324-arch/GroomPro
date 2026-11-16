@@ -449,7 +449,6 @@
 .gp-pos-compact-header [data-pos-control=timing] .gp-inline-value-text{min-width:10ch;text-align:left}
 .gp-pos-compact-header [data-pos-control=status] .gp-inline-value-text{min-width:12ch;text-align:left}
 
-.gp-pc-calendar-icon{display:none}
 .gp-pos-account-link{display:inline-flex;align-items:center;gap:.3em;border:0;padding:0;background:none;color:inherit;font:inherit;cursor:pointer}
 .gp-pos-account-link:hover{text-decoration:underline}
 .gp-pos-account-link[data-balance=owed]{color:#9e1c2e}
@@ -457,12 +456,22 @@
 .gp-pos-account-link[data-balance]>span{display:inline-grid;place-items:center;border:1px solid currentColor;border-radius:50%;min-width:1em;height:1em;font-weight:700}
 .gp-pos-grooming-popup{position:fixed;z-index:70;width:min(320px,calc(100vw - 16px));padding:9px 12px;border:1px solid #aebecd;border-radius:5px;background:#fff;color:#142b43;box-shadow:0 4px 14px #17202a29;overflow-wrap:anywhere;pointer-events:none}
 .gp-pos-grooming-popup>div{margin-top:4px}
-@media(min-width:701px) and (hover:hover) and (pointer:fine){
- :is(.gp-main,.gp-floating-window) :is(label:has(>input,>select,>textarea,>.gp-inline-item-value),legend,.gp-label,.gp-field-caption){font-weight:700}
- :is(.gp-main,.gp-floating-window) label>:is(input,select,textarea,.gp-inline-item-value,.gp-inline-item-value .gp-inline-value-text){font-weight:400}
- .gp-calendar-commandbar .gp-pc-calendar-icon{display:inline-block;vertical-align:middle;margin-inline-end:4px}
+.gp-pos-grooming-popup[data-tap=true]{pointer-events:auto}
+.gp-pos-grooming-popup>header{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.gp-pos-grooming-popup[data-tap=true] .gp-btn,.gp-pos-phone .gp-pos-pet-instructions>.gp-pos-pet-notes-button,.gp-pos-phone .gp-pos-account-link{min-height:44px}
+.gp-pos-grooming-popup[data-tap=true]>button{margin-top:5px}
+:is(.gp-main,.gp-floating-window) :is(label:has(>input,>select,>textarea,>.gp-inline-item-value),legend,.gp-label,.gp-field-caption){font-weight:700}
+:is(.gp-main,.gp-floating-window) label>:is(input,select,textarea,.gp-inline-item-value,.gp-inline-item-value .gp-inline-value-text){font-weight:400}
+.gp-calendar-commandbar .gp-calendar-command-icon{display:inline-block;vertical-align:middle;margin-inline-end:4px}
+@container(max-width:444px){
+ .gp-calendar-commandbar .gp-calendar-command-icon{width:12px;height:12px;margin-inline-end:2px}
 }
-.gp-pos-desktop .gp-flat-item-workspace{display:flex;flex-direction:column;min-height:100%}
-.gp-pos-desktop .gp-flat-item-workspace::after{content:"";flex:1 0 0;background:repeating-linear-gradient(to bottom,#f5f8fc 0 2.2rem,#e5edf6 2.2rem 2.25rem,#fcfdff 2.25rem 4.45rem,#e5edf6 4.45rem 4.5rem)}
-.gp-pos-desktop .gp-pos-blank-item-row>td{background:#f5f8fc;border-bottom-color:#e5edf6}
-.gp-pos-desktop .gp-pos-blank-item-row:nth-child(even)>td{background:#fcfdff}
+@container(max-width:325px){
+ .gp-calendar-commandbar input[type=date]{width:89px}
+ .gp-calendar-commandbar .gp-calendar-date-controls>button{min-width:19px}
+ .gp-calendar-commandbar :is(.gp-calendar-search-toggle,.gp-calendar-overflow){width:25px}
+}
+.gp-pos-body .gp-flat-item-workspace{display:flex;flex-direction:column;min-height:100%}
+.gp-pos-body .gp-flat-item-workspace::after{content:"";flex:1 0 0;background:repeating-linear-gradient(to bottom,#f5f8fc 0 2.2rem,#e5edf6 2.2rem 2.25rem,#fcfdff 2.25rem 4.45rem,#e5edf6 4.45rem 4.5rem)}
+.gp-pos-body .gp-pos-blank-item-row>td{background:#f5f8fc;border-bottom-color:#e5edf6}
+.gp-pos-body .gp-pos-blank-item-row:nth-child(even)>td{background:#fcfdff}

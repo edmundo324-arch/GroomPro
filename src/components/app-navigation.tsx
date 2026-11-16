@@ -21,7 +21,7 @@ const moduleIcons:Record<string,string>={
 };
 function ModuleLabel({name}:{name:string}){
  const icon=moduleIcons[name];
- return <>{icon&&<svg className="gp-desktop-module-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={icon}/></svg>}{name}</>;
+ return <>{icon&&<svg className="gp-module-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={icon}/></svg>}{name}</>;
 }
 
 export function AppNavigation<T extends string>({modules,active,onSelect,onCalendarView,onRequests}:{
