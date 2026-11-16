@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node scripts/godaddy-start.cjs --dev",
     "postinstall": "prisma generate",
+    "prebuild": "npm ci --include=dev --no-audit --no-fund",
     "build": "prisma generate && npm run db:sql && next build",
     "start": "node scripts/godaddy-start.cjs",
     "lint": "tsc --noEmit",

@@ -25,6 +25,22 @@ Preview and published deployments can have different database settings; check
 both explicitly before concluding that the database visible in the console is
 the one serving the app.
 
+## Dependency recovery before builds
+
+`npm run build` runs `prebuild` first: `npm ci --include=dev --no-audit --no-fund`.
+This replaces the build workspace's dependency folder using the committed lockfile
+before Prisma generation and Next compilation. It prevents an incomplete restored
+dependency folder from being reused (for example, Next's compiler exists but
+`next/package.json` is missing). No dependency versions are upgraded by this step.
+Use `npm run build`, not a direct `next build`, so the recovery step runs. Do not
+run installation and compilation concurrently or build inside a serving runtime.
+A production build now needs registry access and may take longer during installation.
+
+Verification: an isolated workspace containing an incomplete Next directory was
+repaired by the actual prebuild command. Next 15.5.25 resolved its package metadata
+from its webpack configuration and completed a minimal production build. The
+GoDaddy environment itself was not available for direct verification.
+
 ## Schema lifecycle
 
 `npm run build` generates a complete SQL bundle and manifest from the Prisma
