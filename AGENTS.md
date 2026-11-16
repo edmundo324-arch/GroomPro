@@ -70,3 +70,19 @@
 - Small-screen Calendar keeps date navigation and search visible; secondary controls use the three-dot menu. Time Block / To Whiteboard are concise labels. Clear empties live search without reloading data.
 - Phone/tablet column defaults are 100 px; scoped user choices override defaults and survive reopening. Touch item fields show ordinary text until activated, while desktop keeps its original native editors.
 - The standalone web-app manifest uses a stable root launch URL without preview tokens. Installation shares live application services and permissions; no offline customer/payment caches or separate app business logic.
+
+
+## Universal human-friendly communication standard
+- All hints, field help, errors, warnings, confirmations, notifications, generated messages and customer communications must sound like a knowledgeable grooming coworker. Explain purpose, useful action or what happens next; never merely describe a checkbox, dropdown or other control.
+- Employee-facing wording is direct and feature-focused. Customer-facing wording may explain a relevant benefit, without inventing outcomes or adding sales claims. Keep both short, natural and specific.
+- Use names, dates, appointments and membership information only from the appropriate current record. Format dates in the business/location time zone when available. Do not claim that saving, sending, delivery or another action succeeded unless its result confirms that claim.
+- Preserve tenant-authored language and communication preferences. Do not rename labels, fields, tables or modules unless explicitly requested. In explanations use full navigation paths, including Settings → Calendar & Workflow → Appointment Appearance.
+- Wording changes do not authorize changes to features, settings, permissions, workflows, stored preferences, calculations, retries, override decisions or business rules. Some existing server strings are protocol markers for PIN and scheduling handling; keep those intact and improve presentation separately.
+- If a field’s business purpose is unclear, inspect the relevant behavior and ask the user before inventing guidance. Unreviewed fields may expose their existing search location, but must not invent a purpose based on their input type or a loose name match. Track unresolved meanings rather than claiming universal wording coverage.
+- Before approving copy, check usefulness, natural tone, accurate context, workflow meaning and unnecessary words. Review actual message output; test dynamic wording and protocol preservation where relevant.
+- Whiteboard remains excluded under the user's explicit instruction. No new AI/customer-message sending capabilities are authorized by this wording standard.
+
+- Historical notes means imported customer notes that GroomPro could not match to an existing GroomPro note field. Do not rename it or change import mapping as part of wording work.
+- Helpful hints prefer the right or left of their associated field, highlight that field without changing layout, and must not cover it. On narrow displays use available adjacent vertical space when neither side fits.
+
+- Helpful-hint highlight color belongs to the tenant under Settings → Calendar & Workflow → Helpful hints; factory default is gold (#c18b16). Preserve the choice across sessions and apply it consistently to shared hints.

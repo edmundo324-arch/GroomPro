@@ -45,12 +45,12 @@ function AgreementSettings({tenantId,initial,onSaved,onClose,available}:{tenantI
   setConfig({...config,[kind]:{...terms,clauses:terms.clauses.map((clause,i)=>i===index?{...clause,[key]:value}:clause)}});
  }
  async function save(){
-  if(!available||conflict){setNotice(conflict?'Resolve the saved-settings difference before saving.':'Saved settings are not available yet. Your edits are retained.');return;}
+  if(!available||conflict){setNotice(conflict?'Choose whether to keep your edits or the saved settings, then save again.':'We haven’t retrieved the saved settings yet. Your edits are still here; wait a moment before saving again.');return;}
   setBusy(true);setNotice('');
   try{const data=await call('','PUT',config);setConfig(data.config);onSaved(data.config);setNotice('Agreement settings saved.');}
   catch(error){setNotice((error as Error).message);}finally{setBusy(false);}
  }
- return <section className="gp-agreement gp-agreement-settings">{conflict&&<p role="alert">Saved settings differ from your edits. <button type="button" onClick={()=>{baseline.current=initial;setConflict(false)}}>Keep my edits</button><button type="button" onClick={()=>{setConfig(initial);baseline.current=initial;setConflict(false)}}>Use saved settings</button></p>}
+ return <section className="gp-agreement gp-agreement-settings">{conflict&&<p role="alert">The saved settings differ from what you entered. Choose which version to keep. <button type="button" onClick={()=>{baseline.current=initial;setConflict(false)}}>Keep my edits</button><button type="button" onClick={()=>{setConfig(initial);baseline.current=initial;setConflict(false)}}>Use saved settings</button></p>}
 
   <fieldset><legend>Where customers can complete forms</legend>
    {agreementChannels.map(channel=><div className="gp-agreement-field-label" key={channel}><label><input type="checkbox" checked={config.channels.includes(channel)}

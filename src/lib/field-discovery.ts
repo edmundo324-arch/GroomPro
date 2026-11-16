@@ -19,29 +19,30 @@ export function describeField(element:HTMLElement){
  const panels=[...element.closest('[data-settings-panel]')?.querySelectorAll(':scope > legend')||[]].map(e=>e.textContent).filter(Boolean);
  const path=[module,...(window&&window!==module?[window]:[]),...panels,name].join(' → ');
  const control=element.matches('input,select,textarea')?element:element.querySelector('input,select,textarea');
- const type=control?.getAttribute('type');
  const amount=element.matches('.gp-pos-account-link')?element.textContent?.match(/\$[\d,.]+/)?.[0]:undefined;
- const business=document.querySelector<HTMLElement>('[data-business-name]')?.dataset.businessName||'this business';
- const accountHelp=amount&&known?.name==='Balance Owed'?`This customer owes ${business} ${amount}. View and manage this balance in Customer Profile → Account → Balance Owed.`:amount&&known?.name==='Customer Credit'?`This customer has ${amount} available as Customer Credit with ${business}. View it in Customer Profile → Account → Customer Credit.`:undefined;
- const help=accountHelp||known?.help||control?.getAttribute('title')||element.getAttribute('title')||(
-  type==='email'?'Enter the email address used to contact this person or business.':
-  type==='tel'?'Enter the contact telephone number, including an area code.':
-  type==='date'?'Choose the calendar date for this field.':
-  type==='time'?'Choose the time of day for this field.':
-  /password|pin/i.test(name)?'Authorization information. Keep it private and use the controls in this form to change it.':
-  /price|amount|balance|credit|tax|cost/i.test(name)?'The monetary value for this field. Check the currency and any percentage sign before changing it.':
-  /minutes|duration/i.test(name)?'The amount of time, in minutes, used for this part of the work.':
-  /weight/i.test(name)?'The pet’s recorded weight. Check the displayed unit before entering a value.':
-  /breed/i.test(name)?'The pet’s breed information used by the business when selecting appropriate services.':
-  /veterinarian/i.test(name)?'The veterinarian or clinic caring for this pet.':
-  /status/i.test(name)?'The current stage of the record. In Settings → Calendar & Workflow → Appointment Appearance, Status instead selects the stage whose colors you are editing.':
-  /service type/i.test(name)?'The service classification, such as GR, FW or FFT, used to identify the kind of grooming service.':
-  /name/i.test(name)?'The name identifying this person, pet or item in the current form.':
-  control?.tagName==='SELECT'?'Choose one of the available values for this field. The available choices are shown in its menu.':
-  type==='checkbox'?'This is an on/off choice. A check means the labeled option is selected.':
-  control?.tagName==='TEXTAREA'?'Enter the information requested by this field. Its name and location below identify where to find it again.':
-  'This field records the information named above. Use the location below to find it again.');
- return {name:known?.name||name,aliases:[name,...(known?.aliases||[])],path:known?.path||path,help,element,module};
+ const business=document.querySelector<HTMLElement>('[data-business-name]')?.dataset.businessName||'the business';
+ const customer=element.dataset.customerName||'This customer';
+ const accountHelp=amount&&known?.name==='Balance Owed'?`${customer} owes ${business} ${amount}. Open Account & Rewards to review the balance.`:amount&&known?.name==='Customer Credit'?`${customer} has ${amount} in Customer Credit with ${business}. Open Account & Rewards to review it.`:undefined;
+ const appearance=!!element.closest('[data-settings-scroll="appearance-choices"]');
+ const purpose:Record<string,string>={
+  'Show helpful hints':'Show short explanations while staff work. Turn this off when they no longer need the guidance.',
+  'Primary':'Use this as the customer’s main contact number. Texting must also be enabled for this number to receive texts.',
+  'SMS':'Allow texts to this number. Leave this off if the contact should not receive texts.',
+  'Call':'Allow calls to this number when calling is available for this business.',
+  'Save as this dog’s usual haircut':'Use these grooming instructions as this dog’s usual haircut when preparing a future visit.',
+  "Save as this dog's usual haircut":'Use these grooming instructions as this dog’s usual haircut when preparing a future visit.',
+  'Remember warning window position':'Reopen appointment warnings where you last moved them, so they stay out of your way.',
+  'Show Inactive':'Include inactive pets when reviewing this customer’s records. This does not make them available for new bookings.',
+  'Copy from status':'Choose the appointment stage whose colors you want to reuse. Nothing changes until you copy the appearance.',
+  'Copy from service type':'Choose the service type whose colors you want to reuse. Nothing changes until you copy the appearance.',
+ };
+ // Do not infer business rules from input types or loose words such as "status".
+ // Unreviewed fields retain their searchable location, without an invented explanation.
+ const contextHelp=name==='Status'&&appearance?'Choose the appointment stage whose colors you want to edit. This does not change an appointment’s status.':
+  name==='Status'&&/pos|ticket/i.test(window||module)?'Set the stage this appointment has reached. Its appearance follows this business’s configured colors.':
+  name==='Service type'&&appearance?'Choose the service type whose appointment colors you want to edit, such as GR, FW or FFT.':undefined;
+ const help=element.dataset.help||control?.getAttribute('data-help')||accountHelp||contextHelp||(['Primary','SMS','Call','Show Inactive'].includes(name)&&!customerContext?undefined:purpose[name])||known?.help||control?.getAttribute('title')||element.getAttribute('title')||'';
+ return {name:element.dataset.helpName||known?.name||name,aliases:[name,...(known?.aliases||[])],path:element.dataset.helpPath||known?.path||path,help,element,module};
 }
 export function discoverFields(){
  const seen=new Set<string>();
