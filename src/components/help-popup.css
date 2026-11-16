@@ -1,0 +1,4 @@
+.gp-help-trigger{display:inline-flex;align-items:center;justify-content:center;width:1.45em;height:1.45em;margin-inline:5px;border:1px solid #8297a8;border-radius:50%;background:transparent;color:inherit;font-size:inherit;cursor:help;vertical-align:middle}
+.gp-help-popup{position:fixed;z-index:2147483000;width:320px;max-width:calc(100vw - 16px);max-height:200px;overflow:auto;padding:12px 14px;border:1px solid #aebfcb;border-radius:8px;background:#fffdf3;color:#18364a;box-shadow:0 6px 22px #0003;font:14px/1.5 Arial,sans-serif;white-space:normal}
+.gp-help-popup header{display:flex;justify-content:space-between;gap:12px;margin-bottom:6px}.gp-help-popup button{background:transparent;border:0;color:inherit;cursor:pointer;font-size:20px}
+.gp-search-highlight{outline:3px solid #e4b23f!important;outline-offset:3px;background-color:#fff6cc!important}

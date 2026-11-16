@@ -5,15 +5,15 @@ import {petVipStatus} from '../lib/pet-vip-status';
 import {petIndicatorSettings} from '../lib/pet-indicators';
 import {PetCare} from './pet-care';
 import {DismissButton} from './dismiss-button';
-type Props={notesPopup?:boolean;tapNotesPopup?:boolean;indicators?:ReturnType<typeof petIndicatorSettings>;pets:any[];includedIds:string[];packageIds:string[];disabled:boolean;warnVet:boolean;summaries:Record<string,string>;onInclude:(pet:any,included:boolean)=>void;onPackage:(id:string)=>void;onNotes:()=>void};
-export function PosPetStrip({pets,notesPopup=false,tapNotesPopup=false,indicators,includedIds,packageIds,disabled,warnVet,summaries,onInclude,onPackage,onNotes}:Props){
+type Props={customerNotes?:string;permanentNotes?:Record<string,string>;notesPopup?:boolean;tapNotesPopup?:boolean;indicators?:ReturnType<typeof petIndicatorSettings>;pets:any[];includedIds:string[];packageIds:string[];disabled:boolean;warnVet:boolean;summaries:Record<string,string>;onInclude:(pet:any,included:boolean)=>void;onPackage:(id:string)=>void;onNotes:()=>void};
+export function PosPetStrip({pets,customerNotes='',permanentNotes={},notesPopup=false,tapNotesPopup=false,indicators,includedIds,packageIds,disabled,warnVet,summaries,onInclude,onPackage,onNotes}:Props){
  const [indicatorLabel,setIndicatorLabel]=useState('');
- const [notePopup,setNotePopup]=useState<{id:string;left:number;top:number;above:boolean;tapped:boolean}|null>(null);
+ const [notePopup,setNotePopup]=useState<{id:string;left:number;top:number;above:boolean;tapped:boolean;customer?:boolean}|null>(null);
  const tooltipId=useId(),popup=useRef<HTMLDivElement>(null),notesButton=useRef<HTMLButtonElement>(null);
- function showNote(id:string,anchor:HTMLElement,tapped=false){
+ function showNote(id:string,anchor:HTMLElement,tapped=false,customer=false){
   if(!notesPopup||(!tapped&&notePopup?.tapped))return;
   const box=anchor.getBoundingClientRect(),above=box.bottom>window.innerHeight-160;
-  setNotePopup({id,left:Math.max(8,Math.min(box.left,window.innerWidth-328)),top:above?box.top-6:box.bottom+6,above,tapped});
+  setNotePopup({id,left:Math.max(8,Math.min(box.left,window.innerWidth-328)),top:above?box.top-6:box.bottom+6,above,tapped,customer});
  }
  function hideHoverNote(){setNotePopup(current=>current?.tapped?current:null);}
  function dismissTappedNote(){setNotePopup(null);notesButton.current?.focus({preventScroll:true});}
@@ -59,19 +59,15 @@ export function PosPetStrip({pets,notesPopup=false,tapNotesPopup=false,indicator
     aria-expanded={tapNotesPopup||notePopup?.tapped?!!notePopup?.tapped:undefined}
     aria-controls={notePopup?.tapped?tooltipId:undefined}
     onClick={event=>{
-     const touch=window.matchMedia('(hover:none)').matches||
-      (typeof PointerEvent!=='undefined'&&event.nativeEvent instanceof PointerEvent&&event.nativeEvent.pointerType==='touch');
-     if(notesPopup&&(tapNotesPopup||touch)){
-      if(notePopup?.tapped)setNotePopup(null);
-      else showNote(pet.id,event.currentTarget,true);
-     }else onNotes();
-    }}>{notesPopup?'Grooming notes':pet.name}</button>{!notesPopup&&<span>{summaries[pet.id]||'No grooming instructions yet'}</span>}<PetCare pet={pet}/>{warnVet&&!pet.veterinarian&&<span role="status">Veterinarian information missing</span>}{indicatorLabel&&<span role="status">{indicatorLabel}</span>}</>:<span>Grooming instructions</span>}
+     if(notePopup?.tapped&&notePopup.customer)setNotePopup(null);
+     else showNote(pet.id,event.currentTarget,true,true);
+    }}>Customer Notes</button>{!notesPopup&&<span>{summaries[pet.id]||'No grooming instructions yet'}</span>}{tapNotesPopup&&<button type="button" className="gp-btn" aria-label="Today’s Grooming Notes" onClick={event=>showNote(pet.id,event.currentTarget,true)}>▤</button>}<PetCare pet={pet}/>{warnVet&&!pet.veterinarian&&<span role="status">Veterinarian information missing</span>}{indicatorLabel&&<span role="status">{indicatorLabel}</span>}</>:<span>Grooming instructions</span>}
   </div>
   {popupPet&&notePopup&&createPortal(<div id={tooltipId} ref={popup} className="gp-pos-grooming-popup" data-tap={notePopup.tapped}
-   role={notePopup.tapped?'dialog':'tooltip'} aria-label={notePopup.tapped?popupPet.name+' grooming notes':undefined} tabIndex={notePopup.tapped?-1:undefined}
+   role={notePopup.tapped?'dialog':'tooltip'} aria-label={notePopup.tapped?popupPet.name+' · '+(notePopup.customer?'Customer Notes':'Today’s Grooming Notes'):undefined} tabIndex={notePopup.tapped?-1:undefined}
    style={{left:notePopup.left,top:notePopup.top,transform:notePopup.above?'translateY(-100%)':undefined}}>
-   <header><strong>{popupPet.name} · Grooming notes</strong>{notePopup.tapped&&<DismissButton label="Close grooming notes" onClick={dismissTappedNote}/>}</header>
-   <div>{summaries[popupPet.id]||'No grooming instructions yet'}</div>
+   <header><strong>{popupPet.name} · {notePopup.customer?'Customer Notes':'Today’s Grooming Notes'}</strong>{notePopup.tapped&&<DismissButton label={notePopup.customer?'Close Customer Notes':'Close Today’s Grooming Notes'} onClick={dismissTappedNote}/>}</header>
+   {notePopup.customer?<div style={{whiteSpace:'pre-wrap'}}><strong>Customer</strong><p>{customerNotes||'No customer notes recorded.'}</p><strong>{popupPet.name}</strong><p>{permanentNotes[popupPet.id]||'No pet notes recorded.'}</p></div>:<div>{summaries[popupPet.id]||'No grooming instructions yet'}</div>}
    {notePopup.tapped&&<button type="button" className="gp-btn" onClick={()=>{setNotePopup(null);onNotes();}}>Open Notes</button>}
   </div>,document.body)}
  </section>;

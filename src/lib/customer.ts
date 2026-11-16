@@ -1,3 +1,4 @@
+import {combinedCustomerNotes} from './customer-notes';
 import {popupPetMemberships} from './popup-pet-memberships';
 import {customerStates} from './appointment-customer-state';
 import {attendingPets} from './appointment-pets';
@@ -94,5 +95,5 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
     :Promise.resolve([]);
   const [referrals,memberships,visits]=await Promise.all([customerReferrals(tenantId,[customerId]),popupPetMemberships(db,tenantId,{customerId,pets:customer.pets.map(pet=>({pet}))}),olderVisits]);
   const lastServiceVisit=petId&&visits.length?latestSinglePetServiceVisit(petId,visits):undefined;
-  return {...customer,pets:memberships.pets.map((entry:any)=>entry.pet),...referrals.get(customerId),tickets:await customerStates(tenantId,customer.tickets.map(attendingPets)),lastServiceVisit};
+  return {...customer,notes:combinedCustomerNotes(customer),pets:memberships.pets.map((entry:any)=>entry.pet),...referrals.get(customerId),tickets:await customerStates(tenantId,customer.tickets.map(attendingPets)),lastServiceVisit};
 }

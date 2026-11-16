@@ -33,9 +33,9 @@ export function CalendarHover({hover,fields,labels,details,onOpen,onClose}:{onOp
     {selected.has('pet.vipEligible')&&<PetVipBadge label={vip}/>}
    </div>
    {selected.has('package')&&<div className="gp-hover-services">{labels&&services.length?'Services: ':''}{services.join(' · ')}</div>}
-   {selected.has('todayNotes')&&pet.todaysGroomingNotes&&<p>{labels?"Today: ":''}{pet.todaysGroomingNotes}</p>}
+   {selected.has('todayNotes')&&pet.todaysGroomingNotes&&<p>{labels?"Today’s Grooming Notes: ":''}{pet.todaysGroomingNotes}</p>}
    {selected.has('pet.notes')&&permanent&&<p>{labels?'Permanent notes: ':''}{permanent}</p>}
-   <div className="gp-hover-facts">{show([...petDetails.filter(d=>!primary.has(d.key)),...(selected.has('notes')&&usual?[{key:'notes',label:'Grooming notes',value:usual,petId:pet.id}]:[])])}</div>
+   <div className="gp-hover-facts">{show([...petDetails.filter(d=>!primary.has(d.key)),...(selected.has('notes')&&usual?[{key:'notes',label:'Earlier free-text instructions',value:usual,petId:pet.id}]:[])])}</div>
    {Object.entries(ordered(lineDetails).reduce((groups:Record<string,HoverDetail[]>,d)=>{(groups[d.lineId!]??=[]).push(d);return groups},{})).map(([id,items])=><div className="gp-hover-facts" key={id}>{new Set(lineDetails.map(d=>d.lineId)).size>1&&<strong>{serviceLabel(lines.find((line:any)=>line.id===id)||{})} </strong>}{show(items,selected.has('package')?['line.packageName']:[])}</div>)}
   </section>;
  })}

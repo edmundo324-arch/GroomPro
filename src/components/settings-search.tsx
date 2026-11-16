@@ -14,6 +14,7 @@ export function SettingsSearch({role,children}:{role?:string;children:React.Reac
   const [open,setOpen]=useState(false);
   const [destination,setDestination]=useState<SettingsSearchEntry|null>(null);
   const [message,setMessage]=useState('');
+  useEffect(()=>{const apply=(entry:SettingsSearchEntry)=>{setDestination(entry);sessionStorage.removeItem('groompro:settings-destination')};try{const entry=sessionStorage.getItem('groompro:settings-destination');if(entry)apply(JSON.parse(entry))}catch{}const find=(event:Event)=>apply((event as CustomEvent).detail);window.addEventListener('groompro:find-setting',find);return()=>window.removeEventListener('groompro:find-setting',find)},[]);
   const id=useId();
   useEffect(()=>{
     if(!destination)return;

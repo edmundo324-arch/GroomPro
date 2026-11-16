@@ -19,6 +19,7 @@ export const preparedImportLabels = {
 };
 
 const sections: Record<string, [label: string, description: string, keywords: string]> = {
+ 'workflow/helpful-hints':['Helpful hints','Show or hide floating field explanations.','help hints question marks popup tooltip explanations'],
   'visual-layouts': ['Visual module settings', 'Preview and customize how GroomPro screens are arranged and labeled.', 'layout labels colors preview customize module layouts'],
   workflow: ['Calendar & workflow', 'Find appointment appearance, booking rules, and ticket layout.', 'calendar appointment workflow employee appearance customization my appearance personalization'],
   'workflow/appearance': ['Appointment appearance', 'Choose Calendar appointment colors, text, borders, and gradients.', 'status service colors colours contrast factory reset manufacturer colors gradient strength copy appearance border thickness'],

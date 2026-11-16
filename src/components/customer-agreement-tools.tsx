@@ -1,10 +1,14 @@
 "use client";
 import {useEffect,useId,useRef,useState,type ReactNode} from 'react';
+import {reconcileForm} from '../lib/form-hydration';
+import {HelpPopup} from './help-popup';
+import {FloatingEditorWindow} from './floating-editor-window';
 import {DismissButton} from './dismiss-button';
 import {employeeFetch} from '../lib/employee-fetch';
 import {agreementChannels,agreementTitle,type AgreementChannel,type AgreementConfig,type AgreementKind} from '../lib/customer-agreement-model';
 import '../../app/customer-forms/forms.css';
 
+const emptyAgreement:AgreementConfig={channels:[...agreementChannels],intake:{version:'',clauses:[]},vip:{version:'',clauses:[]},shopEmail:'',bookingUrl:'',tabletVerifyExisting:false};
 const endpoint='/api/customer-agreement/staff';
 const channels={link:'Shop sends a link',tablet:'Shop tablet',online:'Online first appointment'};
 const channelHelp={
@@ -23,10 +27,7 @@ async function call(path:string,method='GET',body?:object){
  return data;
 }
 function AgreementHelp({label,children}:{label:string;children:ReactNode}){
- return <details className="gp-agreement-help">
-  <summary aria-label={'Help with '+label}>?</summary>
-  <p>{children}</p>
- </details>;
+ return <HelpPopup label={label}>{children}</HelpPopup>;
 }
 function AgreementField({label,help,children}:{label:string;help:string;children:(id:string)=>ReactNode}){
  const id=useId();
@@ -35,19 +36,22 @@ function AgreementField({label,help,children}:{label:string;help:string;children
   {children(id)}
  </div>;
 }
-function AgreementSettings({tenantId,initial,onSaved,onClose}:{tenantId:string;initial:AgreementConfig;onSaved:(config:AgreementConfig)=>void;onClose:()=>void}){
+function AgreementSettings({tenantId,initial,onSaved,onClose,available}:{tenantId:string;available:boolean;initial:AgreementConfig;onSaved:(config:AgreementConfig)=>void;onClose:()=>void}){
  const [config,setConfig]=useState(initial),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[kind,setKind]=useState<AgreementKind>('intake');
+ const baseline=useRef(initial),[conflict,setConflict]=useState(false),incoming=useRef(initial);
+ useEffect(()=>{if(initial===incoming.current)return;incoming.current=initial;setConfig(current=>{const result=reconcileForm(baseline.current,current,initial);setConflict(result.conflict);if(!result.conflict)baseline.current=initial;return result.values})},[initial]);
  const terms=config[kind];
  function edit(index:number,key:'title'|'text'|'video'|'initialsRequired',value:string|boolean){
   setConfig({...config,[kind]:{...terms,clauses:terms.clauses.map((clause,i)=>i===index?{...clause,[key]:value}:clause)}});
  }
  async function save(){
+  if(!available||conflict){setNotice(conflict?'Resolve the saved-settings difference before saving.':'Saved settings are not available yet. Your edits are retained.');return;}
   setBusy(true);setNotice('');
   try{const data=await call('','PUT',config);setConfig(data.config);onSaved(data.config);setNotice('Agreement settings saved.');}
   catch(error){setNotice((error as Error).message);}finally{setBusy(false);}
  }
- return <section className="gp-agreement-settings">
-  <div className="gp-agreement-settings-header"><h3>Agreement settings</h3><DismissButton label="Close Agreement Settings" disabled={busy} onClick={onClose}/></div>
+ return <section className="gp-agreement gp-agreement-settings">{conflict&&<p role="alert">Saved settings differ from your edits. <button type="button" onClick={()=>{baseline.current=initial;setConflict(false)}}>Keep my edits</button><button type="button" onClick={()=>{setConfig(initial);baseline.current=initial;setConflict(false)}}>Use saved settings</button></p>}
+
   <fieldset><legend>Where customers can complete forms</legend>
    {agreementChannels.map(channel=><div className="gp-agreement-field-label" key={channel}><label><input type="checkbox" checked={config.channels.includes(channel)}
     onChange={e=>setConfig({...config,channels:e.target.checked?[...config.channels,channel]:config.channels.filter(c=>c!==channel)})}/> {channels[channel]}</label>
@@ -115,8 +119,8 @@ export function CustomerAgreementTools({customerId}:{customerId?:string}){
  },[customerId]);
  async function openSettings(){
   if(setup){closeSettings();return;}
-  setBusy(true);setError('');
-  try{const data=await call('');setContext(old=>({...old,...data}));setSetup(true);}
+  setBusy(true);setError('');setSetup(true);
+  try{const data=await call('');setContext(old=>({...old,...data}));}
   catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
  async function prepare(channel:'link'|'tablet'){
@@ -138,18 +142,18 @@ export function CustomerAgreementTools({customerId}:{customerId?:string}){
    {available.includes('link')&&<button type="button" className="gp-btn" disabled={busy} onClick={()=>void prepare('link')}>Create Link</button>}
    {available.includes('tablet')&&<button type="button" className="gp-btn" disabled={busy} onClick={()=>void prepare('tablet')}>Open Tablet</button>}
   </div>
-  {(path||error||setup||!!context?.documents?.length)&&<div className="gp-agreement gp-intake-panel">
+  {(path||error||!!context?.documents?.length)&&<div className="gp-agreement gp-intake-panel">
    {path&&<div><label>Customer form link<input value={path} readOnly onFocus={e=>e.target.select()}/></label>
     <button type="button" className="gp-btn" onClick={()=>void navigator.clipboard.writeText(path).catch(()=>setError('Select the link above and copy it.'))}>Copy link</button>
     <a className="gp-btn" href={path} target="_blank" rel="noreferrer">Open form</a>
    </div>}
-   {error&&<p role="alert">{error}</p>}
+   {error&&<p role="alert">{error}<DismissButton label="Dismiss agreement error" onClick={()=>setError('')}/></p>}
    {!!context?.documents?.length&&<section><h3>Signed copies</h3>{context.documents.map(doc=><p key={doc.id}>
     <a href={endpoint+'?document='+encodeURIComponent(doc.id)}>{doc.title} · {new Date(doc.signedAt).toLocaleDateString()}</a>
     {' · '}{doc.sentCopy?'Email accepted':'Email pending or unavailable'}
    </p>)}</section>}
-   {setup&&context?.config&&<AgreementSettings tenantId={context.tenantId} initial={context.config} onClose={closeSettings} onSaved={config=>setContext(old=>old?{...old,config}:old)}/>}
   </div>}
+   {setup&&<FloatingEditorWindow windowKey="agreement-settings" title="Agreement Settings" onClose={closeSettings} className="gp-paper-editor" style={{zIndex:80}}>{error&&<p role="alert">{error}<DismissButton label="Dismiss agreement error" onClick={()=>setError('')}/></p>}<AgreementSettings tenantId={context?.tenantId||''} available={!!context?.config} initial={context?.config||emptyAgreement} onClose={closeSettings} onSaved={config=>setContext(old=>old?{...old,config}:old)}/></FloatingEditorWindow>}
  </div>;
 }
 export function createCustomerAgreement(input:object){

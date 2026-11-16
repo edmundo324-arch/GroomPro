@@ -12,7 +12,7 @@ export function ModuleView({active,children,name=''}:{active:boolean;children:Re
  const visualRoot=useRef<HTMLDivElement>(null);useVisualRoot(visualRoot,name,active);
  const visited=useRef(active),scroll=useRef({x:0,y:0});if(active)visited.current=true;
  useLayoutEffect(()=>{if(!active)return;window.scrollTo(scroll.current.x,scroll.current.y);const remember=()=>{scroll.current={x:window.scrollX,y:window.scrollY}};window.addEventListener('scroll',remember,{passive:true});return()=>window.removeEventListener('scroll',remember)},[active]);
- return visited.current?<VisibleModule.Provider value={active}><div ref={visualRoot} hidden={!active} style={active?{display:'contents'}:{display:'none'}}>{children}</div></VisibleModule.Provider>:null;
+ return visited.current?<VisibleModule.Provider value={active}><div data-module-name={name} ref={visualRoot} hidden={!active} style={active?{display:'contents'}:{display:'none'}}>{children}</div></VisibleModule.Provider>:null;
 }
 
 // Visible retained screens refresh on return/focus and relevant confirmed writes.

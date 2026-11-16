@@ -1,6 +1,8 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
 import {useFittingTabs} from './fitting-tabs';
+import {NavigationTools} from './navigation-tools';
+import {usePreferenceScope} from './floating-editor-window';
 import {RecoverWindows} from './window-recovery';
 
 const moduleIcons:Record<string,string>={
@@ -24,19 +26,23 @@ function ModuleLabel({name}:{name:string}){
  return <>{icon&&<svg className="gp-module-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={icon}/></svg>}{name}</>;
 }
 
-export function AppNavigation<T extends string>({modules,active,onSelect,onCalendarView,onRequests}:{
- modules:T[];active:T;onSelect:(value:T)=>void;onCalendarView?:(view:'Day'|'Week'|'Map')=>void;onRequests?:()=>void
+export function AppNavigation<T extends string>({modules,active,onSelect,onCalendarView,onRequests,role}:{
+ role?:string;modules:T[];active:T;onSelect:(value:T)=>void;onCalendarView?:(view:'Day'|'Week'|'Map')=>void;onRequests?:()=>void
 }){
  const [open,setOpen]=useState(false);
+ const scope=usePreferenceScope(),[order,setOrder]=useState<string[]>([]);
+ useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem('groompro:menu-order:'+scope)||'[]');setOrder(Array.isArray(saved)?saved.filter(v=>typeof v==='string'):[])}catch{setOrder([])}},[scope]);
+ function reorder(next:string[]){setOrder(next);if(scope)try{localStorage.setItem('groompro:menu-order:'+scope,JSON.stringify(next))}catch{}};
  const root=useRef<HTMLDivElement>(null),more=useRef<HTMLButtonElement>(null);
  const calendarShortcuts=Boolean(onCalendarView&&modules.some(value=>value==='Calendar'));
  const navigationModules=calendarShortcuts?modules.filter(module=>module!=='Calendar'):modules;
- const items=[
+ const defaultItems=[
   ...(calendarShortcuts?(['Map','Day','Week'] as const).map(view=>({key:view,label:view,current:false,select:()=>onCalendarView?.(view)})):[]),
   ...[...navigationModules.filter(module=>module==='Tickets'),...navigationModules.filter(module=>module!=='Tickets')]
    .map(module=>({key:module,label:module,current:active===module,select:()=>onSelect(module)})),
   ...(onRequests&&modules.some(value=>value==='Tickets')?[{key:'Request',label:'Request',current:false,select:onRequests}]:[]),
  ];
+ const items=[...defaultItems].sort((a,b)=>{const x=order.indexOf(a.key),y=order.indexOf(b.key);return (x<0?order.length+defaultItems.indexOf(a):x)-(y<0?order.length+defaultItems.indexOf(b):y)});
  const {root:row,measureRow,visible:visibleKeys}=useFittingTabs<string,HTMLElement>(items.map(item=>item.key),['Map','Day','Week','Tickets']);
 
  useEffect(()=>{
@@ -68,7 +74,7 @@ export function AppNavigation<T extends string>({modules,active,onSelect,onCalen
    {overflow.length>0&&<button ref={more} type="button" className="gp-module gp-header-more" aria-label="More modules"
     aria-expanded={open} aria-controls="groompro-module-menu" onClick={()=>setOpen(value=>!value)}>⋯</button>}
   </nav>
-  <RecoverWindows/>
+  <RecoverWindows/><NavigationTools items={items} order={order} onOrder={reorder} onSelect={value=>{if(modules.includes(value as T))onSelect(value as T)}} role={role}/>
   <nav id="groompro-module-menu" aria-label="More GroomPro modules" className="gp-header-overflow" hidden={!open||!overflow.length}>
    {overflow.map(item=><button type="button" key={item.key} className={'gp-module'+(item.current?' active':'')}
     aria-current={item.current?'page':undefined} onClick={()=>run(item.select)}><ModuleLabel name={item.label}/></button>)}

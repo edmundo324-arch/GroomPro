@@ -40,3 +40,4 @@
 .gp-agreement-help summary{display:grid;place-items:center;min-width:28px;min-height:28px;border:1px solid #9aaec0;border-radius:50%;cursor:pointer;font-weight:700;list-style:none}
 .gp-agreement-help summary::-webkit-details-marker{display:none}
 .gp-agreement-help p{flex:0 0 100%;margin:0;padding:7px 9px;background:#eef4fa;border-radius:4px;font-size:.875rem;line-height:1.4;overflow-wrap:anywhere}
+.gp-agreement-settings .gp-help-trigger{min-height:22px;width:22px;height:22px;padding:0;margin:0;border-radius:50%;flex:0 0 22px}.gp-agreement-settings{max-width:none;margin:0;padding:12px}.gp-agreement-settings .gp-agreement-field-label{flex-wrap:nowrap;align-items:center}.gp-agreement-settings .gp-agreement-field-label label{min-width:0}

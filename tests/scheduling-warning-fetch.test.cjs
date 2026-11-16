@@ -1,5 +1,7 @@
 require('./load-ts.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
+// Test authorization/retry behavior independently of the device cache.
+require.cache[require.resolve('../src/lib/offline-device.ts')]={exports:{deviceFetch:(...args)=>fetch(...args)}};
 const {employeeFetch}=require('../src/lib/employee-fetch.ts');
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 test('Dismiss retries only an explicit scheduling rejection with the same request',async()=>{let calls=[],prompts=0;global.window={dispatchEvent:e=>{if(e.type==='groompro:scheduling-warning'){prompts++;e.detail.complete(true)}return true}};global.fetch=async(url,init)=>{calls.push({url,init});return calls.length===1?json({error:'Outside hours',schedulingWarning:'Outside hours'},409):json({ok:true})};const body=JSON.stringify({ticketId:'t',scheduledStart:'2026-10-16T23:00:00Z'});assert.equal((await employeeFetch('/api/tickets',{method:'PATCH',body})).status,200);assert.equal(prompts,1);assert.equal(calls.length,2);assert.equal(calls[1].init.body,body);assert.deepEqual(JSON.parse(decodeURIComponent(calls[1].init.headers.get('x-groompro-scheduling-overrides'))),['Outside hours'])});

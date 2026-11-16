@@ -1,7 +1,7 @@
 import {baseBreeds, Breed, breedKey, findBreed} from './breed-classification';
 
 export type GroomingChoice = 'GR' | 'FFT' | 'FW';
-export const groomingChoiceLabels: Record<GroomingChoice,string> = {GR:'Grooming',FFT:'FFT',FW:'Full Wash'};
+export const groomingChoiceLabels: Record<GroomingChoice,string> = {GR:'GR',FFT:'FFT',FW:'Full Wash'};
 // Owner-provided assignments, not an inference from weight, coat, or parent breeds.
 export const suppliedGroomingBreeds: Record<GroomingChoice,string[]> = {
  GR: `Affenpinscher|Airedale Terrier|Australian Terrier|Bearded Collie|Bichon Frise|Black Russian Terrier|Bouvier des Flandres|Briard|Brussels Griffon|Chinese Crested|Cocker Spaniel (American)|Coton de Tulear|Dandie Dinmont Terrier|Havanese|Irish Terrier|Irish Water Spaniel|Kerry Blue Terrier|Lhasa Apso|Long-Haired Chihuahua|Maltese|Pekingese|Polish Lowland Sheepdog|Pomeranian|Poodle (Miniature)|Poodle (Standard)|Portuguese Water Dog|Shih Tzu|Silky Terrier|Soft Coated Wheaten Terrier|Standard Schnauzer|Toy Poodle|Welsh Terrier|West Highland White Terrier|Wirehaired Pointing Griffon|Yorkshire Terrier`.split('|'),

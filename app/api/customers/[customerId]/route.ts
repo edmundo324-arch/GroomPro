@@ -36,8 +36,11 @@ async function handlePolicyPATCH(request:NextRequest,{params}:{params:Promise<{c
  const expected=b.expectedUpdatedAt===undefined?undefined:new Date(String(b.expectedUpdatedAt));
  if(expected&&Number.isNaN(expected.getTime()))return NextResponse.json({error:'Reload the customer before saving.'},{status:400});
  const result=await db.$transaction(async tx=>{
+  const before=b.consolidateCustomerNotes&&typeof b.notes==='string'&&expected?await tx.customer.findFirst({where:{id:customerId,tenantId,updatedAt:expected}}):null;
+  if(before?.popupNotes)Object.assign(data,{popupNotes:null});
   const changed=await tx.customer.updateMany({where:{id:customerId,tenantId,...(expected?{updatedAt:expected}:{})},data});
   if(changed.count){
+   if(before?.popupNotes)await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'CUSTOMER',entityId:customerId,customerId,action:'CONSOLIDATE_CUSTOMER_NOTES',summary:'Consolidated customer notes.',details:{previousNotes:before.notes,previousPopupNotes:before.popupNotes,notes:data.notes}}});
    if(b.phones!==undefined)await saveCustomerPhones(tx,tenantId,customerId,b.phones);
    await saveCustomerReferral(tx,tenantId,customerId,b);
   }

@@ -1,6 +1,7 @@
 "use client";
 import {VisualLayoutProvider} from '../src/components/visual-layout-studio';
 import '../src/components/visual-layout-studio.css';
+import {HelpfulHints} from '../src/components/help-popup';
 import {AppNavigation} from "../src/components/app-navigation";
 import {ActionMessage} from "../src/components/action-message";
 import {OfflineIndicator} from "../src/components/offline-indicator";
@@ -32,6 +33,8 @@ import {WORKSPACE_MODULES as modules} from '../src/lib/module-catalog';
 type Module=typeof modules[number];
 type Employee={id:string;firstName:string;lastName:string;role:string;active:boolean};
 export default function Home(){
+ const[findCustomer,setFindCustomer]=useState<any>(null);
+ useEffect(()=>{const find=(event:Event)=>{const detail=(event as CustomEvent).detail;setFindCustomer({...detail,request:Date.now()});};window.addEventListener('groompro:find-customer-field',find);return()=>window.removeEventListener('groompro:find-customer-field',find)},[]);
  const[brand,setBrand]=useState('GroomPro Suite');
  useEffect(()=>{
   const controller=new AbortController();
@@ -43,6 +46,7 @@ export default function Home(){
  useEffect(()=>{document.title=brand},[brand]);
 
  const [scope,setScope]=useState(''),[employeeScope,setEmployeeScope]=useState('anonymous');const scopeRef=useRef(''),employeeScopeRef=useRef('anonymous');
+ useEffect(()=>setFindCustomer(null),[scope,employeeScope]);
  const[calendarShortcut,setCalendarShortcut]=useState<{view:'Day'|'Week'|'Map'}>();
  const[requestsOnly,setRequestsOnly]=useState(false);
  const[posPanel,setPosPanel]=useState("Items");
@@ -90,7 +94,7 @@ export default function Home(){
  }
  const allowed=visibleModules(modules,features);
  if(!contextReady)return <main style={{padding:32}}><h1>GroomPro Suite</h1><p>{contextError||"Opening your business…"}</p>{contextError&&<a href="/setup">Open setup</a>}</main>;
- return <VisualLayoutProvider key={scope+':'+employeeScope} scope={scope+':'+employeeScope}><WindowLayoutScope scope={employee?`${scope}:${employee.id}`:''}><div data-module={active} className={`gp-shell ${active==="Whiteboard"?"gp-whiteboard-shell":""}`}><IntegrationRefresh key={employee?.id||'anonymous'} scope={scope} enabled={!!employee}/><EmployeeActivity employee={employee} scope={scope} onExpired={expireEmployee} onEmployeeChange={signedIn}/><ActionMessage/><header className="gp-topbar"><div className="gp-brand" title={business?.name||brand}>{business?.id.startsWith("pilot_")?business.name:brand}</div>{canReturnHome&&<button type="button" className="gp-module" disabled={returningHome} onClick={()=>void returnHome()}>Back to GroomPro</button>}<OfflineIndicator scope={scope} employeeId={employee?.id}/><button type="button" className="gp-switch gp-header-employee" title={employee?employeeName(employee):undefined} onClick={()=>void requestEmployeePin(employee?'SWITCH':'SIGN_IN')}>{employee&&<span className="gp-status-dot" aria-hidden="true"/>}<span>{employee?employeeName(employee):"PIN"}</span></button><AppNavigation modules={allowed} active={active}
+ return <VisualLayoutProvider key={scope+':'+employeeScope} scope={scope+':'+employeeScope}><HelpfulHints excluded={active==="Whiteboard"}><WindowLayoutScope scope={employee?`${scope}:${employee.id}`:''}><div data-module={active} className={`gp-shell ${active==="Whiteboard"?"gp-whiteboard-shell":""}`}><IntegrationRefresh key={employee?.id||'anonymous'} scope={scope} enabled={!!employee}/><EmployeeActivity employee={employee} scope={scope} onExpired={expireEmployee} onEmployeeChange={signedIn}/><ActionMessage/><header data-business-name={business?.name||brand} className="gp-topbar"><div className="gp-brand" title={business?.name||brand}>{business?.id.startsWith("pilot_")?business.name:brand}</div>{canReturnHome&&<button type="button" className="gp-module" disabled={returningHome} onClick={()=>void returnHome()}>Back to GroomPro</button>}<OfflineIndicator scope={scope} employeeId={employee?.id}/><button type="button" className="gp-switch gp-header-employee" title={employee?employeeName(employee):undefined} onClick={()=>void requestEmployeePin(employee?'SWITCH':'SIGN_IN')}>{employee&&<span className="gp-status-dot" aria-hidden="true"/>}<span>{employee?employeeName(employee):"PIN"}</span></button><AppNavigation role={employee?.role} modules={allowed} active={active}
  onSelect={module=>{setRequestsOnly(false);setActive(module)}}
  onCalendarView={view=>{setActive('Calendar');setCalendarShortcut({view})}}
  onRequests={()=>{setRequestsOnly(true);setActive('Tickets')}}/></header><main className="gp-main">
@@ -105,5 +109,6 @@ export default function Home(){
  {(m==="Pets"||m==="Messaging"||m==="Inventory"||m==="Reports")&&<ModuleWorkspace module={m} onOpenCustomer={id=>setCustomer(id)} onNewTicket={()=>openTicket()}/>}
  </ModuleView>)} </main><ActionPin onSignedIn={signedIn}/>
  {openTickets.map(editor=><div key={editor.key} hidden={posTicket?.key!==editor.key} style={posTicket?.key===editor.key?{display:'contents'}:{display:'none'}}><PosTicketWindow preferredPanel={posPanel} onPanelChange={setPosPanel} active={posTicket?.key===editor.key} ticketId={editor.ticketId} date={editor.date} initialEmployeeId={editor.employeeId} initialCustomerId={editor.customerId} onClose={()=>{setPosTicket(current=>current?.key===editor.key?null:current)}} onScheduled={date=>{if(navigationRef.current.key===editor.key&&navigationRef.current.active!=="Calendar"){setActive("Calendar")}}} onSaved={id=>{window.dispatchEvent(new CustomEvent('groompro:ticket-changed',{detail:{ticketId:id}}));setOpenTickets(all=>all.map(t=>t.key===editor.key?{...t,ticketId:id}:t));setCalendarRevision(v=>v+1)}}/></div>)} {createCustomer&&<CustomerCreateWindow onClose={()=>setCreateCustomer(false)}/>}{customer&&<CustomerProfile customerId={customer} onClose={()=>setCustomer(null)} onNewAppointment={newForCustomer} onCreateTicket={newForCustomer}/>}
- </div></WindowLayoutScope></VisualLayoutProvider>;
+ {findCustomer&&<CustomerProfile key={findCustomer.request} customerId={findCustomer.customerId} initialDestination={findCustomer.entry} onClose={()=>setFindCustomer(null)}/>}
+ </div></WindowLayoutScope></HelpfulHints></VisualLayoutProvider>;
 }

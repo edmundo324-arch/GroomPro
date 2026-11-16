@@ -1,3 +1,6 @@
+import {zonedParts} from '@/src/lib/operating-hours';
+import {combinedCustomerNotes} from '@/src/lib/customer-notes';
+import {importedGroomingHistory} from '@/src/lib/import/grooming-comments';
 import {attendingPets} from '@/src/lib/appointment-pets';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {NextRequest,NextResponse} from 'next/server';
@@ -12,14 +15,17 @@ async function handlePolicyGET(r:NextRequest){
  const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:'Business context is required.'},{status:401});
  try{const customerId=r.nextUrl.searchParams.get('customerId')||'',ticketId=r.nextUrl.searchParams.get('ticketId')||'';
  const result=await db.$transaction(async tx=>{
- const customer=await tx.customer.findFirst({where:{id:customerId,tenantId},select:{id:true,notes:true}});if(!customer)throw Error('Customer not found.');
+ const customer=await tx.customer.findFirst({where:{id:customerId,tenantId},select:{id:true,notes:true,popupNotes:true}});if(!customer)throw Error('Customer not found.');
  const pets=await tx.pet.findMany({where:{tenantId,customerId},select:{id:true,name:true,breed:true,breedId:true,notes:true,groomingNotes:true}});
  if(ticketId){await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticketId} AND tenantId=${tenantId} FOR UPDATE`;const t=await tx.ticket.findFirst({where:{id:ticketId,tenantId,customerId},include:{pets:true,lines:{select:{petId:true}}}});if(!t)throw Error('Appointment not found.');await ensureGroomingNotes(tx,attendingPets(t));}
  const notes=await tx.groomingNote.findMany({where:{tenantId,customerId},orderBy:[{appointmentAt:'desc'},{createdAt:'desc'}]});
  const tickets=await tx.ticket.findMany({where:{tenantId,customerId,id:{in:notes.map(n=>n.ticketId)}},select:{id:true,scheduledStart:true,orderNumber:true,status:true,lines:{select:{petId:true}}}}),ticketMap=new Map(tickets.map(t=>[t.id,t]));
  const records:any[]=[];for(const n of notes){const t=ticketMap.get(n.ticketId);if(!t||!t.lines.some(l=>l.petId===n.petId))continue;let current=await freezeNote(tx,n);if(!current.lockedAt&&String(n.appointmentAt)!==String(t.scheduledStart))current=await tx.groomingNote.update({where:{id:n.id},data:{appointmentAt:t.scheduledStart}});current=await freezeNote(tx,current);records.push({...current,deadline:current.lockedAt||await noteDeadline(tx,current),orderNumber:t.orderNumber,status:t.status})}
+ const imported=importedGroomingHistory(pets,customerId);
+ if(imported.length){const dates=imported.map(n=>new Date(n.appointmentAt).getTime());const candidates=await tx.ticket.findMany({where:{tenantId,customerId,scheduledStart:{gte:new Date(Math.min(...dates)-86400000),lte:new Date(Math.max(...dates)+86400000)}},select:{id:true,orderNumber:true,scheduledStart:true,location:{select:{timezone:true}},lines:{select:{petId:true}}}});records.push(...importedGroomingHistory(pets,customerId,candidates.map(t=>({...t,historyDate:t.scheduledStart?zonedParts(t.scheduledStart,t.location.timezone||'America/Chicago').date:''}))));}
+ records.sort((a,b)=>+(new Date(b.appointmentAt||0))-+(new Date(a.appointmentAt||0)));
  const breeds=await loadBreeds(tx,tenantId);
- return {customer,pets,records,defaults:Object.fromEntries(pets.map(p=>{const history=records.filter(n=>n.petId===p.id&&n.ticketId!==ticketId&&!['CANCELLED','NO_SHOW'].includes(n.status)&&n.appointmentAt&&+n.appointmentAt<=Date.now()),usual=history.filter(n=>n.usual).sort((a,b)=>+(b.usualAt||0)-+(a.usualAt||0))[0];const v=initialGroomingInstructions(p,usual?.instructions as any,history[0]?.instructions as any,breeds);if(!usual&&!history.length&&p.groomingNotes)v.specialNotes=p.groomingNotes;return [p.id,v]}))};
+ return {customer:{...customer,notes:combinedCustomerNotes(customer)},pets,records,defaults:Object.fromEntries(pets.map(p=>{const history=records.filter(n=>n.petId===p.id&&n.ticketId!==ticketId&&!['CANCELLED','NO_SHOW'].includes(n.status)&&n.appointmentAt&&+new Date(n.appointmentAt)<=Date.now()),usual=history.filter(n=>n.usual).sort((a,b)=>+(b.usualAt||0)-+(a.usualAt||0))[0];const v=initialGroomingInstructions(p,usual?.instructions as any,history[0]?.instructions as any,breeds);if(!usual&&!history.length&&p.groomingNotes)v.specialNotes=p.groomingNotes;return [p.id,v]}))};
  },{timeout:30000});return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});
  }catch(e){return NextResponse.json({error:(e as Error).message},{status:400})}
 }
@@ -31,9 +37,9 @@ async function handlePolicyPATCH(r:NextRequest){
   if(!['PET','CUSTOMER','LEGACY'].includes(b.permanent)||typeof b.value!=='string'||b.value.length>20000)throw Error('Enter valid permanent notes.');
   const field=b.permanent==='LEGACY'?'groomingNotes':'notes';const petNote=b.permanent!=='CUSTOMER';const model=petNote?tx.pet:tx.customer;
   const entity=await (model as any).findFirst({where:{id:String(b.entityId),tenantId}});if(!entity)throw Error('Record not found.');
-  const previous=entity[field]||'';if(previous!==b.previous)throw Error('These notes changed in another window. Your text is retained; reload the notes before saving again.');
-  const changed=await (model as any).updateMany({where:{id:entity.id,tenantId,[field]:entity[field]},data:{[field]:b.value}});if(changed.count!==1)throw Error('Notes changed in another window. Please reload.');
-  await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:petNote?'PET':'CUSTOMER',entityId:entity.id,customerId:petNote?entity.customerId:entity.id,action:b.permanent==='LEGACY'?'LEGACY_GROOMING_NOTES':'PERMANENT_NOTES',summary:b.permanent==='LEGACY'?'Updated original grooming notes.':'Updated permanent notes.',details:{field,previous,value:b.value}}});return {ok:true};
+  const previous=b.permanent==='CUSTOMER'?combinedCustomerNotes(entity):entity[field]||'';if(previous!==b.previous)throw Error('These notes changed in another window. Your text is retained; reload the notes before saving again.');
+  const changed=await (model as any).updateMany({where:{id:entity.id,tenantId,[field]:entity[field],...(b.permanent==='CUSTOMER'?{popupNotes:entity.popupNotes}:{})},data:{[field]:b.value,...(b.permanent==='CUSTOMER'?{popupNotes:null}:{})}});if(changed.count!==1)throw Error('Notes changed in another window. Please reload.');
+  await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:petNote?'PET':'CUSTOMER',entityId:entity.id,customerId:petNote?entity.customerId:entity.id,action:b.permanent==='LEGACY'?'LEGACY_GROOMING_NOTES':'PERMANENT_NOTES',summary:b.permanent==='LEGACY'?'Updated original grooming notes.':'Updated permanent notes.',details:{field,previous,value:b.value,...(b.permanent==='CUSTOMER'?{previousPopupNotes:entity.popupNotes}: {})}}});return {ok:true};
  }
  const candidate=await tx.groomingNote.findFirst({where:{id:String(b.id),tenantId}});if(!candidate)throw Error('Grooming record not found.');
  await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${candidate.ticketId} AND tenantId=${tenantId} FOR UPDATE`;
@@ -43,7 +49,7 @@ async function handlePolicyPATCH(r:NextRequest){
  if(!n.lockedAt&&String(n.appointmentAt)!==String(ticket.scheduledStart))n=await tx.groomingNote.update({where:{id:n.id},data:{appointmentAt:ticket.scheduledStart}});
  n=await freezeNote(tx,n);if(n.lockedAt)throw Error('These grooming notes are locked. Choose a newer appointment to record a new haircut.');
  if(n.revision!==b.revision)throw Error('Another employee updated these notes. Your changes are retained; reload before applying them.');
- const source=b.sourceId?await tx.groomingNote.findFirst({where:{id:String(b.sourceId),tenantId,petId:n.petId,customerId:n.customerId}}):null;
+ const source=b.sourceId?(String(b.sourceId).startsWith('imported-comment:')?importedGroomingHistory(await tx.pet.findMany({where:{tenantId,customerId:n.customerId,id:n.petId}}),n.customerId).find(v=>v.id===b.sourceId):await tx.groomingNote.findFirst({where:{id:String(b.sourceId),tenantId,petId:n.petId,customerId:n.customerId}})):null;
  if(b.sourceId&&!source)throw Error('Choose a grooming record for this dog.');
  const instructions=validInstructions(source?.instructions||b.instructions),usual=b.usual===undefined?n.usual:b.usual;if(typeof usual!=='boolean')throw Error('Choose whether this is the usual haircut.');
  const changes=noteFields.filter(k=>(n.instructions as any)[k]!==instructions[k]).map(k=>({field:k,label:noteLabels[k],previous:(n.instructions as any)[k],value:instructions[k]}));

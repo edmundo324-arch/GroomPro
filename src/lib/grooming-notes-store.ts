@@ -1,3 +1,4 @@
+import {importedGroomingHistory} from './import/grooming-comments';
 import {initialGroomingInstructions} from './grooming-note-defaults';
 import {defaultHours,parseHours} from './operating-hours';
 import {notesDeadline,parseSpecialHours,validInstructions} from './grooming-notes-rules';
@@ -25,11 +26,12 @@ export async function ensureGroomingNotes(tx:any,t:any,actorUserId?:string,draft
   const previous=await tx.groomingNote.findMany({where:{tenantId:t.tenantId,petId:pet.id,ticketId:{not:t.id},appointmentAt:{not:null,...(t.scheduledStart?{lt:t.scheduledStart}:{})}},orderBy:[{appointmentAt:'desc'},{createdAt:'desc'}]});
   // Only real appointments supply history; abandoned drafts never become defaults.
   const ids=previous.map((n:any)=>n.ticketId),booked=await tx.ticket.findMany({where:{tenantId:t.tenantId,id:{in:ids},lines:{some:{petId:pet.id}},status:{notIn:['CANCELLED','NO_SHOW']}},select:{id:true}}),real=new Set(booked.map((b:any)=>b.id)),history=previous.filter((n:any)=>real.has(n.ticketId));
+  history.push(...importedGroomingHistory([pet],t.customerId).filter(n=>!t.scheduledStart||+new Date(n.appointmentAt)<+new Date(t.scheduledStart)));history.sort((a:any,b:any)=>+new Date(b.appointmentAt)-+new Date(a.appointmentAt));
   const usual=history.filter((n:any)=>n.usual).sort((a:any,b:any)=>+new Date(b.usualAt)-+new Date(a.usualAt))[0];
   const instructions=initialGroomingInstructions(pet,usual?.instructions||null,history[0]?.instructions||null,breeds);
   if(!usual&&!history.length&&pet.groomingNotes)instructions.specialNotes=pet.groomingNotes;
   const draft=draftNotes?.[pet.id];if(draft&&typeof draft.usual!=='boolean')throw Error('Choose whether this is the usual haircut.');
-  const source=draft?.sourceId?await tx.groomingNote.findFirst({where:{id:draft.sourceId,tenantId:t.tenantId,customerId:t.customerId,petId:pet.id}}):null;
+  const source=draft?.sourceId?(String(draft.sourceId).startsWith('imported-comment:')?importedGroomingHistory([pet],t.customerId).find(v=>v.id===draft.sourceId):await tx.groomingNote.findFirst({where:{id:draft.sourceId,tenantId:t.tenantId,customerId:t.customerId,petId:pet.id}})):null;
   if(draft?.sourceId&&!source)throw Error('Grooming history must belong to this pet.');
   const applied=draft?validInstructions(draft.instructions):instructions;
   await tx.groomingNote.create({data:{id:offlineCreateId()?t.id+'-note-'+pet.id:undefined,...key,customerId:t.customerId,locationId:t.locationId,appointmentAt:t.scheduledStart||null,instructions:applied,usual:!!draft?.usual,usualAt:draft?.usual?new Date():null}});
