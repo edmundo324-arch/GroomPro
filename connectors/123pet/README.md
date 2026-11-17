@@ -36,8 +36,9 @@ reports, and compatibility profiles must remain excluded from Git.
 The user ran the writer under their Windows SQL identity. All 10 synthetic rows,
 including package grouping, passed SQL write/read-back verification and were rolled
 back. No imported records were retained. This does not verify a committed GoDaddy
-transfer or native 123Pet UI behavior. GoDaddy snapshot preparation still reports
-a missing GROOMPRO_IMPORT_KEY in its running environment.
+transfer or native 123Pet UI behavior. GoDaddy snapshot preparation reported a missing import secret at that time.
+New imports now create a private per-business protection key automatically when no
+secret is configured. Live GoDaddy transfer still needs verification after deployment.
 
 ## Ticket processing
 

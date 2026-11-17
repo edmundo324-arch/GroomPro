@@ -77,7 +77,7 @@ export function publicReport(plan:Awaited<ReturnType<typeof planImport>>){return
 export async function executeImport(db:any,tenantId:string,jobId:string){return db.$transaction(async(tx:any)=>{
  await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
  const job=await tx.importJob.findFirst({where:{id:jobId,tenantId}});if(!job)throw Error('Import not found.');if(job.status==='COMPLETED')return job.report;if(job.status!=='VALIDATED')throw Error('Validate this migration before executing.');
- const datasets=unseal(job.encryptedData,tenantId) as Dataset[];const plan=await planImport(tx,tenantId,job.source,datasets.filter(d=>d.selected!==false),job.mode);if(plan.issues.length)throw Error('Data changed since validation. Validate again and review conflicts.');
+ const datasets=(await unseal(job.encryptedData,tenantId, tx)) as Dataset[];const plan=await planImport(tx,tenantId,job.source,datasets.filter(d=>d.selected!==false),job.mode);if(plan.issues.length)throw Error('Data changed since validation. Validate again and review conflicts.');
  const review=fingerprint(publicReport(plan));if(review!==job.fingerprint)throw Error('Proposed changes have changed since validation. Validate again.');
  for(const p of plan.plans){if(p.action==='SKIP')continue;
   const model=models[p.entity];let after:any=null;
@@ -85,8 +85,8 @@ export async function executeImport(db:any,tenantId:string,jobId:string){return 
   if(model&&p.entity!=='APPOINTMENT'&&p.action==='INSERT'){after=await tx[model].create({data:{...p.data,id:p.targetId,tenantId}});}
   if(model&&p.action==='UPDATE'){after=await tx[model].update({where:{id:p.targetId},data:p.data});}
   if(model&&p.entity==='CUSTOMER'&&['INSERT','UPDATE'].includes(p.action))for(const phone of p.phones){if(!p.existing?.phones?.some((v:any)=>v.normalized===phone.normalized))await tx.customerPhone.create({data:{...phone,id:randomUUID(),tenantId,customerId:p.targetId,isPrimary:!p.existing?.phones?.length&&phone===p.phones[0]}});}
-  if(after){const snapshot=await tx[model].findFirst({where:{id:p.targetId,tenantId},...(p.entity==='CUSTOMER'?{include:{phones:true}}:p.entity==='APPOINTMENT'?{include:appointmentInclude}:{})});await tx.importChange.create({data:{tenantId,jobId,entityType:p.entity,targetId:p.targetId,encryptedBefore:seal({record:p.existing,link:p.record||null},tenantId),encryptedAfter:seal(p.entity==='APPOINTMENT'?{...snapshot,importedGroomingNotes:await tx.groomingNote.findMany({where:{tenantId,ticketId:p.targetId},orderBy:{id:'asc'}})}:snapshot,tenantId)}});}
-  const payload={encrypted:seal(p.raw,tenantId),jobId,dataset:p.dataset,fields:Object.keys(p.raw),relationships:p.entity==='HISTORY'?p.data:{}};
+  if(after){const snapshot=await tx[model].findFirst({where:{id:p.targetId,tenantId},...(p.entity==='CUSTOMER'?{include:{phones:true}}:p.entity==='APPOINTMENT'?{include:appointmentInclude}:{})});await tx.importChange.create({data:{tenantId,jobId,entityType:p.entity,targetId:p.targetId,encryptedBefore:(await seal({record:p.existing,link:p.record||null},tenantId, tx)),encryptedAfter:(await seal(p.entity==='APPOINTMENT'?{...snapshot,importedGroomingNotes:await tx.groomingNote.findMany({where:{tenantId,ticketId:p.targetId},orderBy:{id:'asc'}})}:snapshot,tenantId, tx))}});}
+  const payload={encrypted:(await seal(p.raw,tenantId, tx)),jobId,dataset:p.dataset,fields:Object.keys(p.raw),relationships:p.entity==='HISTORY'?p.data:{}};
   await tx.importRecord.upsert({where:{tenantId_source_entityType_sourceId:{tenantId,source:job.source,entityType:p.entity,sourceId:p.sourceId}},create:{tenantId,source:job.source,entityType:p.entity,sourceId:p.sourceId,targetId:p.targetId,payload},update:{targetId:p.targetId,payload}});
  }
  const report=publicReport(plan);for(const f of report.fields)f.retained=plan.plans.filter(p=>p.dataset===f.dataset&&p.action!=='SKIP').length;
@@ -99,9 +99,9 @@ export async function rollbackImport(db:any,tenantId:string,jobId:string){return
  const job=await tx.importJob.findFirst({where:{id:jobId,tenantId}});if(!job||job.status!=='COMPLETED')throw Error('Only a completed import can be rolled back.');
  const changes=await tx.importChange.findMany({where:{tenantId,jobId},orderBy:{createdAt:'desc'}});
  // Refuse rollback once any imported record has been edited or used elsewhere.
- for(const change of changes){const model=models[change.entityType];const current=await tx[model].findFirst({where:{id:change.targetId,tenantId},...(change.entityType==='CUSTOMER'?{include:{phones:true}}:change.entityType==='APPOINTMENT'?{include:appointmentInclude}:{})});const saved=unseal(change.encryptedAfter,tenantId);if(change.entityType==='APPOINTMENT'&&Object.hasOwn(saved,'importedGroomingNotes'))current.importedGroomingNotes=await tx.groomingNote.findMany({where:{tenantId,ticketId:change.targetId},orderBy:{id:'asc'}});if(fingerprint(current)!==fingerprint(saved))throw Error('An imported record has changed. Rollback stopped without changing any records.');}
+ for(const change of changes){const model=models[change.entityType];const current=await tx[model].findFirst({where:{id:change.targetId,tenantId},...(change.entityType==='CUSTOMER'?{include:{phones:true}}:change.entityType==='APPOINTMENT'?{include:appointmentInclude}:{})});const saved=(await unseal(change.encryptedAfter,tenantId, tx));if(change.entityType==='APPOINTMENT'&&Object.hasOwn(saved,'importedGroomingNotes'))current.importedGroomingNotes=await tx.groomingNote.findMany({where:{tenantId,ticketId:change.targetId},orderBy:{id:'asc'}});if(fingerprint(current)!==fingerprint(saved))throw Error('An imported record has changed. Rollback stopped without changing any records.');}
  for(const change of changes.sort((a:any,b:any)=>rank[b.entityType as Entity]-rank[a.entityType as Entity])){
-  const model=models[change.entityType],before=unseal(change.encryptedBefore,tenantId);
+  const model=models[change.entityType],before=(await unseal(change.encryptedBefore,tenantId, tx));
   if(!before.record){
    let used=0;
    if(change.entityType==='APPOINTMENT'){// Original imported payments are already covered by snapshot equality above.

@@ -24,7 +24,7 @@ export async function enqueueWrite(tx:any,config:ConnectorConfig,input:any,actor
  const where={tenantId_source_entityType_sourceId:{tenantId:config.tenantId,source:'123pet:'+config.id,entityType:'WRITE_COMMAND',sourceId:input.requestId}};
  const hash=fingerprint(canonical(command)),existing=await tx.importRecord.findUnique({where});
  if(existing){if((existing.payload as any).fingerprint!==hash)throw Error('Operation identifier was reused for different changes.');return {id:input.requestId,state:(existing.payload as any).state};}
- await tx.importRecord.create({data:{...where.tenantId_source_entityType_sourceId,payload:{state:'PENDING',fingerprint:hash,encrypted:seal(command,config.tenantId),requestedBy:actorId,requestedAt:new Date().toISOString()}}});
+ await tx.importRecord.create({data:{...where.tenantId_source_entityType_sourceId,payload:{state:'PENDING',fingerprint:hash,encrypted:(await seal(command,config.tenantId, tx)),requestedBy:actorId,requestedAt:new Date().toISOString()}}});
  await tx.auditEntry.create({data:{tenantId:config.tenantId,actorType:'EMPLOYEE',actorUserId:actorId,entityType:'TENANT',entityId:config.tenantId,action:'123PET_WRITE_QUEUED',summary:'Queued verified '+command.operation+' operation.',details:{connectorId:config.id,requestId:input.requestId}}});
  return {id:input.requestId,state:'PENDING'};
 }
@@ -33,7 +33,7 @@ export async function pendingWrites(tx:any,config:ConnectorConfig){
  const rows=await tx.importRecord.findMany({where:{tenantId:config.tenantId,source:'123pet:'+config.id,entityType:'WRITE_COMMAND'},orderBy:{createdAt:'asc'}});
  const commands=[];
  for(const row of rows){const p=row.payload as any;if(p.state!=='PENDING')continue;
-  const command=unseal(p.encrypted,config.tenantId);validateWrite(command);
+  const command=(await unseal(p.encrypted,config.tenantId, tx));validateWrite(command);
   const evidence=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:config.tenantId,settingKey:`123PET_VERIFIED:${config.id}:${command.operation}`}}});
   const a=evidence?.value as any;
   if(a?.schemaFingerprint!==config.schemaFingerprint||!a?.verifiedTest||(config.environment==='PRODUCTION'&&!a?.productionAuthorized))continue;

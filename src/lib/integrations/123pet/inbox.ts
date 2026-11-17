@@ -23,7 +23,7 @@ export async function receiveBatch(tx:any,tenantId:string,connectorId:string,sch
   const prior=previous?.payload as any;
   if(prior?.fingerprint===hash&&prior.projectionVersion===projectionVersion&&prior.state!=='AWAITING_OWNER'){unchanged++;continue;}
   const projection=await projectCatalog(tx,tenantId,source,spec.table,sourceId,row,previous)||await projectProfile(tx,tenantId,source,spec.table,sourceId,row,previous);
-  const payload={encrypted:seal(row,tenantId),fingerprint:hash,projectionVersion,receivedAt:new Date().toISOString(),previousFingerprint:prior?.fingerprint??null,...(prior?.projected?{projected:prior.projected}:{}),...(prior?.phones?{phones:prior.phones}:{}),...projection};
+  const payload={encrypted:(await seal(row,tenantId, tx)),fingerprint:hash,projectionVersion,receivedAt:new Date().toISOString(),previousFingerprint:prior?.fingerprint??null,...(prior?.projected?{projected:prior.projected}:{}),...(prior?.phones?{phones:prior.phones}:{}),...projection};
   const targetId=('targetId' in projection?projection.targetId:null)??previous?.targetId??null;
   if(projection.state==='APPLIED')applied++;
   await tx.importRecord.upsert({where,create:{tenantId,source,entityType,sourceId,targetId,payload},update:{targetId,payload}});

@@ -11,7 +11,7 @@ export function FieldHints({enabled}:{enabled:boolean}){
   const show=(event:Event)=>{
    const target=event.target as HTMLElement;if(target.closest('.gp-help-popup'))return;
    clearTimeout(timer);
-   if(target.closest('.gp-whiteboard,.gp-action-pin,.gp-help-trigger,.gp-universal-results,[aria-label="Search"],[aria-label="Reorder tabs"]')){setHint(null);return;}
+   if(target.closest('.gp-whiteboard,.gp-action-pin,.gp-help-trigger,.gp-universal-results,[aria-label="Search"],[aria-label="Reorder Menu"]')){setHint(null);return;}
    const element=target.closest<HTMLElement>('label,.gp-label,.gp-pos-account-link,input[aria-label],select[aria-label],textarea[aria-label]');
    if(!element||element.querySelector('.gp-help-trigger')){setHint(null);return;}
    const field=describeField(element);if(!field){setHint(null);return;}

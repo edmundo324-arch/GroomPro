@@ -42,7 +42,7 @@ async function mappedItems(tx:any,tenantId:string,source:string,targetId:string,
  const bySourceId=new Map<string,string>();
  for(const link of links){
   if(!link.targetId||link.payload?.state!=='APPLIED')continue;
-  const raw=unseal(link.payload.encrypted,tenantId) as {fldPS?:string;fldID?:string};
+  const raw=(await unseal(link.payload.encrypted,tenantId, tx)) as {fldPS?:string;fldID?:string};
   if(raw.fldPS==='S'&&keys.get(code(raw.fldID))===link.sourceId)bySourceId.set(link.sourceId,link.targetId);
  }
  const services=await tx.service.findMany({where:{tenantId,id:{in:[...bySourceId.values()]}},select:{id:true,workflowRole:true}});
@@ -63,7 +63,7 @@ export async function receivePackageBundle(tx:any,tenantId:string,connectorId:st
  const where={tenantId_source_entityType_sourceId:{tenantId,source,entityType,sourceId}};
  const previous=await tx.importRecord.findUnique({where}),hash=fingerprint(bundle);
  if(previous?.payload?.fingerprint===hash&&previous.payload.state==='APPLIED')return {changed:0,unchanged:1,applied:0};
- const payload:any={encrypted:seal(bundle,tenantId),fingerprint:hash,receivedAt:new Date().toISOString(),state:'REVIEW',reason:''};
+ const payload:any={encrypted:(await seal(bundle,tenantId, tx)),fingerprint:hash,receivedAt:new Date().toISOString(),state:'REVIEW',reason:''};
  if(previous?.payload?.nativeSnapshot)payload.nativeSnapshot=previous.payload.nativeSnapshot;
  let targetId=previous?.targetId??null;
  const id=targetId||'sync_'+fingerprint([tenantId,source,entityType,sourceId]).slice(0,40);
@@ -77,7 +77,7 @@ export async function receivePackageBundle(tx:any,tenantId:string,connectorId:st
   if(typeof name!=='string'||!name||name.length>191||typeof basePriceCents!=='number'||basePriceCents<0)throw Error('The package needs a valid name and price.');
   data={name,description,basePriceCents,active:bundle.summary.fldInactive==null||!convert(bundle.summary.fldInactive,{target:'inactive',kind:'bool'})};
   if(targetId&&!current)throw Error('The linked GroomPro package was removed.');
-  if(current&&(!previous?.payload?.nativeSnapshot||fingerprint(nativePackage(current))!==fingerprint(unseal(previous.payload.nativeSnapshot,tenantId))))throw Error('GroomPro changed this package. Review both versions.');
+  if(current&&(!previous?.payload?.nativeSnapshot||fingerprint(nativePackage(current))!==fingerprint((await unseal(previous.payload.nativeSnapshot,tenantId, tx)))))throw Error('GroomPro changed this package. Review both versions.');
   if(!current&&await tx.package.findFirst({where:{tenantId,name},select:{id:true}}))throw Error('A GroomPro package with this name already exists. Review before linking.');
   const mapped=await mappedItems(tx,tenantId,source,id,bundle.rows,bundle.serviceKeys);
   if(current?.items.some((item:any)=>!mapped.some(next=>next.id===item.id)))throw Error('An included service was removed in 123Pet. Review the package before updating.');
@@ -88,7 +88,7 @@ export async function receivePackageBundle(tx:any,tenantId:string,connectorId:st
   const saved=current
    ?await tx.package.update({where:{id},data:{...data,items:{upsert:items.map(({id:itemId,...item})=>({where:{id:itemId},create:{...item,id:itemId,tenantId},update:item}))}},include})
    :await tx.package.create({data:{...data,id,tenantId,items:{create:items.map(item=>({...item,tenantId}))}},include});
-  targetId=saved.id;payload.state='APPLIED';payload.nativeSnapshot=seal(nativePackage(saved),tenantId);
+  targetId=saved.id;payload.state='APPLIED';payload.nativeSnapshot=(await seal(nativePackage(saved),tenantId, tx));
  }
  await tx.importRecord.upsert({where,create:{tenantId,source,entityType,sourceId,targetId,payload},update:{targetId,payload}});
  if(payload.state==='APPLIED')await advanceIntegrationRevision(tx,tenantId);

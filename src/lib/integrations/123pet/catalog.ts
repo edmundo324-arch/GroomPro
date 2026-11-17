@@ -26,7 +26,7 @@ export async function projectCatalog(tx:any,tenantId:string,source:string,table:
  const {model,data}=result,targetId=previous?.targetId||'sync_'+fingerprint([tenantId,source,table,sourceId]).slice(0,40);
  const current=await tx[model].findFirst({where:{tenantId,id:targetId}});
  if(previous?.payload?.mappingOnly)return current?{state:'APPLIED',targetId,mappingOnly:true}:{state:'REVIEW',reason:'The explicitly linked record was removed.',mappingOnly:true};
- const baseline=previous?.payload?.projected?unseal(previous.payload.projected,tenantId):null;
+ const baseline=previous?.payload?.projected?(await unseal(previous.payload.projected,tenantId, tx)):null;
  if(current&&!baseline||!current&&previous?.targetId)return {state:'REVIEW',reason:'Source link requires reconciliation.'};
  if(current){const fields=conflictingFields(current,baseline,data);if(fields.length)return {state:'CONFLICT',reason:'Both systems changed this record.',conflictFields:fields};}
  if(!current){
@@ -34,5 +34,5 @@ export async function projectCatalog(tx:any,tenantId:string,source:string,table:
   if(model==='product'&&data.sku&&await tx.product.findFirst({where:{tenantId,sku:data.sku}})||model==='service'&&data.code&&await tx.service.findFirst({where:{tenantId,code:data.code}}))return {state:'REVIEW',reason:'The catalog code is already in use. Explicitly link the item.'};
   await tx[model].create({data:{...data,id:targetId,tenantId,...(model==='user'?{active:false,pinHash:'IMPORT_DISABLED',role:'FRONT'}:{})}});
  }else if(Object.keys(data).some(k=>JSON.stringify(current[k]??null)!==JSON.stringify((data as any)[k]??null)))await tx[model].update({where:{id:targetId},data});
- return {state:'APPLIED',targetId,projected:seal(data,tenantId)};
+ return {state:'APPLIED',targetId,projected:(await seal(data,tenantId, tx))};
 }

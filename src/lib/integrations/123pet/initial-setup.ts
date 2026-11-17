@@ -30,7 +30,7 @@ export async function prepareDemoSnapshot(tx:any,config:ConnectorConfig,actorId:
  const jobId=randomUUID(),counts=Object.fromEntries(Object.entries(records).map(([name,rows])=>[name,rows.length]));
  const chunks:{kind:string;rows:any[]}[]=[];
  for(const [kind,rows] of Object.entries(records))for(let i=0;i<rows.length;i+=25)chunks.push({kind,rows:rows.slice(i,i+25)});
- for(let i=0;i<chunks.length;i++)await tx.importRecord.create({data:{tenantId,source,entityType:'OUTBOUND_SNAPSHOT',sourceId:jobId+':'+i,payload:{encrypted:seal(chunks[i],tenantId),fingerprint:fingerprint(chunks[i]),state:'PREPARED'}}});
+ for(let i=0;i<chunks.length;i++)await tx.importRecord.create({data:{tenantId,source,entityType:'OUTBOUND_SNAPSHOT',sourceId:jobId+':'+i,payload:{encrypted:(await seal(chunks[i],tenantId, tx)),fingerprint:fingerprint(chunks[i]),state:'PREPARED'}}});
  const state={jobId,state:'PREPARED',counts,chunks:chunks.length,preparedAt:new Date().toISOString(),preparedBy:actorId,source:'THIS_GROOMPRO_SERVER',writesExecuted:0};
  await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey:key(config.id)}},create:{tenantId,settingKey:key(config.id),value:state},update:{value:state}});
  await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:actorId,entityType:'TENANT',entityId:config.id,action:'123PET_DEMO_PREPARED',summary:'Prepared this GroomPro server’s demo records for 123Pet compatibility review; no source writes.',details:{jobId,counts}}});
@@ -60,7 +60,7 @@ export async function snapshotChunk(tx:any,config:ConnectorConfig,jobId:string,i
  if(!state||state.jobId!==jobId||!Number.isSafeInteger(index)||index<0||index>=state.chunks)throw Error('Choose a chunk from the current initial setup.');
  const row=await tx.importRecord.findUnique({where:{tenantId_source_entityType_sourceId:{tenantId:config.tenantId,source:'123pet:'+config.id,entityType:'OUTBOUND_SNAPSHOT',sourceId:jobId+':'+index}}});
  if(!row)throw Error('Snapshot chunk is missing. Prepare the snapshot again.');
- return {jobId,index,total:state.chunks,fingerprint:row.payload.fingerprint,...unseal(row.payload.encrypted,config.tenantId)};
+ return {jobId,index,total:state.chunks,fingerprint:row.payload.fingerprint,...(await unseal(row.payload.encrypted,config.tenantId, tx))};
 }
 
 export async function authorizeDemoWrite(tx:any,config:ConnectorConfig,actorId:string){

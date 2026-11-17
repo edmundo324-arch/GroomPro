@@ -45,11 +45,11 @@ export async function projectProfile(tx:any,tenantId:string,source:string,table:
  if(model==='customer'){
   try{phones=sourcePhones(row)}catch{return {state:'REVIEW',reason:'Source phone number requires review.'}}
   existingPhones=await tx.customerPhone.findMany({where:{tenantId,customerId:targetId}});
-  const previousPhones=previous?.payload?.phones?unseal(previous.payload.phones,tenantId):[];
+  const previousPhones=previous?.payload?.phones?(await unseal(previous.payload.phones,tenantId, tx)):[];
   if(previousPhones.some((p:any)=>!phones.some(n=>n.normalized===p.normalized)||!existingPhones.some(n=>n.normalized===p.normalized)))return {state:'REVIEW',reason:'A phone was removed or changed; retain existing contacts until reviewed.'};
   for(const phone of phones){const owner=await tx.customerPhone.findFirst({where:{tenantId,normalized:phone.normalized}});if(owner&&owner.customerId!==targetId)return {state:'REVIEW',reason:'A source phone belongs to another GroomPro customer. Review ownership.'}}
  }
- const baseline=previous?.payload?.projected?unseal(previous.payload.projected,tenantId):null;
+ const baseline=previous?.payload?.projected?(await unseal(previous.payload.projected,tenantId, tx)):null;
  if(current&&!baseline)return {state:'REVIEW',reason:'Existing record requires an explicit source match.'};
  if(!current&&previous?.targetId)return {state:'REVIEW',reason:'Linked record was removed in GroomPro.'};
  if(current&&model==='pet'&&current.customerId!==data.customerId)return {state:'REVIEW',reason:'Pet ownership changed; review is required.'};
@@ -58,5 +58,5 @@ export async function projectProfile(tx:any,tenantId:string,source:string,table:
  if(!current)await tx[model].create({data:{...data,id:targetId,tenantId,importSourceId:source+':'+sourceId}});
  else if(Object.keys(data).some(k=>JSON.stringify(current[k]??null)!==JSON.stringify(data[k]??null)))await tx[model].update({where:{id:targetId},data});
  for(const phone of phones)if(!existingPhones.some(p=>p.normalized===phone.normalized))await tx.customerPhone.create({data:{...phone,isPrimary:phone.isPrimary&&!existingPhones.some(p=>p.isPrimary),tenantId,customerId:targetId,smsEnabled:false,callEnabled:false}});
- return {state:'APPLIED',targetId,projected:seal(data,tenantId),...(model==='customer'?{phones:seal(phones,tenantId)}:{})};
+ return {state:'APPLIED',targetId,projected:(await seal(data,tenantId, tx)),...(model==='customer'?{phones:(await seal(phones,tenantId, tx))}:{})};
 }

@@ -31,7 +31,7 @@ export async function receiveTicketBundle(tx:any,tenantId:string,connectorId:str
  const where={tenantId_source_entityType_sourceId:{tenantId,source,entityType,sourceId}};
  const previous=await tx.importRecord.findUnique({where}),hash=fingerprint(bundle);
  if(previous?.payload?.fingerprint===hash&&previous.payload.state==='APPLIED')return {changed:0,unchanged:1};
- const payload:any={encrypted:seal(bundle,tenantId),fingerprint:hash,receivedAt:new Date().toISOString(),state:'REVIEW',reason:''};
+ const payload:any={encrypted:(await seal(bundle,tenantId, tx)),fingerprint:hash,receivedAt:new Date().toISOString(),state:'REVIEW',reason:''};
  let targetId=previous?.targetId??null;
  let mutating=false;
  const locations=await tx.location.findMany({where:{tenantId}});
@@ -41,7 +41,7 @@ export async function receiveTicketBundle(tx:any,tenantId:string,connectorId:str
   const lookup=new Map<string,string|null>();
   for(const link of links){
    if(!link.targetId)continue;
-   const row=unseal(link.payload.encrypted,tenantId) as any;
+   const row=(await unseal(link.payload.encrypted,tenantId, tx)) as any;
    const key=link.entityType==='SOURCE:tblProductsAndServices'?'SOURCE:catalog:'+row.fldPS+':'+String(row.fldID):link.entityType+':'+String(link.entityType==='SOURCE:tblEmployees'?row.fldEmployeeID:link.sourceId);
    lookup.set(key,lookup.has(key)?null:link.targetId);
   }
@@ -52,8 +52,8 @@ export async function receiveTicketBundle(tx:any,tenantId:string,connectorId:str
   const current=await tx.ticket.findFirst({where:{id,tenantId},include});
   if(targetId&&!current)throw Error('The linked GroomPro ticket was removed.');
   if(current){
-   if(!previous?.payload?.nativeSnapshot||fingerprint(snapshot(current))!==fingerprint(unseal(previous.payload.nativeSnapshot,tenantId)))throw Error('GroomPro changed this ticket; review both versions before applying source changes.');
-   const old=unseal(previous.payload.lastApplied||previous.payload.encrypted,tenantId) as any;
+   if(!previous?.payload?.nativeSnapshot||fingerprint(snapshot(current))!==fingerprint((await unseal(previous.payload.nativeSnapshot,tenantId, tx))))throw Error('GroomPro changed this ticket; review both versions before applying source changes.');
+   const old=(await unseal(previous.payload.lastApplied||previous.payload.encrypted,tenantId, tx)) as any;
    if(current.customerId!==mapped.data.customerId)throw Error('Changing a ticket customer requires ownership review.');
    const oldKeys=new Set(old.rows.map((r:any)=>String(r.fldPK))),newKeys=new Set(bundle.rows.map((r:any)=>String(r.fldPK)));
    if([...oldKeys].some(key=>!newKeys.has(key as string)))throw Error('A source line was removed; retain the original until reviewed.');
@@ -88,7 +88,7 @@ export async function receiveTicketBundle(tx:any,tenantId:string,connectorId:str
     payments:{create:mapped.payments.map(({sourceIndex,...payment})=>({...payment,tenantId,externalId:source+':'+sourceId+':'+sourceIndex}))}}});
   }
   targetId=id;payload.state='APPLIED';delete payload.reason;
-  payload.nativeSnapshot=seal(snapshot(await tx.ticket.findFirst({where:{id,tenantId},include})),tenantId);
+  payload.nativeSnapshot=(await seal(snapshot(await tx.ticket.findFirst({where:{id,tenantId},include})),tenantId, tx));
   await advanceIntegrationRevision(tx,tenantId);
  }catch(e){
   // Database failures must roll the entire request back, not commit partial work.

@@ -5,7 +5,7 @@ export async function connectionReview(tx:any,tenantId:string,connectorId:string
  const counts:Record<string,number>={};const reviews:any[]=[];
  for(const row of rows){if(row.entityType==='OUTBOUND_SNAPSHOT'||row.entityType==='WRITE_COMMAND')continue;const payload=row.payload as any;counts[payload.state||'STAGED']=(counts[payload.state||'STAGED']||0)+1;
   if(!['REVIEW','CONFLICT','AWAITING_OWNER'].includes(payload.state)||reviews.length>=100)continue;
-  const data=unseal(payload.encrypted,tenantId) as any;
+  const data=(await unseal(payload.encrypted,tenantId, tx)) as any;
   const label=row.entityType==='TICKET_BUNDLE'?'123Pet ticket #'+data.summary.fldTicketID:row.entityType==='PACKAGE_BUNDLE'?data.summary.fldName||'123Pet package '+row.sourceId:row.entityType==='SOURCE:tblEmployees'?[data.fldFirstName,data.fldLastName].filter(Boolean).join(' '):data.fldName||data.fldDescription||row.sourceId;
   const type=models[row.entityType];let candidates:any[]=[];
   if(type==='user')candidates=await tx.user.findMany({where:{tenantId,firstName:String(data.fldFirstName||''),lastName:String(data.fldLastName||'')},select:{id:true,firstName:true,lastName:true,displayName:true}});
@@ -17,7 +17,7 @@ export async function connectionReview(tx:any,tenantId:string,connectorId:string
 export async function linkReviewedRecord(tx:any,tenantId:string,connectorId:string,recordId:string,targetId:string,actorUserId:string){
  const source='123pet:'+connectorId,record=await tx.importRecord.findFirst({where:{id:recordId,tenantId,source}});
  if(!record||!models[record.entityType])throw Error('This record needs a different reconciliation workflow.');
- const payload=record.payload as any,data=unseal(payload.encrypted,tenantId) as any;
+ const payload=record.payload as any,data=(await unseal(payload.encrypted,tenantId, tx)) as any;
  const model=record.entityType==='SOURCE:tblEmployees'?'user':data.fldPS==='P'?'product':'service';
  if(!await tx[model].findFirst({where:{tenantId,id:targetId}}))throw Error('Choose a record in this business.');
  const existing=await tx.importRecord.findFirst({where:{tenantId,source,entityType:record.entityType,targetId,NOT:{id:record.id}}});

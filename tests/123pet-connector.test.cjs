@@ -4,16 +4,16 @@ const control=load('src/lib/integrations/123pet/control.ts'),mapping=load('src/l
 const tickets=load('src/lib/integrations/123pet/tickets.ts'),ticketMapping=load('src/lib/integrations/123pet/ticket-mapping.ts');
 const packages=load('src/lib/integrations/123pet/packages.ts');
 test('a 123Pet package arrives with ordered services, updates by source ID and stages local conflicts',async()=>{
- process.env.GROOMPRO_IMPORT_KEY='ab'.repeat(32);
+ delete process.env.GROOMPRO_IMPORT_KEY;delete process.env.GROOMPRO_IMPORT_SECRET;
  const crypto=load('src/lib/import/crypto.ts'),manifest=mapping.readManifest(schema());
  const blank=table=>Object.fromEntries(manifest.find(x=>x.table===table).columns.map(key=>[key,null]));
  const summary={...blank('tblPackagesSummary'),fldPK:31,fldPackageID:'TESTPACK',fldName:'123Pet Pilot Package',fldRetail:'89.99',fldInactive:false};
  const component=(id,order,fldPSID,fldQuantity)=>({...blank('tblPackagesRow'),fldPK:id,fldPackageID:'TESTPACK',fldOrder:order,fldPSID,fldQuantity});
  const bundle={summary,rows:[component(43,2,'GROOM',2),component(42,1,'BATH',1)],serviceKeys:[{code:'BATH',sourceId:'17'},{code:'GROOM',sourceId:'18'}]};
  const services=[{id:'bath',sourceId:'17',code:'BATH',workflowRole:'BATH'},{id:'groom',sourceId:'18',code:'GROOM',workflowRole:'GROOM'}];
- let record=null,native=null,creates=0,updates=0;
- const tx={tenantSetting:{upsert:async()=>{}},service:{findMany:async({where})=>{assert.equal(where.tenantId,'pilot');return services}},
-  importRecord:{findUnique:async()=>record,findMany:async({where})=>{assert.equal(where.source,'123pet:connector');return services.filter(s=>where.sourceId.in.includes(s.sourceId)).map(s=>({sourceId:s.sourceId,targetId:s.id,payload:{state:'APPLIED',encrypted:crypto.seal({fldPS:'S',fldID:s.code},'pilot')}}))},upsert:async({create,update})=>{record=record?{...record,...update}:create}},
+ let record=null,native=null,creates=0,updates=0;const settings=new Map();
+ const tx={tenantSetting:{findUnique:async({where})=>settings.get(where.tenantId_settingKey.settingKey)||null,upsert:async({create})=>{if(!settings.has(create.settingKey))settings.set(create.settingKey,create);return settings.get(create.settingKey)}},service:{findMany:async({where})=>{assert.equal(where.tenantId,'pilot');return services}},
+  importRecord:{findUnique:async()=>record,findMany:async({where})=>{assert.equal(where.source,'123pet:connector');return Promise.all(services.filter(s=>where.sourceId.in.includes(s.sourceId)).map(async s=>({sourceId:s.sourceId,targetId:s.id,payload:{state:'APPLIED',encrypted:(await crypto.seal({fldPS:'S',fldID:s.code},'pilot',tx))}})))},upsert:async({create,update})=>{record=record?{...record,...update}:create}},
   package:{findFirst:async({where})=>where.id?native:null,create:async({data})=>{creates++;native={...data,items:data.items.create};return native},
    update:async({data})=>{updates++;native={...native,...data,items:data.items.upsert.map(entry=>entry.create)};return native}}};
  assert.throws(()=>packages.validatePackageBundle(schema(),{...bundle,rows:[{...bundle.rows[0],fldPackageID:'OTHER'}]}),/unrelated/);
@@ -58,7 +58,7 @@ test('ticket replay creates one ticket; changed payment is staged without touchi
  const line={...blank('tblTicketsRow'),fldPK:2,fldTicketID:1000,fldPS:'S',fldDescription:'Groom',fldQuantity:'1',fldPrice:'80',fldRowTotal:'80',fldPetID:2,fldStartDateTime:'2026-09-15T05:00:00.000',fldEndDateTime:'2026-09-15T06:00:00.000'};
  let record=null,native=null,creates=0,updates=0;
  const tx={tenantSetting:{upsert:async()=>{}},location:{findMany:async()=>[{id:'location',timezone:'America/Chicago'}]},pet:{findFirst:async()=>({id:'pet'})},posDraft:{aggregate:async()=>({_max:{orderNumber:0}})},auditEntry:{create:async()=>{}},
- importRecord:{findUnique:async()=>record,findMany:async()=>[{entityType:'SOURCE:tblClients',sourceId:'1',targetId:'customer',payload:{encrypted:crypto.seal({},'tenant')}},{entityType:'SOURCE:tblPets',sourceId:'2',targetId:'pet',payload:{encrypted:crypto.seal({},'tenant')}}],upsert:async({create,update})=>{record=record?{...record,...update}:create}},
+ importRecord:{findUnique:async()=>record,findMany:async()=>[{entityType:'SOURCE:tblClients',sourceId:'1',targetId:'customer',payload:{encrypted:(await crypto.seal({},'tenant'))}},{entityType:'SOURCE:tblPets',sourceId:'2',targetId:'pet',payload:{encrypted:(await crypto.seal({},'tenant'))}}],upsert:async({create,update})=>{record=record?{...record,...update}:create}},
  ticket:{aggregate:async()=>({_max:{orderNumber:0}}),findFirst:async()=>native,update:async()=>{updates++},create:async({data})=>{creates++;const {lines,pets,payments,...rest}=data;native={...rest,lines:lines.create.map((x,i)=>({...x,id:'line'+i})),pets:pets.create.map((x,i)=>({...x,id:'pet'+i})),payments:payments.create.map((x,i)=>({...x,id:'pay'+i}))}}}};
  const message={summary,rows:[line]};
  assert.equal((await tickets.receiveTicketBundle(tx,'tenant','connector',schema(),message)).state,'APPLIED');
@@ -114,13 +114,13 @@ test('approved employee links preserve native access and reject cross-business t
  const crypto=load('src/lib/import/crypto.ts'),review=load('src/lib/integrations/123pet/review.ts'),catalog=load('src/lib/integrations/123pet/catalog.ts');
  const native={id:'existing',tenantId:'tenant',firstName:'Original',role:'OWNER',pinHash:'unchanged'};
  let saved,audited=0;
- const record={id:'record',entityType:'SOURCE:tblEmployees',payload:{encrypted:crypto.seal({fldFirstName:'Source',fldLastName:'Employee'},'tenant')}};
+ const record={id:'record',entityType:'SOURCE:tblEmployees',payload:{encrypted:(await crypto.seal({fldFirstName:'Source',fldLastName:'Employee'},'tenant'))}};
  const tx={importRecord:{findFirst:async q=>q.where.id?record:null,update:async q=>{saved=q.data}},user:{findFirst:async q=>q.where.tenantId==='tenant'&&q.where.id==='existing'?native:null,update:async()=>{throw Error('Must not modify linked employee')}},auditEntry:{create:async()=>{audited++}}};
  await review.linkReviewedRecord(tx,'tenant','connector','record','existing','owner');
  assert.equal(saved.targetId,'existing');assert.equal(saved.payload.mappingOnly,true);assert.equal(audited,1);
  assert.equal((await catalog.projectCatalog(tx,'tenant','123pet:connector','tblEmployees','1',{fldFirstName:'Source',fldLastName:'Employee'},{targetId:'existing',payload:saved.payload})).state,'APPLIED');
  assert.equal(native.role,'OWNER');assert.equal(native.pinHash,'unchanged');assert.equal(native.firstName,'Original');
- await assert.rejects(()=>review.linkReviewedRecord(tx,'tenant','connector','record','other-business-user','owner'));
+ await (assert.rejects(()=>review.linkReviewedRecord(tx,'tenant','connector','record','other-business-user','owner')));
 });
 
 test('initial setup defaults to tenant import; GroomPro-first is test-only and never enables writes',()=>{
@@ -142,10 +142,10 @@ test('cloud demo snapshots retain relationships and exclude employee access and 
  const result=await setup.prepareDemoSnapshot(tx,config,'owner');
  assert.equal(result.counts.customers,1);assert.equal(result.writesExecuted,0);
  assert.equal(employeeSelection.pinHash,undefined);assert.equal(employeeSelection.role,undefined);assert.equal(paymentSelection.externalId,undefined);
- assert.ok(stored.every(r=>r.payload.encrypted&&!JSON.stringify(r.payload).includes('Ed')));
+ assert.ok(stored.every(r=>r.payload.encrypted&&!JSON.stringify(r.payload).includes('"firstName"')));
  const first=await setup.snapshotChunk(tx,config,result.jobId,0);assert.equal(first.kind,'locations');
- await assert.rejects(()=>setup.snapshotChunk(tx,config,'old-job',0));
- await assert.rejects(()=>setup.snapshotChunk(tx,{...config,readEnabled:true},result.jobId,0));
+ await (assert.rejects(()=>setup.snapshotChunk(tx,config,'old-job',0)));
+ await (assert.rejects(()=>setup.snapshotChunk(tx,{...config,readEnabled:true},result.jobId,0)));
  assert.throws(()=>setup.validateSnapshot({locations:rows.location,customers:rows.customer,pets:[{id:'p',customerId:'other'}],employees:rows.user,tickets:rows.ticket}));
 });
 
@@ -157,14 +157,14 @@ test('demo write authorization is sample-only, expires, and reports once without
  await setup.authorizeDemoWrite(tx,config,'owner');
  assert.equal(state.state,'AUTHORIZED');assert.equal(config.writeEnabled,false);
  assert.equal((await setup.demoWriteAuthorization(tx,config,'job')).authorized,true);
- await assert.rejects(()=>setup.demoWriteAuthorization(tx,config,'other'));
- await assert.rejects(()=>setup.authorizeDemoWrite(tx,{...config,environment:'PRODUCTION'},'owner'));
- await assert.rejects(()=>setup.authorizeDemoWrite(tx,{...config,database:'RealSalon'},'owner'));
- state.authorizationExpires='invalid';await assert.rejects(()=>setup.demoWriteAuthorization(tx,config,'job'));
- state.authorizationExpires='2000-01-01T00:00:00Z';await assert.rejects(()=>setup.demoWriteAuthorization(tx,config,'job'));
+ await (assert.rejects(()=>setup.demoWriteAuthorization(tx,config,'other')));
+ await (assert.rejects(()=>setup.authorizeDemoWrite(tx,{...config,environment:'PRODUCTION'},'owner')));
+ await (assert.rejects(()=>setup.authorizeDemoWrite(tx,{...config,database:'RealSalon'},'owner')));
+ state.authorizationExpires='invalid';await (assert.rejects(()=>setup.demoWriteAuthorization(tx,config,'job')));
+ state.authorizationExpires='2000-01-01T00:00:00Z';await (assert.rejects(()=>setup.demoWriteAuthorization(tx,config,'job')));
  state.authorizationExpires=new Date(Date.now()+10000).toISOString();
  await setup.recordDemoWriteResult(tx,config,{jobId:'job',state:'APPLIED',rows:7});
  assert.equal(state.writesExecuted,7);const count=audits.length;
  await setup.recordDemoWriteResult(tx,config,{jobId:'job',state:'APPLIED',rows:7});assert.equal(audits.length,count);
- await assert.rejects(()=>setup.recordDemoWriteResult(tx,config,{jobId:'wrong',state:'APPLIED',rows:7}));
+ await (assert.rejects(()=>setup.recordDemoWriteResult(tx,config,{jobId:'wrong',state:'APPLIED',rows:7})));
 });

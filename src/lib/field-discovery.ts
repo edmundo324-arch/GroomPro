@@ -47,7 +47,7 @@ export function describeField(element:HTMLElement){
 export function discoverFields(){
  const seen=new Set<string>();
  return [...document.querySelectorAll<HTMLElement>('label,.gp-label,input[aria-label],select[aria-label],textarea[aria-label]')]
- .filter(e=>!e.closest('.gp-whiteboard,.gp-action-pin,.gp-help-popup,.gp-nav-context,[aria-label="Search"],[aria-label="Reorder tabs"]'))
+ .filter(e=>!e.closest('.gp-whiteboard,.gp-action-pin,.gp-help-popup,.gp-nav-context,[aria-label="Search"],[aria-label="Reorder Menu"]'))
  .flatMap(e=>{const field=describeField(e);if(!field)return [];const key=field.path;if(seen.has(key))return [];seen.add(key);return [field]});
 }
 export function revealField(element:HTMLElement){
