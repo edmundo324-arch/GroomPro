@@ -1,3 +1,4 @@
+import {calendarInvitation} from '@/src/lib/calendar-invitation';
 import {onlineStartAllowed} from '@/src/lib/online-booking-time';
 import {isFeatureEnabled} from '@/src/lib/feature-access';
 import {createTicket} from '@/src/lib/actions/ticket-booking';
@@ -46,6 +47,12 @@ export async function POST(r:NextRequest){
     return reply({intakeAvailable:agreementConfig.channels.includes('online')&&agreementConfig.intake.clauses.length>0&&!!agreementConfig.shopEmail,profile,revision:agreementRevision(profile,state.terms,state.quote),business:business.name,approval:policy.approval,catalog:[...services.map(s=>({...s,key:'SERVICE:'+s.id})),...packages.map(p=>({...p,key:'PACKAGE:'+p.id}))],feeCents,warning:cancellationWarning(policy,business.name,feeCents),appointments:appointments.map(a=>({...a,late:a.scheduledStart?cancellationTiming(a.scheduledStart,new Date(),policy.notice).late:false,cancellationRequest:requests.find(q=>q.settingKey===cancellationKey(a.id))?.value||null})),documents});
    }
    if(!profile.id)return reply({error:'Complete your name and contact details first.'},400);
+   if(b.action==='calendar'){
+    const ticket=await db.ticket.findFirst({where:{tenantId,id:String(b.ticketId||''),customerId:profile.id,status:{in:['CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED']},bookingDecision:{notIn:['REQUESTED','PENDING']}},include:{tenant:{select:{name:true}},location:true}});
+    if(!ticket?.scheduledStart)return reply({error:'This appointment is not confirmed or is no longer available. Refresh your appointments or contact the shop.'},404);
+    const address=[ticket.location.address1,ticket.location.address2,ticket.location.city,ticket.location.state,ticket.location.postalCode].filter(Boolean).join(', ');
+    return new NextResponse(calendarInvitation({...ticket,scheduledStart:ticket.scheduledStart},ticket.tenant.name,address),{headers:{...headers,'Content-Type':'text/calendar; charset=utf-8','Content-Disposition':'attachment; filename="grooming-appointment.ics"'}});
+   }
    if(b.action==='intake'){
     const intakeToken=await issueAgreement(tenantId,'intake','online',profile.id,[],undefined,locationId);
     return reply({url:'/customer-forms?tenant='+encodeURIComponent(tenantId)+'&location='+encodeURIComponent(locationId)+'#'+intakeToken});

@@ -8,7 +8,7 @@ The original audit counted 42 missing and 124 partial entries. Those are baselin
 - Maps/live routing, payment-processor selection, shop .bak/live 123Pet validation, and Whiteboard layout remain deferred.
 - Future Training/Sales Studio remains unauthorized under AGENTS.md; audit entries do not silently override that restriction.
 - Sales breakdown basis approved: closed saved line totals after discounts, excluding tax, tips and prior-balance collection; no inferred employee attribution.
-- Automatic confirmation requests default ON; stop when confirmed. Customer chooses day-before/day-of reminders and may add to calendar. Factory timing is awaiting clarification.
+- Automatic confirmation requests default ON; stop when confirmed. Customer may choose several reminders (two days before, one day before, evening before, or morning of), each with a chosen time, and may add to calendar. Repeat confirmation requests are approved; the user will specify their schedule. Do not invent the repeat schedule.
 
 ## Published batches
 
@@ -26,6 +26,13 @@ The original audit counted 42 missing and 124 partial entries. Those are baselin
 Verification: focused policy, availability, household, receipt sending/retries/access, sales/receivables and CSV tests passed. Production build passed. Local browser review used fictional responses: multi-dog selection/quote controls, receipt recipient review and accepted-but-not-delivered result, report sections, and booking defaults. No live email, SMS, customer database or GoDaddy deployment was used.
 
 Remaining items include automatic messaging (approved ON; timing questions pending), the rest of the workflow engine, advanced reporting, document workflows, and other gaps listed below. Do not interpret this continuation as overall audit completion.
+
+## Message templates and calendar continuation
+
+- Customer Portal → Your appointments → Add to calendar downloads the customer’s own confirmed appointment, using the existing calendar-file formatter. Pending, cancelled and other-customer appointments are rejected.
+- Settings → Communications → Message templates stores tenant-owned SMS/email wording with validated automatic details. Messaging inserts the selected template using the chosen customer and appointment; existing draft text is preserved and sending remains explicit.
+- Local review caught and corrected a Settings search crash caused by the missing Device access breadcrumb registration. A regression checks every registered destination.
+- Focused tests passed for template context, ownership, channel, missing details, calendar access, and existing business libraries. Production build passed. Local browser review verified template search/navigation and insertion preserving an existing draft, and the confirmed-appointment calendar control, using fictional API responses. No live messages were sent. Automatic reminder sending remains unfinished; templates do not claim to schedule or send reminders.
 
 ## Audit backlog
 

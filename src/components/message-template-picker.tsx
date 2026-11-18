@@ -1,0 +1,11 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+import {employeeFetch} from '../lib/employee-fetch';
+export function MessageTemplatePicker({customerId,channel,onInsert}:{customerId:string;channel:string;onInsert:(body:string)=>void}){
+ const [templates,setTemplates]=useState<any[]>([]),[appointments,setAppointments]=useState<any[]>([]),[templateId,setTemplate]=useState(''),[ticketId,setTicket]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const context=customerId+'|'+channel,latest=useRef(context);latest.current=context;
+ useEffect(()=>{let stale=false;setTemplate('');setTicket('');setTemplates([]);setAppointments([]);setError('');setBusy(false);
+ employeeFetch('/api/message-templates?'+new URLSearchParams({customerId,channel})).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error);if(!stale){setTemplates(d.templates);setAppointments(d.appointments);}}).catch(e=>{if(!stale)setError(e.message)});return()=>{stale=true};},[customerId,channel]);
+ async function insert(){setBusy(true);setError('');try{const r=await employeeFetch('/api/message-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId,channel,templateId,ticketId})}),d=await r.json();if(latest.current!==context)return;if(!r.ok)throw Error(d.error);onInsert(d.body);}catch(e){if(latest.current===context)setError((e as Error).message)}finally{if(latest.current===context)setBusy(false)}}
+ return <fieldset><legend>Saved message</legend><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><select aria-label="Message template" value={templateId} onChange={e=>setTemplate(e.target.value)}><option value="">Choose a template</option>{templates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select><select aria-label="Appointment for message" value={ticketId} onChange={e=>setTicket(e.target.value)}><option value="">Choose appointment when needed</option>{appointments.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select><button className="gp-btn" disabled={!customerId||!templateId||busy} onClick={insert}>Insert saved message</button></div><p>Review the wording below before sending. Existing text stays in place.</p>{error&&<p role="alert">{error}</p>}</fieldset>;
+}

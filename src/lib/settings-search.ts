@@ -45,6 +45,7 @@ const sections: Record<string, [label: string, description: string, keywords: st
   'data/imports': ['Import & migration', 'Stage and review files or open the prepared data loader.', 'data migration files'],
   'data/123pet': ['123Pet connection', 'Configure the connection between GroomPro and 123Pet.', 'daysmart connector sync'],
   'data/library': ['Starter library', 'Browse available starter packages.', 'catalog starter grooming package'],
+  'administration/devices': ['Device access', 'Choose how the owner verifies additional devices.', 'device verification email password owner'],
   administration: ['Access & subscription', 'Find business access settings and subscription plans.', 'roles permissions plans'],
   'administration/access': ['Platform access', 'View feature availability and manage role access.', 'security administrator developer permissions turn business modules on off business personalization'],
   'administration/subscription': ['Subscription', 'View plans and included features. Developers and Owners can configure plans.', 'upgrade plan pricing texting calling'],
@@ -54,6 +55,7 @@ const businessOnly = new Set(['ticket-layout', 'profiles', 'booking', 'calendar-
 const importPath = ['data', 'imports'];
 const ticketPath = ['workflow', 'ticket-layout'];
 export const settingsSearchEntries: SettingsSearchEntry[] = [
+ {path:['communications'],title:'Message templates',description:'Save reusable SMS and email wording for Messaging.',keywords:'message templates sms email saved wording automatic details',access:'manager'},
  {path:['categories'],title:'Grooming quick picks',description:'Manage reusable grooming instructions.',keywords:'quick picks grooming body ears tail face tbf special notes',access:'manager'},
  {path:['data','imports'],title:'Export business records',description:'Download readable linked records for another provider.',keywords:'export download data portable migrate leave',access:'admin'},
   {
