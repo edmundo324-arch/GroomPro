@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
 
-export function usePinSignIn(open:boolean,onSignedIn:(result:any)=>void, options?:{mode?:string;requestHash?:string;onDeviceRequired?:()=>void}){
+export function usePinSignIn(open:boolean,onSignedIn:(result:any)=>void, options?:{platformOnly?:boolean;mode?:string;requestHash?:string;onDeviceRequired?:()=>void}){
  const [pin,setPin]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const attempted=useRef('');
  const callback=useRef(onSignedIn),current=useRef(pin),visible=useRef(open),inFlight=useRef(false);

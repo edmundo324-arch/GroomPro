@@ -25,6 +25,17 @@ test('portable export scopes child-only tables through their tenant-owned parent
  for(const m of Prisma.dmmf.datamodel.models){const key=m.name[0].toLowerCase()+m.name.slice(1);tx[key]??={findMany:async args=>{assert.ok(args.where.tenantId||args.where.ticket?.tenantId||args.where.package?.tenantId);return[]}};}
  const exported=await tenantExport(tx,'tenant');assert.equal(exported.tables.BookingAssetSchedule[0].id,'child');assert.ok(queries.every(([sql,tenant])=>sql.includes('parent.tenantId = ?')&&tenant==='tenant'));assert.equal(exported.warnings.length,0);
 });
+
+test('portable export retains new operational records without exporting device or portal credentials',async()=>{
+ const included=['TIME_CLOCK:user','TICKET_TIPS:ticket','CUSTOMER_PORTAL_POLICY','EMPLOYEE_AVAILABLE_ONLINE:user','PORTAL_CANCELLATION:ticket','PORTAL_CHANGE:ticket'];
+ const excluded=['DEVICE_AUTHORIZATION:device','CUSTOMER_PORTAL_TOKEN:secret','IMPORT_VAULT_KEY','CUSTOMER_PORTAL_POLICY_SECRET'];
+ const records=[...included,...excluded].map(settingKey=>({settingKey,value:{revision:2,amountCents:123,customerId:'customer',token:'private'}}));
+ const tx={tenant:{findMany:async()=>[{id:'tenant'}]},tenantSetting:{findMany:async({where})=>{assert.equal(where.tenantId,'tenant');return records}},importRecord:{findMany:async()=>[]},$queryRaw:async()=>[]};
+ for(const m of Prisma.dmmf.datamodel.models)tx[m.name[0].toLowerCase()+m.name.slice(1)]??={findMany:async()=>[]};
+ for(const name of ['ticketLine','packageItem','ticketPet','ticketAssignment'])tx[name]??={findMany:async()=>[]};
+ const result=await tenantExport(tx,'tenant');assert.deepEqual(result.tables.BusinessSettings.map(s=>s.settingKey),included);
+ assert.ok(result.tables.BusinessSettings.every(s=>s.value.revision===2&&s.value.customerId==='customer'&&!('token'in s.value)));
+});
 test('reviewed catalog proposals produce linked usable packages for future bookings',async()=>{
  const {planImport}=require('../src/lib/import/engine.ts');
  const client=Object.fromEntries(['customer','pet','user','service','package','ticket','importRecord'].map(k=>[k,{findMany:async()=>[]}]));client.tenantSetting={findUnique:async()=>null};

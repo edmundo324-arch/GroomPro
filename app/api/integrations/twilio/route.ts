@@ -1,3 +1,4 @@
+import {inboundSmsPreference} from '@/src/lib/sms-preference';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {customerContactFeature,isFeatureEnabled} from '@/src/lib/feature-access';
@@ -20,12 +21,17 @@ export async function POST(r:NextRequest){
   });
  }else{
   if(parameters.get('To')!==config.from)return NextResponse.json({error:'Recipient mismatch.'},{status:403});
-  if (!await isFeatureEnabled(tenantId, customerContactFeature)) {
+  const preference=inboundSmsPreference(parameters);
+  if (preference===null&&!await isFeatureEnabled(tenantId, customerContactFeature)) {
    return new NextResponse('<Response/>',{status:200,headers:{'Content-Type':'text/xml'}});
   }
   const from=parameters.get('From')||'',body=parameters.get('Body')||'';
   await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;if(await tx.communication.findFirst({where:{tenantId,externalId:sid}}))return;
    const phone=await tx.customerPhone.findFirst({where:{tenantId,normalized:normalizePhone(from)}});if(!phone)return;
+   if(preference!==null&&phone.smsEnabled!==preference){
+    await tx.customerPhone.updateMany({where:{id:phone.id,tenantId},data:{smsEnabled:preference}});
+    await tx.auditEntry.create({data:{tenantId,actorType:'SYSTEM',entityType:'CUSTOMER',entityId:phone.customerId,customerId:phone.customerId,action:preference?'SMS_OPT_IN':'SMS_OPT_OUT',summary:preference?'Customer requested texts to resume.':'Customer requested texts to stop.',details:{phoneId:phone.id,providerMessageId:sid}}});
+   }
    await tx.communication.create({data:{tenantId,customerId:phone.customerId,channel:'SMS',direction:'INBOUND',body,fromAddress:from,toAddress:config.from,externalId:sid,deliveryStatus:'RECEIVED',receivedAt:new Date()}});
   });
  }

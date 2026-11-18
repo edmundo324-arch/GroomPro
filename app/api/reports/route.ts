@@ -1,3 +1,5 @@
+import {Prisma} from '@prisma/client';
+import {reportReconciliation} from '@/src/lib/report-reconciliation';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {platformSession} from '@/src/lib/platform-access';
@@ -24,7 +26,8 @@ async function get(r:NextRequest){
  db.customer.findMany({where:{tenantId,createdAt:{gte:a,lt:b}},select:{id:true}}),
  db.tenantSetting.findMany({where:{tenantId,settingKey:{startsWith:'CUSTOMER_REFERRAL:'}}})]);
  const sources=new Map(referrals.map(row=>[row.settingKey.slice('CUSTOMER_REFERRAL:'.length),(row.value as any)?.referralSource||'Not recorded']));
- return reportSummary(tickets,payments,closed,memberships,customers.map(c=>({source:sources.get(c.id)||'Not recorded'})),a,b);
+ const settlements=payments.length?await db.$queryRaw<any[]>`SELECT referenceId,entryType,amountCents FROM CustomerAccountLedger WHERE tenantId=${tenantId} AND entryType='OWED' AND amountCents<0 AND referenceId IN (${Prisma.join(payments.map(p=>p.id))})`:[];
+ return {...reportSummary(tickets,payments,closed,memberships,customers.map(c=>({source:sources.get(c.id)||'Not recorded'})),a,b),reconciliation:reportReconciliation(payments,closed,settlements)};
  }
  const result=await period(start,end);let previous;
  if(r.nextUrl.searchParams.get('compare')==='true'){let priorStart=new Date(+start-(+end-+start));if(from&&through){const days=Math.round((Date.parse(through+'T12:00:00Z')-Date.parse(from+'T12:00:00Z'))/86400000)+1;priorStart=localToInstant(new Date(Date.parse(from+'T12:00:00Z')-days*86400000).toISOString().slice(0,10)+'T00:00',location.timezone);}previous=await period(priorStart,start);}

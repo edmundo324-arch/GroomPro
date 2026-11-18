@@ -59,13 +59,13 @@ export async function POST(request: NextRequest) {
   const { tenantId, deviceId, sessionId } = await getContext(request);
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
 
-  let body: { pin?: string; automatic?: boolean; mode?: string; requestHash?: string };
+  let body: { platformOnly?: boolean; pin?: string; automatic?: boolean; mode?: string; requestHash?: string };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   const pin = String(body.pin || "");
   if (!/^\d{3,10}$/.test(pin)) return NextResponse.json({ error: "PIN must contain 3–10 digits." }, { status: 400 });
 
   if(!await allowPinAttempt(tenantId))return NextResponse.json({error:"Too many PIN attempts. Wait a minute and try again."},{status:429});
-  const users = (await db.user.findMany({ where: { tenantId, active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] })).filter(candidate=>hasUsablePinHash(candidate.pinHash));
+  const users = (await db.user.findMany({ where: { tenantId, active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] })).filter(candidate=>hasUsablePinHash(candidate.pinHash)&&(!body.platformOnly||isPlatformRole(candidate.role)));
   const user = (await Promise.all(users.map(async (candidate) => (await verifyPin(pin, candidate.pinHash)) ? candidate : null))).find(Boolean);
   if(!user&&businessId(tenantId)&&body.mode!=='APPROVAL'){
     if(body.automatic)return NextResponse.json({pending:true,message:'Press Continue to verify this PIN.'},{status:202});
