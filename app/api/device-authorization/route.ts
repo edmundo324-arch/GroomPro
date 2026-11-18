@@ -1,11 +1,17 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {approveDevice,deviceApproved,deviceApprovalCookie,sendDeviceCode,verifyDeviceCode,verifyDevicePassword} from '@/src/lib/device-authorization';
 import {businessCookie,deviceCookie,sessionCookie,contextCookieOptions} from '@/src/lib/business-context';
+import {db} from '@/src/lib/db';
+import {currentBusinessSession} from '@/src/lib/platform-business';
+import {isPlatformRole} from '@/src/lib/roles';
 import {createDeviceId} from '@/src/lib/employee-session';
 const headers={'Cache-Control':'no-store'};
 export async function GET(r:NextRequest){
  const tenantId=r.cookies.get(businessCookie)?.value||process.env.GROOMPRO_DEV_TENANT_ID||'';
- return NextResponse.json({approved:await deviceApproved(tenantId,r.cookies.get(deviceCookie)?.value||'',r.cookies.get(deviceApprovalCookie)?.value||'')},{headers});
+ const deviceId=r.cookies.get(deviceCookie)?.value||'',sessionId=r.cookies.get(sessionCookie)?.value||'';
+ const [approved,session]=await Promise.all([deviceApproved(tenantId,deviceId,r.cookies.get(deviceApprovalCookie)?.value||''),tenantId&&sessionId&&deviceId?currentBusinessSession(db,tenantId,sessionId,deviceId):null]);
+ // Platform access belongs to the verified session; it does not enroll a tenant device.
+ return NextResponse.json({approved,platformAccess:!!session&&isPlatformRole(session.user.role)},{headers});
 }
 export async function POST(r:NextRequest){
  try{
