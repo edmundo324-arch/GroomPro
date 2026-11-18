@@ -102,7 +102,7 @@ export function CalendarMap({ date, throughDate = date, onOpen }: { date: string
       <button type="button" className="gp-btn" aria-pressed={!data?.all} onClick={() => setScope('mine')}>My appointments</button>
       {data?.canSeeAll && <button type="button" className="gp-btn" aria-pressed={data.all} onClick={() => setScope('all')}>All appointments</button>}
     </div>
-    {loading && <p role="status">Loading appointments…</p>}
+
     {error && <p role="alert">{error}</p>}
     {data && <>
       <div className="gp-map-controls">

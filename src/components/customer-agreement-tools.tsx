@@ -26,6 +26,11 @@ async function call(path:string,method='GET',body?:object){
  if(!response.ok)throw Error(data.error||'Could not complete this agreement action.');
  return data;
 }
+function AgreementLocation({value,onChange}:{value:string;onChange:(id:string)=>void}){
+ const [locations,setLocations]=useState<{id:string;name:string}[]>([]),[error,setError]=useState('');
+ useEffect(()=>{let live=true;call('?locations=1').then(data=>{if(!live)return;setLocations(data.locations);if(data.locations.length===1)onChange(data.locations[0].id)}).catch(e=>{if(live)setError(e.message)});return()=>{live=false}},[]);
+ return <div><label>Shop location <select value={value} onChange={e=>onChange(e.target.value)}><option value="">Choose shop location</option>{locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}</select></label><HelpPopup label="Shop location">New customers who complete this form belong to this shop’s customer-sharing group. Existing customers keep their current assignment.</HelpPopup>{error&&<p role="alert">{error}</p>}</div>;
+}
 function AgreementHelp({label,children}:{label:string;children:ReactNode}){
  return <HelpPopup label={label}>{children}</HelpPopup>;
 }
@@ -38,6 +43,7 @@ function AgreementField({label,help,children}:{label:string;help:string;children
 }
 function AgreementSettings({tenantId,initial,onSaved,onClose,available}:{tenantId:string;available:boolean;initial:AgreementConfig;onSaved:(config:AgreementConfig)=>void;onClose:()=>void}){
  const [config,setConfig]=useState(initial),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[kind,setKind]=useState<AgreementKind>('intake');
+ const [locationId,setLocationId]=useState('');
  const baseline=useRef(initial),[conflict,setConflict]=useState(false),incoming=useRef(initial);
  useEffect(()=>{if(initial===incoming.current)return;incoming.current=initial;setConfig(current=>{const result=reconcileForm(baseline.current,current,initial);setConflict(result.conflict);if(!result.conflict)baseline.current=initial;return result.values})},[initial]);
  const terms=config[kind];
@@ -47,7 +53,7 @@ function AgreementSettings({tenantId,initial,onSaved,onClose,available}:{tenantI
  async function save(){
   if(!available||conflict){setNotice(conflict?'Choose whether to keep your edits or the saved settings, then save again.':'We haven’t retrieved the saved settings yet. Your edits are still here; wait a moment before saving again.');return;}
   setBusy(true);setNotice('');
-  try{const data=await call('','PUT',config);setConfig(data.config);onSaved(data.config);setNotice('Agreement settings saved.');}
+  try{const submitted=config;const data=await call('','PUT',submitted);baseline.current=data.config;incoming.current=data.config;setConfig(current=>reconcileForm(submitted,current,data.config).values);onSaved(data.config);setNotice('Agreement settings saved. Any edits made during saving remain here for your next save.');}
   catch(error){setNotice((error as Error).message);}finally{setBusy(false);}
  }
  return <section className="gp-agreement gp-agreement-settings">{conflict&&<p role="alert">The saved settings differ from what you entered. Choose which version to keep. <button type="button" onClick={()=>{baseline.current=initial;setConflict(false)}}>Keep my edits</button><button type="button" onClick={()=>{setConfig(initial);baseline.current=initial;setConflict(false)}}>Use saved settings</button></p>}
@@ -97,7 +103,7 @@ function AgreementSettings({tenantId,initial,onSaved,onClose,available}:{tenantI
   </div>
   {notice&&<p role="status">{notice}</p>}
   {config.channels.includes('online')&&config.intake.clauses.length>0&&<AgreementField label="Online intake link" help="Copy this link to share the New Customer Intake form online. Customers can open it and fill it out before booking.">
-   {id=><input id={id} readOnly value={window.location.origin+'/customer-forms?tenant='+encodeURIComponent(tenantId)} onFocus={e=>e.target.select()}/>}
+   {id=><><AgreementLocation value={locationId} onChange={setLocationId}/><input id={id} readOnly value={locationId?window.location.origin+'/customer-forms?tenant='+encodeURIComponent(tenantId)+'&location='+encodeURIComponent(locationId):''} onFocus={e=>e.target.select()}/></>}
   </AgreementField>}
  </section>;
 }
@@ -108,6 +114,7 @@ export function CustomerAgreementTools({customerId}:{customerId?:string}){
   setSetup(false);
   settingsButton.current?.focus();
  }
+ const [locationId,setLocationId]=useState(''),[chooseLocation,setChooseLocation]=useState(false);
  const [path,setPath]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{
   if(!customerId)return;
@@ -128,7 +135,10 @@ export function CustomerAgreementTools({customerId}:{customerId?:string}){
   const tablet=channel==='tablet'?window.open('about:blank','_blank'):null;
   if(tablet)tablet.opener=null;
   try{
-   const data=await createCustomerAgreement({kind:'intake',customerId,channel});
+   const choices=await call('?locations=1');
+   const shop=locationId||(choices.locations.length===1?choices.locations[0].id:'');
+   if(!shop){tablet?.close();setChooseLocation(true);setError('Choose the shop location for this form, then try again.');return;}
+   const data=await createCustomerAgreement({kind:'intake',customerId,channel,locationId:shop});
    const url=new URL(data.path,window.location.origin).href;
    if(channel==='tablet'){if(tablet)tablet.location.href=url;else window.location.assign(url);}
    else setPath(url);
@@ -137,6 +147,7 @@ export function CustomerAgreementTools({customerId}:{customerId?:string}){
  }
  const available=context?.config?.channels||context?.channels||agreementChannels;
  return <div className="gp-intake-tools">
+  {chooseLocation&&<AgreementLocation value={locationId} onChange={setLocationId}/>}
   <div className="gp-intake-actions">
    {(!customerId||context?.canConfigure)&&<button ref={settingsButton} type="button" className="gp-btn" onClick={()=>void openSettings()} disabled={busy} aria-expanded={setup}>Agreement Settings</button>}
    {available.includes('link')&&<button type="button" className="gp-btn" disabled={busy} onClick={()=>void prepare('link')}>Create Link</button>}

@@ -113,8 +113,9 @@ test('a PIN-opened tablet starts customer-scoped intake without an inactivity ti
  const stationToken='a'.repeat(64),tenantId='tenant-a';
  const stationKey='CUSTOMER_AGREEMENT:'+require('node:crypto').createHash('sha256').update(stationToken).digest('hex');
  let tabletVerifyExisting=false,known=true,issued;
- const station={tabletStation:true,channel:'tablet',kind:'intake',terms,quote:[],shopEmail:'shop@example.com',expires:Number.MAX_SAFE_INTEGER};
+ const station={locationId:'shop-a',tabletStation:true,channel:'tablet',kind:'intake',terms,quote:[],shopEmail:'shop@example.com',expires:Number.MAX_SAFE_INTEGER};
  const db={
+  location:{findFirst:async q=>q.where.tenantId==='tenant-a'&&q.where.id==='shop-a'?{id:'shop-a'}:null},
   tenantSetting:{
    findUnique:async q=>q.where.tenantId_settingKey.settingKey==='CUSTOMER_AGREEMENT_CONFIG'
     ?{value:{channels:['tablet'],intake:terms,shopEmail:'shop@example.com',tabletVerifyExisting}}:q.where.tenantId_settingKey.settingKey===stationKey?{value:station}:null,
@@ -137,6 +138,10 @@ test('a PIN-opened tablet starts customer-scoped intake without an inactivity ti
  try{({startTabletIntake}=require(file));}finally{Module._load=load;}
  const knownResult=await startTabletIntake(tenantId,stationToken,'5551231234');
  assert.equal(knownResult.needsCode,false);
+ assert.equal(issued.locationId,'shop-a');
+ station.locationId='other-business-shop';
+ await assert.rejects(startTabletIntake(tenantId,stationToken,'5551231234'),/shop location/);
+ station.locationId='shop-a';
  assert.notEqual(knownResult.token,stationToken);
  assert.equal(issued.customerId,'customer-a');
  assert.equal(issued.expires,Number.MAX_SAFE_INTEGER);

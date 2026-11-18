@@ -20,12 +20,13 @@ export function appointmentData(data:any,locationId:string|undefined,resolve:(en
   const description=String(line.description||service?.name||'').trim();if(!description||description.length>191)throw Error('Each booked item needs a description of up to 191 characters.');
   const petId=line.petId?resolve('PET',String(line.petId))?.id:petIds.length===1?petIds[0]:null;
   if(!petId||!petIds.includes(petId))throw Error('Each booked service must identify a pet on this appointment.');
+  const catalogPackage=line.packageId?resolve('PACKAGE',String(line.packageId)):null;if(line.packageId&&!catalogPackage)throw Error('Package identifier cannot be resolved. Include or match the package dataset first.');
   const employee=line.employeeId?resolve('EMPLOYEE',String(line.employeeId)):null;if(line.employeeId&&!employee)throw Error('Service employee identifier cannot be resolved.');
   const role=line.role||'GROOM';if(!['PREP','BATH','DRY','GROOM','ADD_ON'].includes(role))throw Error('Invalid booked service role.');
   const quantity=integer(line.quantity??1,'quantity',1),unitPriceCents=integer(line.unitPriceCents??service?.priceCents??0,'price'),discountCents=integer(line.discountCents??0,'discount');
   const totalCents=quantity*unitPriceCents-discountCents;integer(totalCents,'line total');
   const assignedAt=line.assignedAt?new Date(line.assignedAt):null;if(assignedAt&&(!Number.isFinite(+assignedAt)||!/(Z|[+-]\d{2}:\d{2})$/.test(String(line.assignedAt))))throw Error('Assignment date requires a timezone.');
-  return {assignedAt,...(line.packageName?{packageName:String(line.packageName).slice(0,191),packageGroupKey:petId+':'+String(line.packageGroupKey||line.packageName).slice(0,100)}:{}),lineType:'SERVICE',role,description,petId,serviceId:service?.id||null,assignedUserId:employee?.id||null,quantity,unitPriceCents,discountCents,totalCents,durationMin:integer(line.durationMin??service?.durationMin??data.durationMin??0,'service duration'),sortOrder:index};
+  return {assignedAt,...(catalogPackage?{packageId:catalogPackage.id}:{}),...(line.packageName?{packageName:String(line.packageName).slice(0,191),packageGroupKey:petId+':'+String(line.packageGroupKey||line.packageName).slice(0,100)}:{}),lineType:'SERVICE',role,description,petId,serviceId:service?.id||null,assignedUserId:employee?.id||null,quantity,unitPriceCents,discountCents,totalCents,durationMin:integer(line.durationMin??service?.durationMin??data.durationMin??0,'service duration'),sortOrder:index};
  });
  const durationMin=data.durationMin===undefined?ticketDuration(lines,mode):integer(data.durationMin,'appointment duration',1);
  if(durationMin<1)throw Error('Appointment duration must be positive.');

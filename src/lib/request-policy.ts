@@ -1,3 +1,4 @@
+import {withCustomerSharing} from './customer-sharing-request';
 import {isPlatformRole} from '@/src/lib/roles';
 import {businessId, sessionCookie} from './business-context';
 import {platformRestriction} from './platform-restrictions';
@@ -47,9 +48,9 @@ export function withRequestPolicy<A extends unknown[]>(handler:(request:NextRequ
    if(permissions.some(permission=>permission?.enabled===false))return NextResponse.json({error:'Your role does not have permission for this action.'},{status:403});
   }
   if(!read&&request.headers.has('x-groompro-offline')&&session){
-   return replayOffline(request,tenantId,session.user.id,()=>handler(request,...args));
+   return withCustomerSharing(request,session,r=>replayOffline(r,tenantId,session.user.id,()=>handler(r,...args)));
   }
-  return handler(request,...args);
+  return withCustomerSharing(request,session,r=>handler(r,...args));
  });
 }
 

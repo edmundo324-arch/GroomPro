@@ -1,3 +1,4 @@
+import {sharingKey,sharingScope,sharedLocations,type SharingConfig} from '@/src/lib/customer-sharing-context';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {platformRestriction} from '@/src/lib/platform-restrictions';
@@ -16,10 +17,16 @@ export async function POST(request:NextRequest){
   const {tenant,action}=body;
   const token=body.token||((action==='view'||action==='startTablet'||action==='prepareTablet')&&body.station===true?request.cookies.get('groompro_intake_station')?.value:undefined);
   if(!validTenant(tenant)||await platformRestriction(tenant))return reply({error:'This form is unavailable.'},404);
+  const access=isAgreementToken(token)?await readAccess(db,tenant,token):undefined;
+  const configRow=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:tenant,settingKey:sharingKey}}});
+  const sharing=configRow?.value as SharingConfig|undefined;
+  const locationId=access?.locationId||body.locationId;
+  if(sharing?.enabled&&!sharedLocations(sharing,locationId).length)return reply({error:'Ask the shop for a form link with the correct shop location.'},400);
+  const execute=async()=>{
   if(action==='sendCode'){
    const entry=isAgreementToken(token)?await readAccess(db,tenant,token):undefined;
    if(entry&&(entry.kind!=='intake'||entry.customerId||entry.phone))return reply({error:'Open the original intake link to start again.'},400);
-   return reply({token:await startPhoneVerification(tenant,String(body.phone||''),entry)});
+   return reply({token:await startPhoneVerification(tenant,String(body.phone||''),entry,body.locationId)});
   }
   if(!isAgreementToken(token))return reply({error:'Open a valid form link.'},401);
   if(action==='startTablet')return reply(await startTabletIntake(tenant,token,String(body.phone||''),body.offlineId,typeof body.expectedCustomerId==='string'?body.expectedCustomerId:undefined));
@@ -56,6 +63,8 @@ export async function POST(request:NextRequest){
   const business=await db.tenant.findUnique({where:{id:tenant},select:{name:true}});
   return reply({profile,kind:state.kind,tablet:state.channel==='tablet',quote:state.quote,terms:state.terms,business:business?.name||'',
    revision:agreementRevision(profile,state.terms,state.quote)});
+  };
+  return await (sharing?.enabled?sharingScope.run({tenantId:tenant,locationId,locations:sharedLocations(sharing,locationId)},execute):execute());
  }catch(error){
   const message=error instanceof Error?error.message:'Could not complete this form.';
   // Do not expose database queries, provider responses or customer data on errors.

@@ -78,7 +78,7 @@ export function CustomerAgreementForm(){
  const request=useRef<Requester>(async(action,data={},override)=>{
   const current=connection.current;
   const response=await fetch('/api/customer-agreement',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(action==='sign'?30000:12000),
-   cache:'no-store',body:JSON.stringify({tenant:current.tenant,token:override??current.token,action,...data})});
+   cache:'no-store',body:JSON.stringify({locationId:new URLSearchParams(window.location.search).get('location'),tenant:current.tenant,token:override??current.token,action,...data})});
   const payload=await response.json();
   if(!response.ok)throw Object.assign(Error(payload.error||'Could not complete this step.'),{name:'AgreementResponseError'});
   return payload;

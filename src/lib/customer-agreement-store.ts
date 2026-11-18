@@ -11,7 +11,7 @@ import {petBreedData} from './breed-classification';
 import {agreementChannels,customerFields,dogFields,type AgreementChannel,type AgreementConfig,type AgreementKind,type AgreementProfile,type Quote,type Terms} from './customer-agreement-model';
 
 export type AgreementAccess={
- kind:AgreementKind;channel:AgreementChannel;expires:number;terms:Terms;shopEmail:string;
+ locationId?:string;kind:AgreementKind;channel:AgreementChannel;expires:number;terms:Terms;shopEmail:string;
  customerId?:string;phone?:string;proof?:string;pinExpires?:number;attempts?:number;quote:Quote[];
  documentId?:string;actorId?:string;bookingUrl?:string;tabletStation?:boolean;lastOfflineEdit?:number;lastOfflineRevision?:string;
 };
@@ -67,14 +67,20 @@ export async function readAccess(client:Prisma.TransactionClient,tenantId:string
  if(!state||state.expires<Date.now())throw agreementError('This form link expired. Ask the shop for a new link.');
  return state;
 }
-export async function issueAgreement(tenantId:string,kind:AgreementKind,channel:AgreementChannel,customerId:string|undefined,quote:Quote[],actorId?:string){
+export async function requireAgreementLocation(tenantId:string,locationId:unknown,client:Prisma.TransactionClient=db){
+ if(typeof locationId!=='string'||!locationId||!await client.location.findFirst({where:{tenantId,id:locationId},select:{id:true}}))throw agreementError('This form needs a shop location. Ask the shop for a new link or to reopen the tablet form.');
+ return locationId;
+}
+
+export async function issueAgreement(tenantId:string,kind:AgreementKind,channel:AgreementChannel,customerId:string|undefined,quote:Quote[],actorId?:string,shopLocationId?:string){
+ const locationId=await requireAgreementLocation(tenantId,shopLocationId);
  const config=await readAgreementConfig(tenantId);
  if(!config.channels.includes(channel))throw agreementError('The shop has turned off this form channel.');
  const terms=config[kind];
  if(!terms.clauses.length||!config.shopEmail)throw agreementError('The shop must set up this agreement and its copy email first.');
  const token=newToken();
  const tabletStation=kind==='intake'&&channel==='tablet'&&!customerId;
- await saveAccess(db,tenantId,token,{kind,channel,customerId,quote,terms,shopEmail:config.shopEmail,expires:tabletStation?Number.MAX_SAFE_INTEGER:Date.now()+86400000,actorId,tabletStation});
+ await saveAccess(db,tenantId,token,{locationId,kind,channel,customerId,quote,terms,shopEmail:config.shopEmail,expires:tabletStation?Number.MAX_SAFE_INTEGER:Date.now()+86400000,actorId,tabletStation});
  return token;
 }
 export async function clearTabletForm(tenantId:string,token:string){
@@ -87,6 +93,7 @@ export async function clearTabletForm(tenantId:string,token:string){
 export async function startTabletIntake(tenantId:string,stationToken:string,input:string,offlineId?:string,expectedCustomerId?:string){
  const station=await readAccess(db,tenantId,stationToken);
  const config=await readAgreementConfig(tenantId);
+ const locationId=await requireAgreementLocation(tenantId,station.locationId);
  if(!station.tabletStation||!config.channels.includes('tablet'))throw agreementError('This tablet is no longer set up for intake.');
  const phone=normalizePhone(input);
  if(!/^\d{10}$/.test(phone))throw agreementError('Enter a 10-digit mobile number.');
@@ -98,7 +105,7 @@ export async function startTabletIntake(tenantId:string,stationToken:string,inpu
  if(registered&&!registered.customer.active)throw agreementError('This profile is inactive. Ask the shop for help.');
  if(registered&&config.tabletVerifyExisting)return {token:await startPhoneVerification(tenantId,phone,{...station,terms:config.intake,shopEmail:config.shopEmail}),needsCode:true};
  const token=replayToken||newToken();
- const state={kind:'intake',channel:'tablet',terms:config.intake,shopEmail:config.shopEmail,
+ const state={locationId,kind:'intake',channel:'tablet',terms:config.intake,shopEmail:config.shopEmail,
   phone,customerId:registered?.customerId,quote:[],expires:Number.MAX_SAFE_INTEGER} satisfies AgreementAccess;
  if(replayToken){
   const settingKey=tokenKey(token),value=JSON.parse(JSON.stringify(state)) as Prisma.InputJsonValue;
@@ -106,7 +113,8 @@ export async function startTabletIntake(tenantId:string,stationToken:string,inpu
  }else await saveAccess(db,tenantId,token,state);
  return {token,needsCode:false};
 }
-export async function startPhoneVerification(tenantId:string,input:string,entry?:AgreementAccess){
+export async function startPhoneVerification(tenantId:string,input:string,entry?:AgreementAccess,shopLocationId?:string){
+ const locationId=await requireAgreementLocation(tenantId,entry?.locationId||shopLocationId);
  const normalized=normalizePhone(input);
  if(!/^\d{10}$/.test(normalized))throw agreementError('Enter a 10-digit mobile number.');
  const config=await readAgreementConfig(tenantId);
@@ -127,7 +135,7 @@ export async function startPhoneVerification(tenantId:string,input:string,entry?
    const value={count:count+1,expires:count?prior!.expires:now+3600000};
    await tx.tenantSetting.upsert({where:settingWhere(tenantId,key),create:{tenantId,settingKey:key,value},update:{value}});
   }
-  await saveAccess(tx,tenantId,token,{kind:'intake',channel,terms:entry?.terms||config.intake,shopEmail:entry?.shopEmail||config.shopEmail,
+  await saveAccess(tx,tenantId,token,{locationId,kind:'intake',channel,terms:entry?.terms||config.intake,shopEmail:entry?.shopEmail||config.shopEmail,
    bookingUrl:channel==='online'?config.bookingUrl:undefined,expires:now+3600000,pinExpires:now+600000,attempts:0,phone:normalized,proof:digest(token+':'+pin),quote:[]});
  });
  const response=await fetch('https://api.twilio.com/2010-04-01/Accounts/'+sms.accountSid+'/Messages.json',{
@@ -219,7 +227,9 @@ export async function updateAgreementProfile(tenantId:string,token:string,input:
    const phone=state.phone!;
    const existing=await tx.customerPhone.findUnique({where:{tenantId_normalized:{tenantId,normalized:phone}},select:{customerId:true}});
    if(existing)throw agreementError('This phone now matches a profile. Reopen the form and verify the number again.');
+   const locationId=await requireAgreementLocation(tenantId,state.locationId,tx);
    const c=await tx.customer.create({data:{tenantId,firstName,lastName,email,phones:{create:{tenantId,number:phone,normalized:phone,isPrimary:true}}}});
+   await tx.tenantSetting.upsert({where:settingWhere(tenantId,'CUSTOMER_HOME_LOCATION:'+c.id),create:{tenantId,settingKey:'CUSTOMER_HOME_LOCATION:'+c.id,value:{locationId,source:'intake'}},update:{}});
    state.customerId=c.id;
    await saveAccess(tx,tenantId,token,state);
   }else if(input.petId!==undefined){

@@ -1,16 +1,34 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {db} from '@/src/lib/db';
+import {platformSession} from '@/src/lib/platform-access';
+import {requestLocation} from '@/src/lib/request-location';
 import {withRequestPolicy} from '@/src/lib/request-policy';
-import {moduleDenial} from '@/src/lib/module-entitlement';
-import {NextRequest,NextResponse} from "next/server";
-import {db} from "@/src/lib/db";
-function tenant(r:NextRequest){return r.headers.get("x-tenant-id")||r.cookies.get("groompro_tenant")?.value||process.env.GROOMPRO_DEV_TENANT_ID||""}
-async function handlePolicyGET(r:NextRequest){const denial=await moduleDenial(r,'REPORTS');if(denial)return denial;
- const tenantId=tenant(r);if(!tenantId)return NextResponse.json({error:"Tenant context is required."},{status:401});
- const requestedLocation=r.nextUrl.searchParams.get("locationId")||process.env.GROOMPRO_DEV_LOCATION_ID||"";
- const locationId=requestedLocation||(await db.location.findFirst({where:{tenantId},orderBy:{createdAt:"asc"},select:{id:true}}))?.id||"";
- if(!locationId)return NextResponse.json({start:new Date(),end:new Date(),appointments:0,projectedSalesCents:0,statusCounts:{}});
- const startValue=r.nextUrl.searchParams.get("start"),endValue=r.nextUrl.searchParams.get("end");const start=startValue?new Date(startValue):new Date(),end=endValue?new Date(endValue):new Date(Date.now()+14*86400000);
- if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime())||end<=start)return NextResponse.json({error:"Invalid report range."},{status:400});
- const tickets=await db.ticket.findMany({where:{tenantId,locationId,scheduledStart:{gte:start,lt:end},status:{not:"CANCELLED"}},select:{id:true,status:true,totalCents:true,lines:{select:{totalCents:true}}}});const projectedSalesCents=tickets.reduce((sum,t)=>sum+(t.totalCents||t.lines.reduce((lineSum,l)=>lineSum+l.totalCents,0)),0);const statusCounts=tickets.reduce<Record<string,number>>((out,t)=>{out[t.status]=(out[t.status]||0)+1;return out},{});return NextResponse.json({start,end,appointments:tickets.length,projectedSalesCents,statusCounts,locationId});
+import {localToInstant} from '@/src/lib/operating-hours';
+import {reportSummary} from '@/src/lib/report-summary';
+async function get(r:NextRequest){
+ const session=await platformSession(r);if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
+ if(r.nextUrl.searchParams.has('locations'))return NextResponse.json({locations:await db.location.findMany({where:{tenantId:session.tenantId},select:{id:true,name:true}}),selected:session.user.locationId||''});
+ const tenantId=session.tenantId,locationId=await requestLocation(r,tenantId),location=await db.location.findFirst({where:{id:locationId,tenantId}});
+ if(!location)return NextResponse.json({error:'Choose a location before opening reports.'},{status:400});
+ try{
+ const from=r.nextUrl.searchParams.get('from'),through=r.nextUrl.searchParams.get('through');let start:Date,end:Date;
+ if(from&&through){if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(through))throw Error('Choose the beginning and ending dates.');start=localToInstant(from+'T00:00',location.timezone);const next=new Date(through+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);end=localToInstant(next.toISOString().slice(0,10)+'T00:00',location.timezone);}
+ else {start=new Date(r.nextUrl.searchParams.get('start')||Date.now());end=new Date(r.nextUrl.searchParams.get('end')||Date.now()+14*86400000);}
+ if(!Number.isFinite(+start)||!Number.isFinite(+end)||end<=start)throw Error('Choose an ending date on or after the beginning date.');
+ async function period(a:Date,b:Date){
+ const [tickets,payments,closed,memberships,customers,referrals]=await Promise.all([
+ db.ticket.findMany({where:{tenantId,locationId,scheduledStart:{gte:a,lt:b},status:{not:'CANCELLED'}},include:{lines:true}}),
+ db.payment.findMany({where:{tenantId,paidAt:{gte:a,lt:b},ticket:{tenantId,locationId}}}),
+ db.ticket.findMany({where:{tenantId,locationId,status:'CLOSED',closedAt:{gte:a,lt:b}},include:{lines:{include:{service:{select:{name:true}},assignedUser:true}}}}),
+ db.$queryRaw<any[]>`SELECT customerId,status,startedAt,endedAt FROM Membership WHERE tenantId=${tenantId}`,
+ db.customer.findMany({where:{tenantId,createdAt:{gte:a,lt:b}},select:{id:true}}),
+ db.tenantSetting.findMany({where:{tenantId,settingKey:{startsWith:'CUSTOMER_REFERRAL:'}}})]);
+ const sources=new Map(referrals.map(row=>[row.settingKey.slice('CUSTOMER_REFERRAL:'.length),(row.value as any)?.referralSource||'Not recorded']));
+ return reportSummary(tickets,payments,closed,memberships,customers.map(c=>({source:sources.get(c.id)||'Not recorded'})),a,b);
+ }
+ const result=await period(start,end);let previous;
+ if(r.nextUrl.searchParams.get('compare')==='true'){let priorStart=new Date(+start-(+end-+start));if(from&&through){const days=Math.round((Date.parse(through+'T12:00:00Z')-Date.parse(from+'T12:00:00Z'))/86400000)+1;priorStart=localToInstant(new Date(Date.parse(from+'T12:00:00Z')-days*86400000).toISOString().slice(0,10)+'T00:00',location.timezone);}previous=await period(priorStart,start);}
+ return NextResponse.json({...result,start,end,locationId,previous},{headers:{'Cache-Control':'no-store'}});
+ }catch(e){return NextResponse.json({error:(e as Error).message},{status:400});}
 }
-
-export const GET=withRequestPolicy(handlePolicyGET, {feature:'REPORTS'});
+export const GET=withRequestPolicy(get,{feature:'REPORTS'});

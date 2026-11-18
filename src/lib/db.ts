@@ -1,3 +1,4 @@
+import {scopedClient} from './customer-sharing-query';
 import { PrismaClient } from "@prisma/client";
 import { offlineTransaction } from "./offline-transaction";
 
@@ -21,9 +22,10 @@ export const db = new Proxy(client, {
   get(original, key) {
     const scope = offlineTransaction.getStore();
     if (scope && key === '$transaction') return (operation: any) =>
-      typeof operation === 'function' ? operation(scope.tx) : Promise.all(operation);
+      typeof operation === 'function' ? operation(scopedClient(scope.tx)) : Promise.all(operation);
     const owner = scope && key in scope.tx ? scope.tx : original;
-    const value = Reflect.get(owner, key, owner);
+    const secured = scopedClient(owner);
+    const value = Reflect.get(secured, key, secured);
     return typeof value === 'function' ? value.bind(owner) : value;
   },
 });

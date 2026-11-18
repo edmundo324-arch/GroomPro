@@ -45,8 +45,8 @@ export function PosTicketLabel({number,compact=false}:{number?:number;compact?:b
  </span>;
 }
 
-export function PosHeaderMenu({details,onDetails,onCall,callPending=false}:{
- details?:boolean;onDetails?:()=>void;onCall?:()=>void;callPending?:boolean
+export function PosHeaderMenu({details,onDetails,onCall,onCalendar,callPending=false}:{
+ details?:boolean;onDetails?:()=>void;onCall?:()=>void;onCalendar?:(send:boolean)=>void;callPending?:boolean
 }){
  const [open,setOpen]=useState(false),root=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null);
  useEffect(()=>{
@@ -59,6 +59,7 @@ export function PosHeaderMenu({details,onDetails,onCall,callPending=false}:{
   <button ref={button} type="button" className="gp-btn" aria-label="Ticket actions" title="Ticket actions" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>⋯</button>
   {open&&<div className="gp-ticket-tab-menu">
    {onDetails&&<button type="button" className="gp-btn" onClick={()=>{setOpen(false);onDetails()}}>{details?'Back to ticket':'Details'}</button>}
+   {onCalendar&&<><button type="button" className="gp-btn" onClick={()=>{setOpen(false);onCalendar(false)}}>Download calendar invitation</button><button type="button" className="gp-btn" onClick={()=>{setOpen(false);onCalendar(true)}}>Email calendar invitation</button></>}
    <button type="button" className="gp-btn" disabled={!onCall||callPending} onClick={()=>{setOpen(false);onCall?.()}}>Record pickup call</button>
   </div>}
  </div>;

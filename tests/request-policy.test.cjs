@@ -1,6 +1,7 @@
+require('./load-ts.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const {AsyncLocalStorage}=require('node:async_hooks');
-function load(file,deps){deps={'./platform-restrictions':{platformRestriction:async()=>null,isDeveloperId:()=>false},...deps};const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:n=>{if(n in deps)return deps[n];throw Error(n)},Date,process,Map});return exports;}
+function load(file,deps){deps={'@/src/lib/roles':require('../src/lib/roles.ts'),'./business-context':require('../src/lib/business-context.ts'),'./offline-replay':{replayOffline:async(r,t,u,run)=>run()},'./customer-sharing-request':{withCustomerSharing:async(request,session,run)=>run(request)},'./platform-restrictions':{platformRestriction:async()=>null,isDeveloperId:()=>false},...deps};const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:n=>{if(n in deps)return deps[n];throw Error(n)},Date,process,Map});return exports;}
 function fixture({permission=true,feature=true,mode='PER_ACTION',approval=false}={}){
  const requestAuthorization=new AsyncLocalStorage(),requestHeaders=new AsyncLocalStorage();let claims=0,approvalUses=0,checks=[],writes=0;
  const session={id:'session',tenantId:'tenant',deviceId:'device',lastActiveAt:new Date(),user:{id:'worker',role:'FRONT',active:true}};

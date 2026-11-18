@@ -19,6 +19,7 @@ const staff=async(r:NextRequest)=>{
 async function read(r:NextRequest){
  const {tenantId,session}=await staff(r);
  if(!session)return json({error:'Enter your employee PIN.'},401);
+ if(r.nextUrl.searchParams.has('locations'))return json({locations:await db.location.findMany({where:{tenantId},select:{id:true,name:true},orderBy:{name:'asc'}})});
  const token=r.headers.get('x-groompro-agreement');
  if(isAgreementToken(token)){
   try{const state=await readAccess(db,tenantId,token);return json({documentId:state.documentId||null});}
@@ -55,7 +56,7 @@ async function issue(r:NextRequest){
  const {tenantId,session}=await staff(r);
  if(!session)return json({error:'Enter your employee PIN.'},401);
  try{
-  const {kind,channel,customerId,prices,planId,billing}=await r.json();
+  const {kind,channel,customerId,prices,planId,billing,locationId:requestedLocation}=await r.json();
   if((kind!=='intake'&&kind!=='vip')||!agreementChannels.includes(channel)||channel==='online')return json({error:'Choose an agreement and delivery channel.'},400);
   const quote:Quote[]=[];
   if(customerId){
@@ -78,7 +79,9 @@ async function issue(r:NextRequest){
    }
   }
   if(kind==='vip'&&(!customerId||!quote.length))return json({error:'Select at least one dog and enter their VIP price.'},400);
-  const token=await issueAgreement(tenantId,kind as AgreementKind,channel,customerId?String(customerId):undefined,quote,session.user.id);
+  const shops=await db.location.findMany({where:{tenantId},select:{id:true}});
+  const locationId=typeof requestedLocation==='string'&&requestedLocation?requestedLocation:session.user.locationId||(shops.length===1?shops[0].id:undefined);
+  const token=await issueAgreement(tenantId,kind as AgreementKind,channel,customerId?String(customerId):undefined,quote,session.user.id,locationId);
   return json({path:'/customer-forms?tenant='+encodeURIComponent(tenantId)+'#'+token,token},201);
  }catch(error){return json({error:error instanceof Error&&(error.name==='AgreementError'||error.message.startsWith('Enter a price'))?error.message:'Could not prepare the agreement.'},400);}
 }

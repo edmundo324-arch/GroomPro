@@ -38,7 +38,7 @@ const sections: Record<string, [label: string, description: string, keywords: st
   'locations/sharing': ['Customer sharing', 'Choose how customer records are shared between locations.', 'client location access'],
   pricing: ['Pricing', 'Adjust base service and package prices or set a price rule for a location.', 'rates bulk price markup discount'],
   breeds: ['Breeds', 'Manage breed records and their grooming defaults.', 'breed dog default package'],
-  categories: ['Service categories', 'Manage categories used for services and employee qualifications.', 'job title employee categories'],
+  categories: ['Service categories', 'Manage categories used for services and employee qualifications.', 'job title employee categories grooming instructions quick picks body ears tail tbf'],
   rewards: ['Rewards', 'Manage referral credit and customer rewards.', 'loyalty referral credit dollars points'],
   communications: ['Communications', 'Manage the HeyRosie connection and its settings.', 'rosie phone integration'],
   data: ['Data & integrations', 'Find file imports, the 123Pet connection, and the starter library.', 'migration data upload'],
@@ -54,6 +54,8 @@ const businessOnly = new Set(['ticket-layout', 'profiles', 'booking', 'calendar-
 const importPath = ['data', 'imports'];
 const ticketPath = ['workflow', 'ticket-layout'];
 export const settingsSearchEntries: SettingsSearchEntry[] = [
+ {path:['categories'],title:'Grooming quick picks',description:'Manage reusable grooming instructions.',keywords:'quick picks grooming body ears tail face tbf special notes',access:'manager'},
+ {path:['data','imports'],title:'Export business records',description:'Download readable linked records for another provider.',keywords:'export download data portable migrate leave',access:'admin'},
   {
     path: ticketPath, title: 'Sales tax',
     description: 'Set the default tax rate and turn on automatic tax calculation for new POS tickets.',

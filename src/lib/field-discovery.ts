@@ -1,3 +1,4 @@
+import {fieldPurposes} from './field-purpose';
 import {fieldHint} from './field-guide';
 export function fieldLabel(element:HTMLElement):string{
  if(element.matches('.gp-pos-account-link'))return element.querySelector('strong')?.textContent?.trim()||'';
@@ -16,7 +17,7 @@ export function describeField(element:HTMLElement){
  const candidate=fieldHint(name);
  const customerContext=!!element.closest('[data-customer-id],.gp-customer-window,.gp-pet-window,.gp-pos-window')||/customer|pet|pos|ticket/i.test(window||module);
  const known=candidate?.tab==='Details'&&!customerContext?undefined:candidate;
- const panels=[...element.closest('[data-settings-panel]')?.querySelectorAll(':scope > legend')||[]].map(e=>e.textContent).filter(Boolean);
+ const panels:string[]=[];for(let panel=element.closest<HTMLElement>('[data-settings-panel]');panel;panel=panel.parentElement?.closest<HTMLElement>('[data-settings-panel]')||null){const label=document.getElementById(panel.getAttribute('aria-labelledby')||'')?.textContent?.trim();if(label)panels.unshift(label);}
  const path=[module,...(window&&window!==module?[window]:[]),...panels,name].join(' → ');
  const control=element.matches('input,select,textarea')?element:element.querySelector('input,select,textarea');
  const amount=element.matches('.gp-pos-account-link')?element.textContent?.match(/\$[\d,.]+/)?.[0]:undefined;
@@ -41,7 +42,7 @@ export function describeField(element:HTMLElement){
  const contextHelp=name==='Status'&&appearance?'Choose the appointment stage whose colors you want to edit. This does not change an appointment’s status.':
   name==='Status'&&/pos|ticket/i.test(window||module)?'Set the stage this appointment has reached. Its appearance follows this business’s configured colors.':
   name==='Service type'&&appearance?'Choose the service type whose appointment colors you want to edit, such as GR, FW or FFT.':undefined;
- const help=element.dataset.help||control?.getAttribute('data-help')||accountHelp||contextHelp||(['Primary','SMS','Call','Show Inactive'].includes(name)&&!customerContext?undefined:purpose[name])||known?.help||control?.getAttribute('title')||element.getAttribute('title')||'';
+ const help=element.dataset.help||control?.getAttribute('data-help')||accountHelp||contextHelp||(['Primary','SMS','Call','Show Inactive'].includes(name)&&!customerContext?undefined:purpose[name])||known?.help||fieldPurposes[name]||control?.getAttribute('title')||element.getAttribute('title')||'';
  return {name:element.dataset.helpName||known?.name||name,aliases:[name,...(known?.aliases||[])],path:element.dataset.helpPath||known?.path||path,help,element,module};
 }
 export function discoverFields(){
