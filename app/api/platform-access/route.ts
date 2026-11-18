@@ -20,11 +20,11 @@ async function handle(r:NextRequest){
   const currentTenantId=actor.tenantId;
   const canReturnHome=businessId(currentTenantId)&&actor.user.id.startsWith(platformUserPrefix);
   if(!tenantId)return NextResponse.json({tenants,currentTenantId,canReturnHome,canManageOwners:actor.user.role==='PLATFORM_OWNER'});
-  const employees=await db.user.findMany({where:{tenantId},select:{id:true,firstName:true,lastName:true,displayName:true,role:true,active:true}});
+  const employees=await db.user.findMany({where:{tenantId},select:{id:true,firstName:true,lastName:true,displayName:true,role:true,active:true,email:true}});
   const rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[platformAccessKey,businessOwnerKey]}}});
   const access=rows.find(row=>row.settingKey===platformAccessKey)?.value;
   const owner=rows.find(row=>row.settingKey===businessOwnerKey)?.value as {userId?:string}|undefined;
-  return NextResponse.json({tenants,employees,currentTenantId,canReturnHome,businessOwnerId:owner?.userId,canManageOwners:actor.user.role==='PLATFORM_OWNER',access:access||{suspended:false,blockedUserIds:[]}});
+  return NextResponse.json({tenants,employees,currentTenantId,canReturnHome,businessOwnerId:owner?.userId,businessOwnerEmail:employees.find(e=>e.id===owner?.userId)?.email||'',canManageOwners:actor.user.role==='PLATFORM_OWNER',access:access||{suspended:false,blockedUserIds:[]}});
  }
  try{
   const b=await r.json(),tenantId=String(b.tenantId||''),reason=String(b.reason||'').trim();
@@ -41,6 +41,20 @@ async function handle(r:NextRequest){
     return {id:created.id,name:created.name};
    });
    return NextResponse.json({tenant},{status:201});
+  }
+  if(b.action==='SET_OWNER_EMAIL'){
+   const email=String(b.email||'').trim().toLowerCase();
+   if(email.length>191||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Enter a valid owner email.');
+   await db.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
+    const record=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:businessOwnerKey}}});
+    const ownerId=(record?.value as {userId?:string}|null)?.userId;
+    if(!ownerId)throw Error('Add the business owner first.');
+    const updated=await tx.user.updateMany({where:{id:ownerId,tenantId,active:true},data:{email}});
+    if(!updated.count)throw Error('The business owner is not active.');
+    await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:actor.user.id,entityType:'USER',entityId:ownerId,action:'OWNER_EMAIL',summary:'Updated the owner email for device verification.'}});
+   });
+   return NextResponse.json({ok:true});
   }
   if(b.action==='ADD_BUSINESS_OWNER'){
    const owner=businessOwnerInput(b.owner);

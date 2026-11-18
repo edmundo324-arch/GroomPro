@@ -1,6 +1,6 @@
 // Shared by the device queue and the server. Financial and external actions
 // have their own confirmation workflow and must never be replayed here.
-export type OfflineEntity = 'customer' | 'pet' | 'ticket' | 'draft';
+export type OfflineEntity = 'customer' | 'pet' | 'ticket' | 'draft' | 'service' | 'package' | 'schedules';
 export type OfflineTarget = { entity: OfflineEntity; id: string };
 export type OfflineScope = { tenantId: string; locationId: string; employeeId: string };
 export type OfflineVersion = string | null;
@@ -22,6 +22,9 @@ export function offlineAction(url: URL, method: string, body: any): { create?: O
   const path = url.pathname;
   const target = (entity: OfflineEntity, id: unknown) =>
     typeof id === 'string' && id.length > 0 && id.length <= 191 ? { target: { entity, id } } : null;
+  if(['/api/employee-schedules','/api/booking-assets/schedules','/api/schedule-overrides'].includes(path)&&['PUT','DELETE'].includes(method))return {target:{entity:'schedules',id:'all'}};
+  if(path==='/api/time-clock'&&method==='POST'&&['IN','OUT','BREAK_START','BREAK_END','CORRECT'].includes(body.action))return {};
+  if(path==='/api/catalog'&&['services','packages'].includes(body.kind)){const entity=body.kind==='services'?'service':'package';return method==='POST'?{create:entity}:method==='PATCH'?target(entity,body.id):null;}
   if (path === '/api/customers' && method === 'POST') return { create: 'customer' };
   const customer = /^\/api\/customers\/([^/]+)$/.exec(path);
   if (customer && method === 'PATCH' && !['account', 'rewards', 'location-access', 'payment-methods'].includes(customer[1])) return target('customer', customer[1]);
@@ -48,3 +51,5 @@ export function offlineAction(url: URL, method: string, body: any): { create?: O
 export const offlineRecordId = (id: string) => 'offline-' + id;
 export const offlineScopeKey = (s: OfflineScope) => JSON.stringify([s.tenantId, s.locationId, s.employeeId]);
 export const offlineTargetKey = (t: OfflineTarget) => t.entity + ':' + t.id;
+
+export function offlineRecordVersion(record:any):string|null {const value=record?._offlineVersion||record?.updatedAt;return value instanceof Date?value.toISOString():typeof value==='string'?value:null;}

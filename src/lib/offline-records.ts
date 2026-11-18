@@ -1,3 +1,10 @@
+import {newCustomerPhones} from './new-customer-phones';
+import {normalizePhone} from './phone-normalization';
+import {editOfflineSchedule} from './offline-schedules';
+import {dateRange} from './schedule-dates';
+import {catalogInput} from './catalog-input';
+import {serviceIsCurrentOffer,serviceIsPromoting,servicePromotionFields} from './service-promotion';
+import {applyClock} from './time-clock';
 import { bookedPetIds } from './appointment-pets';
 import { expandPackage } from './package-lines';
 import { lineSchedule, movePetTimes, responsibleEmployee, scheduleBounds } from './pet-scheduling';
@@ -14,6 +21,8 @@ import type { OfflineSnapshot } from './offline-device-store';
 
 export type OfflineRecords = OfflineSnapshot & { lookups: Record<string, any> };
 export function findRecord(state: OfflineRecords, entity: string, id: string) {
+  if(entity==='schedules')return state.lookups['/api/offline/schedules'];
+  if(entity==='service'||entity==='package')return state.lookups['/api/catalog']?.[entity==='service'?'services':'packages']?.find((row:any)=>row.id===id);
   if (entity === 'customer') return state.customers.find(row => row.id === id);
   if (entity === 'pet') return state.customers.flatMap(row => row.pets).find(row => row.id === id);
   return (entity === 'ticket' ? state.tickets : state.drafts).find(row => row.id === id);
@@ -110,14 +119,49 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
   const id = offlineRecordId(command.id);
   const now = new Date(command.createdAt).toISOString();
   if (!action) throw Error('This action requires a connection.');
+  if(action.target?.entity==='schedules'){
+   if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER','FLOOR_MANAGER'].includes(state.employee.role))throw Error('A manager must sign in to edit schedules.');
+   const data=state.lookups['/api/offline/schedules'];if(!data)throw Error('Open Schedule while connected to prepare this device.');
+   const result=editOfflineSchedule(data,path,command.method,body,id);
+   const assets=state.lookups['/api/booking-assets']?.assets;for(const asset of assets||[])asset.schedules=data.assetSchedules.filter((r:any)=>r.assetId===asset.id);
+   return result;
+  }
+  if(path==='/api/catalog'){
+   if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(state.employee.role))throw Error('An owner or manager must sign in to edit services and packages.');
+   const data=catalogInput(body),catalog=state.lookups[path];if(!catalog)throw Error('Open the catalog while connected to prepare it for offline work.');
+   const rows=catalog[data.kind],old=action.target&&rows.find((row:any)=>row.id===action.target!.id);
+   if(action.target&&!old)throw Error('This catalog item is not available on this device.');
+   const item={...old,...Object.fromEntries(Object.entries(data).filter(([,v])=>v!==undefined)),id:old?.id||id,updatedAt:old?.updatedAt||now};
+   if(data.kind==='services'){
+    if(data.code&&rows.some((row:any)=>row.id!==item.id&&row.code===data.code))throw Error('Service ID is already used.');
+    const recordOffer=serviceIsCurrentOffer(old)||data.active&&(data.promotingServices??serviceIsPromoting(old));
+    item.customFields=servicePromotionFields(old?.customFields,data.promotingServices,data.offerTodayLabel,recordOffer);
+   }else{
+    item.basePriceCents=data.priceCents;item.items=data.items.map((part,index)=>{const service=catalog.services.find((s:any)=>s.id===part.serviceId);if(!service)throw Error('Every package service must be saved on this device.');return {...part,sortOrder:index,role:body.items.find((i:any)=>i.serviceId===part.serviceId)?.role||service.workflowRole||'ADD_ON'};});
+   }
+   replace(rows,item);return {item};
+  }
+  if(path==='/api/time-clock'){
+   const data=state.lookups[path];if(!data)throw Error('Open Time clock while connected to prepare it for offline work.');
+   if(url.searchParams.get('locationId')!==command.locationId)throw Error('Offline time must use the shop prepared on this device.');
+   if(body.action==='CORRECT'&&!data.canManage)throw Error('Ask a manager to correct this time record.');
+   const userId=body.action==='CORRECT'?body.userId:command.employeeId,previous=data.clocks[userId];
+   if(!previous)throw Error('This employee’s time is not available on this device.');
+   const clock=applyClock(previous,body,body.at||now,id,command.locationId,true);data.clocks[userId]=clock;return {clock,userId};
+  }
+
   if (action.create === 'customer' || action.target?.entity === 'customer' && path !== '/api/grooming-notes') {
     if (!body.firstName?.trim() || !body.lastName?.trim()) throw Error('First and last name are required.');
+    if(action.create==='customer')body.phones=newCustomerPhones(body);
     const old = action.target && customerRecord(state, action.target.id);
     const customerId = old?.id || id;
     const customer = {
       active: true, pets: [], communications: [], createdAt: now, ...old, ...body, id: customerId,
       phones: body.phones || body.phone ? phoneRows(body, customerId) : old?.phones || [],
     };
+    const numbers=customer.phones.map((p:any)=>normalizePhone(p.number||''));
+    if(numbers.some((n:string)=>n.length<7||n.length>15)||new Set(numbers).size!==numbers.length)throw Error('Enter distinct, valid phone numbers.');
+    if(state.customers.some(other=>other.id!==customerId&&other.phones.some((p:any)=>numbers.includes(normalizePhone(p.number||'')))))throw Error('This phone number already belongs to a customer on this device. Open that profile instead.');
     replace(state.customers, customer);
     return { customer };
   }
@@ -291,6 +335,17 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
 
 export function offlineReadRecords(state: OfflineRecords, url: URL) {
   const { pathname: path, searchParams: params } = url;
+  if(path==='/api/employee-schedules'||path==='/api/schedule-overrides'){
+   const data=state.lookups['/api/offline/schedules'];if(!data)throw Error('Schedules have not been prepared on this device.');
+   if(path==='/api/employee-schedules')return {schedules:data.schedules};
+   const start=params.get('start')||'',end=params.get('end')||'';dateRange(start,end);
+   return {overrides:data.overrides.filter((r:any)=>r.date>=start&&r.date<=end)};
+  }
+  if(path==='/api/reports'){
+    const saved=state.lookups[path+url.search];
+    if(!saved)throw Error('This report has not been saved on this device. Open these dates while connected before using them offline.');
+    return {...saved,offlineReport:true};
+  }
   const customerId = params.get('customerId');
   const ticketId = params.get('ticketId');
   const q = (params.get('q') || '').trim().toLowerCase();
@@ -342,7 +397,11 @@ export function offlineReadRecords(state: OfflineRecords, url: URL) {
         : inRange(ticket.scheduledStart || ticket.createdAt)) &&
       (params.get('requests') !== '1' || ['REQUESTED', 'PENDING'].includes(ticket.bookingDecision)))
       .map(ticket => ({ ...ticket, customer: customerRecord(state, ticket.customerId) }));
-    if (path === '/api/calendar') return { ...state.lookups['/api/calendar'], locationId: state.scope.locationId, tickets };
+    if (path === '/api/calendar') {
+      const calendar=state.lookups['/api/calendar'],schedules=state.lookups['/api/offline/schedules'];
+      const employeeIds=new Set((calendar?.employees||[]).map((e:any)=>e.id)),assetIds=new Set((calendar?.assets||[]).map((a:any)=>a.id));
+      return {...calendar,locationId:state.scope.locationId,tickets,...(schedules?{employeeSchedules:schedules.schedules.filter((s:any)=>s.active&&employeeIds.has(s.userId)),assetSchedules:schedules.assetSchedules.filter((s:any)=>s.active&&assetIds.has(s.assetId)),scheduleOverrides:schedules.overrides.filter((s:any)=>s.resourceKind==='employee'?employeeIds.has(s.resourceId):assetIds.has(s.resourceId))}:{})};
+    }
     return { tickets: [...tickets, ...(params.get('requests') === '1' ? [] : state.drafts.map(draft => ({ ...draft.payload?.ticket, id: draft.id, orderNumber: draft.orderNumber, status: 'DRAFT' })))] };
   }
   if (path === '/api/pos-drafts') return { drafts: state.drafts.filter(draft => !params.get('id') || draft.id === params.get('id')) };

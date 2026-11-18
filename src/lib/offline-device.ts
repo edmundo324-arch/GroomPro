@@ -1,10 +1,10 @@
 "use client";
-import { offlineAction, offlineScopeKey, offlineTargetKey, type OfflineCommand, type OfflineScope } from './offline-actions';
+import { offlineAction, offlineRecordVersion, offlineScopeKey, offlineTargetKey, type OfflineCommand, type OfflineScope } from './offline-actions';
 import { deviceRead, deviceUpdate, emptyOutbox, outboxKey, snapshotKey, type OfflineOutbox } from './offline-device-store';
 import { findRecord, offlineReadRecords, projectOffline, type OfflineRecords } from './offline-records';
 
 const activeKey = 'active-employee';
-const lookups = ['/api/catalog', '/api/operating-hours', '/api/workflow-settings', '/api/customer-display', '/api/pet-display', '/api/breeds', '/api/features'];
+const lookups = ['/api/offline/schedules','/api/booking-assets','/api/locations','/api/time-clock','/api/catalog', '/api/operating-hours', '/api/workflow-settings', '/api/customer-display', '/api/pet-display', '/api/breeds', '/api/features'];
 type ActiveDevice = { scope: OfflineScope; validUntil: number };
 let syncing: Promise<void> | null = null;
 let preparing: Promise<void> | null = null;
@@ -116,8 +116,9 @@ async function projected(active: ActiveDevice) {
       for (const [key, version] of Object.entries(entry.result.offlineVersions || {})) {
         const colon = key.indexOf(':');
         const record = findRecord(snapshot, key.slice(0, colon), key.slice(colon + 1));
-        if (record) record.updatedAt = version;
+        if(record){if(key.startsWith('package:')||key.startsWith('schedules:'))record._offlineVersion=version;else record.updatedAt=version;}
       }
+      if(entry.result.clock&&snapshot.lookups['/api/time-clock'])snapshot.lookups['/api/time-clock'].clocks[entry.result.userId]=entry.result.clock;
       if (entry.result.ticket) {
         const record = findRecord(snapshot, 'ticket', entry.result.ticket.id);
         if (record) Object.assign(record, entry.result.ticket);
@@ -168,7 +169,7 @@ async function saveOnDevice(active: ActiveDevice, url: URL, method: string, raw:
   const record = target && findRecord(data.snapshot, target.entity, target.id);
   const command: OfflineCommand = {
     ...active.scope, id: crypto.randomUUID(), url: url.pathname + url.search, method, body: raw,
-    version: record?.updatedAt || null, createdAt: Date.now(),
+    version: offlineRecordVersion(record), createdAt: Date.now(),
   };
   let result;
   try { result = projectOffline(data.snapshot, command); }
@@ -263,6 +264,10 @@ export async function deviceFetch(input: string, init?: RequestInit): Promise<Re
       }
     }
     const response = await fetch(input, init);
+    if(response.ok&&url.pathname==='/api/reports'){
+      const device=await activeDevice();const revision=identityRevision;
+      if(device){const value=await response.clone().json();if(revision===identityRevision)await deviceUpdate<OfflineRecords>(snapshotKey(device.scope),state=>state&&({...state,lookups:{...state.lookups,[url.pathname+url.search]:{...value,offlineSavedAt:new Date().toISOString()}}})).catch(()=>{});}
+    }
     if (response.status < 500 || init?.signal?.aborted) return response;
     const fallback = await localRead();
     return fallback.ok ? fallback : response;
@@ -340,7 +345,7 @@ export async function reviewOffline(id: string, resolution: 'retry' | 'device' |
       if (resolution === 'cloud') return [];
       return [{
         ...entry, issue: undefined, cloud: undefined,
-        ...(resolution === 'device' ? { version: (entry.cloud as any)?.updatedAt, follows: undefined } : {}),
+        ...(resolution === 'device' ? { version: offlineRecordVersion(entry.cloud), follows: undefined } : {}),
         ...(resolution === 'warning' && entry.warning ? { overrides: [...(entry.overrides || []), entry.warning] } : {}),
       }];
     }),

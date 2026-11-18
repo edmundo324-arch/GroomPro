@@ -93,12 +93,12 @@ test('a business owner needs a name and PIN and is scoped to the business and fi
  const {businessOwnerInput,businessOwnerKey,saveBusinessOwner}=require('../src/lib/platform-business.ts');
  assert.throws(()=>businessOwnerInput({pin:'123456'}),/first and last name/);
  assert.throws(()=>businessOwnerInput({firstName:'Taylor',lastName:'Reed',pin:'123'}),/6–10 digit PIN/);
- const owner=businessOwnerInput({firstName:' Taylor ',lastName:' Reed ',pin:'123456',role:'PLATFORM_OWNER'});
+ const owner=businessOwnerInput({firstName:' Taylor ',lastName:' Reed ',pin:'123456',email:' Owner@example.invalid ',role:'PLATFORM_OWNER'});
  let user,setting;
  const tx={$queryRaw:async()=>[],user:{findMany:async()=>[],create:async({data})=>{user=data;return {id:'new-owner'}}},
   tenantSetting:{deleteMany:async()=>{},upsert:async()=>{},create:async({data})=>{setting=data}}};
  assert.equal(await saveBusinessOwner(tx,'business','location',owner),'new-owner');
- assert.equal(user.role,'ADMIN');assert.equal(user.tenantId,'business');assert.equal(user.locationId,'location');
+ assert.equal(user.email,'owner@example.invalid');assert.equal(user.role,'ADMIN');assert.equal(user.tenantId,'business');assert.equal(user.locationId,'location');
  assert.equal(user.firstName,'Taylor');assert.notEqual(user.pinHash,owner.pin);assert.ok(!('pin' in user));
  assert.deepEqual(setting,{tenantId:'business',settingKey:businessOwnerKey,value:{userId:'new-owner'}});
 });

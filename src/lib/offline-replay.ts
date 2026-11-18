@@ -1,8 +1,10 @@
+import {scheduleSnapshot} from './offline-schedule-store';
+import {catalogVersion} from './catalog-version';
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from './db';
-import { offlineAction, offlineRecordId, type OfflineTarget } from './offline-actions';
+import { offlineAction, offlineRecordId, offlineRecordVersion, type OfflineTarget } from './offline-actions';
 import { offlineTransaction } from './offline-transaction';
 import { requestLocation } from './request-location';
 
@@ -11,7 +13,10 @@ class Rejected extends Error {
 }
 
 async function currentRecord(tx: Prisma.TransactionClient, tenantId: string, locationId: string, target: OfflineTarget) {
+  if(target.entity==='schedules')return scheduleSnapshot(tenantId,tx);
   const where = { id: target.id, tenantId };
+  if(target.entity==='service')return tx.service.findFirst({where});
+  if(target.entity==='package'){const row=await tx.package.findFirst({where,include:{items:{orderBy:{sortOrder:'asc'}}}});return row?{...row,_offlineVersion:catalogVersion(row)}:null;}
   if (target.entity === 'customer') return tx.customer.findFirst({ where, include: { phones: true } });
   if (target.entity === 'pet') return tx.pet.findFirst({ where, include: { vaccinations: true } });
   if (target.entity === 'draft') return tx.posDraft.findFirst({ where: { ...where, locationId } });
@@ -50,7 +55,7 @@ export async function replayOffline(request: NextRequest, tenantId: string, empl
       }
       if (target) {
         const record = await currentRecord(tx, tenantId, locationId, target);
-        if (!record || metadata.live !== true && record.updatedAt.toISOString() !== metadata.version) {
+        if (!record || metadata.live !== true && offlineRecordVersion(record) !== metadata.version) {
           throw new Rejected(NextResponse.json({
             error: 'This record changed on GoDaddy. Your device changes are still saved.',
             offlineConflict: true, cloud: record,
@@ -64,13 +69,14 @@ export async function replayOffline(request: NextRequest, tenantId: string, empl
       // Keep the acknowledgement small. The client refreshes the full record.
       const touched = target && await currentRecord(tx, tenantId, locationId, target);
       const versions: Record<string, string> = {};
-      if (target && touched) versions[target.entity + ':' + target.id] = touched.updatedAt.toISOString();
+      if (target && touched) versions[target.entity + ':' + target.id] = offlineRecordVersion(touched)!;
       for (const entity of ['customer', 'pet', 'ticket', 'draft'] as const) {
         if (result[entity]?.id && result[entity]?.updatedAt) versions[entity + ':' + result[entity].id] = new Date(result[entity].updatedAt).toISOString();
       }
+      if(result.item?.id&&['service','package'].includes(action.create||target?.entity||'')){const entity=(action.create||target!.entity) as 'service'|'package';const saved=await currentRecord(tx,tenantId,locationId,{entity,id:result.item.id});if(saved)versions[entity+':'+result.item.id]=offlineRecordVersion(saved)!;}
       if (result.savedTicketId && !versions['ticket:' + result.savedTicketId]) {
         const ticket = await currentRecord(tx, tenantId, locationId, { entity: 'ticket', id: result.savedTicketId });
-        if (ticket) versions['ticket:' + ticket.id] = ticket.updatedAt.toISOString();
+        if (ticket) versions['ticket:' + ticket.id] = offlineRecordVersion(ticket)!;
       }
       const data = { ...result, offlineVersions: versions };
       await tx.posOperation.create({

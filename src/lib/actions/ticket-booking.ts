@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto';
+import {portalAvailability,portalSelection,portalBookingError} from '@/src/lib/portal-availability';
 import {petServiceTypesKey,serviceTypes} from '@/src/lib/calendar-presentation';
 import {offlineCreateId,offlineLineId} from '@/src/lib/offline-transaction';
 import {checkPlannedPackages,writePlannedPackages,readPlannedPackages} from '@/src/lib/planned-package-store';
@@ -28,16 +30,19 @@ type TicketLineRole = "PREP" | "BATH" | "DRY" | "GROOM" | "ADD_ON" | "PRODUCT";
 type LineInput = {packageId?:string;durationMin?:number; type: "SERVICE" | "PRODUCT" | "PACKAGE"; id: string; petId?: string; quantity?: number; role?: TicketLineRole; assignedUserId?: string; sortOrder?: number };
 type PetDetailInput = { petId: string; weightLbs?: number | null; analSituation?: "DONE_REQUESTED" | "DONE_NOT_REQUESTED" | "NOT_NEEDED" | null; vipAvailability?: "AVAILABLE" | "NOT_AVAILABLE" | "NEEDS_MORE_SESSIONS" | null };
 
-export async function POST(request: NextRequest) {
-  const tenantId = tenantFrom(request);
-  const locationId = await requestLocation(request, tenantId);
+export async function POST(request: NextRequest) {return createTicket(request);}
+export type PortalBookingContext={tenantId:string;locationId:string;customerId:string;petId:string;itemKey:string;resourceKey:string;requestId:string;durationMin:number;subtotalCents:number};
+export async function createTicket(request:NextRequest,portal?:PortalBookingContext) {
+  const tenantId = portal?.tenantId||tenantFrom(request);
+  const locationId = portal?.locationId||await requestLocation(request, tenantId);
   if (!tenantId || !locationId) return NextResponse.json({ error: "Tenant and location context are required." }, { status: 401 });
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value || "";
-  const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
-  if (!session) return NextResponse.json({ error: "Employee PIN is required before creating a ticket." }, { status: 401 });
+  const session = !portal&&sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
+  if (!session&&!portal) return NextResponse.json({ error: "Employee PIN is required before creating a ticket." }, { status: 401 });
   let body: { petServiceTypes?:Record<string,string>; lineStartPositions?:{sortOrder:number;start:string}[]; plannedAssignments?:any[]; groomingNotesDraft?:Record<string,any>; bookingAssetId?:string|null; draftId?:string; tipCents?:number;salesTaxCents?:number;timingMode?:string;customerId?: string; petId?: string; petIds?: string[]; petDetails?: PetDetailInput[]; serviceId?: string; serviceIds?: string[]; lines?: LineInput[]; scheduledStart?: string; durationMin?: number; notes?: string; groomerId?: string; arrivalPriority?: number; bookingSource?: "STAFF"|"ONLINE"; onlineCategory?: "GROOMING"|"FULL_WASH"|"NAIL_GRINDING"|"SELFSERVICE"|"DAYCARE"|"BOARDING"; confirmRecentWarning?: boolean };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if(body.bookingSource==='ONLINE'&&request.headers.get('x-groompro-scheduling-overrides'))return NextResponse.json({error:'Online booking cannot override scheduling restrictions.'},{status:403});
+  if(portal&&(body.customerId!==portal.customerId||body.bookingSource!=='ONLINE'))return NextResponse.json({error:'Sign in to the correct customer profile.'},{status:403});
   if (!body.customerId) return NextResponse.json({ error: "Customer is required." }, { status: 400 });
   if([body.tipCents,body.salesTaxCents].some(v=>v!==undefined&&(!Number.isInteger(v)||v<0||v>2147483647)))return NextResponse.json({error:"Invalid tax or tip."},{status:400});
   if (body.arrivalPriority !== undefined && (!Number.isInteger(body.arrivalPriority) || body.arrivalPriority < 1)) return NextResponse.json({ error: "Arrival priority must be a positive whole number." }, { status: 400 });
@@ -71,11 +76,28 @@ export async function POST(request: NextRequest) {
   const detailMap = new Map((body.petDetails || []).map(p => [p.petId, p]));
   const ticket = await db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
+    let portalId:string|undefined,autoConfirm=false;
+    if(portal){
+     if(!/^[0-9a-f-]{36}$/i.test(portal.requestId)||!scheduledStart)throw portalBookingError('Choose an appointment time and try again.');
+     portalId='portal_'+createHash('sha256').update(tenantId+':'+portal.customerId+':'+portal.requestId).digest('hex').slice(0,40);
+     const existing=await tx.ticket.findFirst({where:{id:portalId,tenantId,customerId:portal.customerId}});if(existing)return existing as any;
+     const selection=await portalSelection(tenantId,locationId,portal.customerId,portal.petId,portal.itemKey,tx);
+     if(selection.duration!==portal.durationMin||selection.lines.reduce((sum:number,line:any)=>sum+line.totalCents,0)!==portal.subtotalCents||selection.duration!==durationMin||JSON.stringify(selection.lines)!==JSON.stringify(resolved.lines))throw portalBookingError('The service details changed. Find available times again to review the current price and duration.');
+     if(+scheduledStart>Date.now()+selection.policy.advanceDays*86400000)throw portalBookingError('Choose a date within the shop’s online booking window.');
+     const location=await tx.location.findFirstOrThrow({where:{tenantId,id:locationId}});
+     const available=await portalAvailability(tenantId,locationId,zonedParts(scheduledStart,location.timezone).date,durationMin,selection.serviceType,tx,portal.customerId);
+     const resource=available.available(scheduledStart,portal.customerId).find((resource:any)=>resource.kind+':'+resource.id===portal.resourceKey);
+     if(!resource)throw portalBookingError('That time is no longer available. Choose another time.');
+     if(resource.kind==='employee')body.groomerId=resource.id;else body.bookingAssetId=resource.id;
+     autoConfirm=selection.policy.approval==='AUTOMATIC';
+     const policy=(await workflowSettings(tenantId,tx)).posLayout;
+     body.salesTaxCents=policy.automaticNewTicketTax?Math.round(lines.reduce((sum,line)=>sum+line.totalCents,0)*policy.taxRatePct/100):0;
+    }
     const draft=body.draftId?await tx.posDraft.findFirst({where:{id:body.draftId,tenantId,locationId}}):null;
     if(body.draftId&&!draft)throw Error('Draft not found.');
     if(draft?.promotedAt){const existing=await tx.ticket.findFirst({where:{id:draft.id,tenantId}});if(existing)return existing;}
     orderNumber=draft?.orderNumber||await nextTicketNumber(tx,tenantId);
-    const created = await tx.ticket.create({ data: { ...(draft?{id:draft.id,createdAt:draft.createdAt}:{id:offlineCreateId()}),tenantId, locationId, customerId: customer.id, tipCents:body.tipCents||0,salesTaxCents:body.salesTaxCents||0,orderNumber, scheduledStart, durationMin, bookingAssetId:body.bookingAssetId||null, timingMode:mode, arrivalPriority: body.arrivalPriority ?? null, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? "REQUESTED" : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: [{ userId: body.groomerId, role: "GROOMER" },{userId:body.groomerId,role:"PLANNED_GROOMER"}] } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}}, pet: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } } });
+    const created = await tx.ticket.create({ data: { ...(draft?{id:draft.id,createdAt:draft.createdAt}:{id:portalId||offlineCreateId()}),tenantId, locationId, customerId: customer.id, tipCents:body.tipCents||0,salesTaxCents:body.salesTaxCents||0,orderNumber, scheduledStart, durationMin, bookingAssetId:body.bookingAssetId||null, timingMode:mode, arrivalPriority: body.arrivalPriority ?? null, status: autoConfirm?"CONFIRMED":"OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? (autoConfirm?"ACCEPTED":"REQUESTED") : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: [{ userId: body.groomerId, role: "GROOMER" },{userId:body.groomerId,role:"PLANNED_GROOMER"}] } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}}, pet: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } } });
     if(body.lineStartPositions?.length){if(!Array.isArray(body.lineStartPositions)||body.lineStartPositions.length>2000)throw Error('Invalid service start times.');const starts:Record<string,string>={};for(const item of body.lineStartPositions){const line=created.lines.find(l=>l.sortOrder===item.sortOrder),start=new Date(item.start);if(!line||!Number.isFinite(+start))throw Error('Invalid service start time.');starts[line.id]=start.toISOString();}const times=lineSchedule({...created,lineStarts:starts}),bounds=scheduleBounds(created,times),error=await appointmentHoursError(tenantId,locationId,new Date(bounds.scheduledStart),bounds.durationMin);if(error)throw Error(error);await writeLineStarts(tx,tenantId,created.id,times,created);Object.assign(created,await tx.ticket.update({where:{id:created.id},data:bounds}));}
     if(body.petServiceTypes){
      const configured=(await workflowSettings(tenantId,tx)).customServiceTypes;
@@ -83,13 +105,13 @@ export async function POST(request: NextRequest) {
      if(Object.keys(value).length)await tx.tenantSetting.create({data:{tenantId,settingKey:petServiceTypesKey(created.id),value}});
     }
     if(planned.length)await writePlannedPackages(tx,tenantId,created.id,planned,created);
-    await ensureGroomingNotes(tx,created,session.user.id,body.groomingNotesDraft);
+    await ensureGroomingNotes(tx,created,session?.user.id,body.groomingNotesDraft);
     if(lines.some(l=>l.role==='GROOM'&&l.assignedUserId))await syncActualGroomers(tx,created.id);
-    if(scheduledStart)await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
+    if(scheduledStart)await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session?.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
     if(draft)await tx.posDraft.update({where:{id:draft.id},data:{promotedAt:new Date()}});
     return created;
   });
-  await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? "Received online request" : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.`, details: { scheduledStart: scheduledStart?.toISOString()||null, petCount: petIds.length, lineCount: lines.length, arrivalPriority: body.arrivalPriority ?? null } });
+  if(orderNumber)await writeAudit({ tenantId, actorUserId: session?.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? (ticket.status==="CONFIRMED"?"Confirmed online appointment":"Received online request") : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.`, details: { scheduledStart: scheduledStart?.toISOString()||null, petCount: petIds.length, lineCount: lines.length, arrivalPriority: body.arrivalPriority ?? null } });
   return NextResponse.json({ ticket, warnings: customerWarnings });
 }
 

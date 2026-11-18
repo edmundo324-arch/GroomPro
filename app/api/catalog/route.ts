@@ -1,3 +1,5 @@
+import {offlineCreateId} from '@/src/lib/offline-transaction';
+import {catalogVersion} from '@/src/lib/catalog-version';
 import {serviceIsCurrentOffer,serviceIsPromoting,servicePromotionFields} from '@/src/lib/service-promotion';
 import {withRequestPolicy,catalogFeature} from '@/src/lib/request-policy';
 import {loadBreeds} from '@/src/lib/breed-store';
@@ -18,7 +20,7 @@ async function handlePolicyGET(r:NextRequest){
  db.tenantSetting.findMany({where:{tenantId,settingKey:{startsWith:prefix}}}),
  offerHistory?db.$queryRaw<{serviceId:string}[]>`SELECT DISTINCT l.serviceId FROM TicketLine l JOIN Service s ON s.id=l.serviceId JOIN Ticket t ON t.id=l.ticketId WHERE s.tenantId=${tenantId} AND t.tenantId=${tenantId} AND l.sourceKey=CONCAT('offer-today:',l.serviceId)`:Promise.resolve([])]);
  const usedOfferIds=new Set(usedOffers.map(line=>line.serviceId));
- return NextResponse.json({breeds:await loadBreeds(db,tenantId),services:offerHistory?services.map(service=>({...service,previousOfferRecorded:usedOfferIds.has(service.id)})):services,products,packages:packages.map(p=>({...p,priceCents:p.basePriceCents})),plans:plans.map(p=>({...p.value as object,id:p.settingKey.slice(prefix.length)}))},{headers:{"Cache-Control":"no-store"}});
+ return NextResponse.json({breeds:await loadBreeds(db,tenantId),services:offerHistory?services.map(service=>({...service,previousOfferRecorded:usedOfferIds.has(service.id)})):services,products,packages:packages.map(p=>({...p,priceCents:p.basePriceCents,_offlineVersion:catalogVersion(p)})),plans:plans.map(p=>({...p.value as object,id:p.settingKey.slice(prefix.length)}))},{headers:{"Cache-Control":"no-store"}});
  }catch(error){console.error("Catalog load",error);return NextResponse.json({error:"Unable to load the catalog. Please retry."},{status:503})}
 }
 async function save(r:NextRequest){
@@ -27,7 +29,7 @@ async function save(r:NextRequest){
  if(!session)return NextResponse.json({error:"Employee PIN is required."},{status:401});
  if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:"An administrator or manager must sign in to edit the catalog."},{status:403});
  try{
- const body=await r.json(),data=catalogInput(body),id=r.method==="PATCH"?String(body.id||""):randomUUID();
+ const body=await r.json(),data=catalogInput(body),id=r.method==="PATCH"?String(body.id||""):(offlineCreateId()||randomUUID());
  if(data.groomingRules){const breeds=await loadBreeds(db,tenantId);if([...(data.groomingRules.breedIds||[]),...(data.groomingRules.excludedBreedIds||[])].some(id=>!breeds.some(b=>b.id===id)))throw Error('Choose breeds from this business’s dictionary.');}
  if(!id)return NextResponse.json({error:"Select an item to edit."},{status:400});
  const common={name:data.name,description:data.description,active:data.active};

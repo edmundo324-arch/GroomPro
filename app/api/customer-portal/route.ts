@@ -1,0 +1,104 @@
+import {isFeatureEnabled} from '@/src/lib/feature-access';
+import {createTicket} from '@/src/lib/actions/ticket-booking';
+import {portalSelection,portalAvailability} from '@/src/lib/portal-availability';
+import {localToInstant,zonedParts} from '@/src/lib/operating-hours';
+import {agreementRevision} from '@/src/lib/customer-agreement-pdf';
+import {NextRequest,NextResponse} from 'next/server';
+import {db} from '@/src/lib/db';
+import {platformRestriction} from '@/src/lib/platform-restrictions';
+import {startPhoneVerification,verifyAgreementPhone,readAccess,isAgreementToken,validTenant,readableAgreement,agreementProfile,updateAgreementProfile,requireAgreementLocation,revokePortalAccess,readAgreementConfig,issueAgreement,agreementPicturePath,getAgreementPhoto} from '@/src/lib/customer-agreement-store';
+import {readPortalPolicy} from '@/src/lib/portal-policy-store';
+import {getTenantNumberSetting} from '@/src/lib/customer-account';
+import {cancellationWarning,cancellationTiming} from '@/src/lib/cancellation-policy';
+import {requestCancellation,cancellationKey} from '@/src/lib/portal-requests';
+import {sharingKey,sharingScope,sharedLocations,type SharingConfig} from '@/src/lib/customer-sharing-context';
+import {parseAgreementPdf} from '@/src/lib/customer-agreement-signing';
+const headers={'Cache-Control':'no-store','Referrer-Policy':'no-referrer'};
+const reply=(body:object,status=200)=>NextResponse.json(body,{status,headers});
+export async function POST(r:NextRequest){
+ try{
+  const raw=await r.text();if(raw.length>260000)return reply({error:'This update is too large. Send a shorter message.'},400);
+  const b=JSON.parse(raw),tenantId=b.tenant;
+  if(!validTenant(tenantId)||await platformRestriction(tenantId))return reply({error:'This customer portal is unavailable. Contact the shop.'},404);
+  if(b.action==='sendCode')return reply({token:await startPhoneVerification(tenantId,String(b.phone||''),undefined,b.location,'portal')});
+  if(!isAgreementToken(b.token))return reply({error:'Sign in with your mobile number first.'},401);
+  const state=await readAccess(db,tenantId,b.token);
+  if(!state.portal||state.channel!=='online')return reply({error:'Sign in to the customer portal with your mobile number.'},401);
+  if(b.action==='signOut'){await revokePortalAccess(tenantId,b.token);return reply({signedOut:true});}
+  const locationId=await requireAgreementLocation(tenantId,state.locationId);
+  const row=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:sharingKey}}}),sharing=row?.value as SharingConfig|undefined;
+  if(sharing?.enabled&&!sharedLocations(sharing,locationId).length)return reply({error:'Ask the shop for a new portal link.'},403);
+  const run=async()=>{
+   if(b.action==='verifyCode')return await verifyAgreementPhone(tenantId,b.token,String(b.code||''))?reply({verified:true}):reply({error:'That code is incorrect or expired. Check the text or request a new code.'},400);
+   readableAgreement(state);
+   if(!state.phone||state.proof)return reply({error:'Verify your mobile number first.'},401);
+   if(b.action==='edit'){if(typeof b.expectedRevision!=='string')return reply({error:'Refresh your profile before editing.'},409);const profile=await updateAgreementProfile(tenantId,b.token,b.fields||{},undefined,b.expectedRevision);return reply({profile,revision:agreementRevision(profile,state.terms,state.quote)});}
+   const profile=await agreementProfile(db,tenantId,state);
+   if(b.action==='view'){
+    const [policy,business,feeCents,appointments,documents,agreementConfig]=await Promise.all([
+     readPortalPolicy(tenantId),db.tenant.findUniqueOrThrow({where:{id:tenantId},select:{name:true}}),getTenantNumberSetting(tenantId,'NO_SHOW_FEE_CENTS',4500),
+     profile.id?db.ticket.findMany({where:{tenantId,customerId:profile.id},orderBy:{scheduledStart:'desc'},take:100,select:{id:true,orderNumber:true,scheduledStart:true,status:true,bookingDecision:true,location:{select:{name:true,timezone:true}},pets:{select:{pet:{select:{name:true}}}}}}):[],
+     profile.id?db.$queryRaw<any[]>`SELECT id,title,signedAt FROM SignedDocument WHERE tenantId=${tenantId} AND customerId=${profile.id} AND documentContent LIKE 'GROOMPRO_PDF_V1:%' ORDER BY signedAt DESC`:[],readAgreementConfig(tenantId)
+    ]);
+    const [services,packages]=await Promise.all([db.service.findMany({where:{tenantId,active:true,id:{in:policy.bookableItems.filter(k=>k.startsWith('SERVICE:')).map(k=>k.slice(8))}},select:{id:true,name:true}}),db.package.findMany({where:{tenantId,active:true,id:{in:policy.bookableItems.filter(k=>k.startsWith('PACKAGE:')).map(k=>k.slice(8))}},select:{id:true,name:true}})]);
+    const requests=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:appointments.map(a=>cancellationKey(a.id))}},select:{settingKey:true,value:true}});
+    return reply({intakeAvailable:agreementConfig.channels.includes('online')&&agreementConfig.intake.clauses.length>0&&!!agreementConfig.shopEmail,profile,revision:agreementRevision(profile,state.terms,state.quote),business:business.name,approval:policy.approval,catalog:[...services.map(s=>({...s,key:'SERVICE:'+s.id})),...packages.map(p=>({...p,key:'PACKAGE:'+p.id}))],feeCents,warning:cancellationWarning(policy,business.name,feeCents),appointments:appointments.map(a=>({...a,late:a.scheduledStart?cancellationTiming(a.scheduledStart,new Date(),policy.notice).late:false,cancellationRequest:requests.find(q=>q.settingKey===cancellationKey(a.id))?.value||null})),documents});
+   }
+   if(!profile.id)return reply({error:'Complete your name and contact details first.'},400);
+   if(b.action==='intake'){
+    const intakeToken=await issueAgreement(tenantId,'intake','online',profile.id,[],undefined,locationId);
+    return reply({url:'/customer-forms?tenant='+encodeURIComponent(tenantId)+'&location='+encodeURIComponent(locationId)+'#'+intakeToken});
+   }
+   if(b.action==='photo'){
+    const pet=profile.pets.find(p=>p.id===b.petId);
+    if(!pet||pet.pictureUrl!==agreementPicturePath(tenantId,pet.id))return reply({error:'Photo not found.'},404);
+    const image=await getAgreementPhoto(tenantId,pet.id);
+    return image?reply({photo:'data:image/jpeg;base64,'+image.toString('base64')}):reply({error:'Photo not found.'},404);
+   }
+   if(b.action==='slots'||b.action==='book'){
+    if(!await isFeatureEnabled(tenantId,'ONLINE_BOOKING')||!await isFeatureEnabled(tenantId,'TICKETS'))return reply({error:'Online booking is unavailable. Contact the shop to book your appointment.'},403);
+    const petId=String(b.petId||''),itemKey=String(b.itemKey||'');
+    const selection=await portalSelection(tenantId,locationId,profile.id,petId,itemKey);
+    if(b.action==='slots'){
+     const date=String(b.date||''),available=await portalAvailability(tenantId,locationId,date,selection.duration,selection.serviceType,db,profile.id);
+     const slots:Array<{start:string;resourceKey:string;name:string}>=[];
+     for(let minute=0;minute<1440;minute+=30){
+      let start:Date;try{start=localToInstant(date+'T'+String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0'),available.zone)}catch{continue;}
+      if(+start>Date.now()+selection.policy.advanceDays*86400000)continue;
+      for(const resource of available.available(start,profile.id))slots.push({start:start.toISOString(),resourceKey:resource.kind+':'+resource.id,name:resource.name});
+     }
+     return reply({slots,timezone:available.zone,durationMin:selection.duration,subtotalCents:selection.lines.reduce((sum:number,line:any)=>sum+line.totalCents,0)});
+    }
+    const response=await createTicket(new NextRequest(new URL('/api/tickets',r.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:profile.id,petIds:[petId],lines:[selection.input],scheduledStart:b.start,bookingSource:'ONLINE'})}),{tenantId,locationId,customerId:profile.id,petId,itemKey,resourceKey:String(b.resourceKey||''),requestId:String(b.requestId||''),durationMin:b.durationMin,subtotalCents:b.subtotalCents});
+    const result=await response.json();if(!response.ok)return reply({error:result.error||'That appointment could not be booked. Choose another time.'},response.status);
+    return reply({appointment:{id:result.ticket.id,orderNumber:result.ticket.orderNumber,status:result.ticket.status,bookingDecision:result.ticket.bookingDecision}});
+   }
+   if(b.action==='cancel'){
+    const currentFee=await getTenantNumberSetting(tenantId,'NO_SHOW_FEE_CENTS',4500);
+    if(b.feeCents!==currentFee)return reply({error:'The cancellation fee changed. Refresh your appointments to review the current amount before submitting.'},409);
+    return reply({request:await requestCancellation(tenantId,profile.id,String(b.ticketId||''),String(b.reason||''),b.acknowledged===true,b.feeCents,b.warning,typeof b.previousCancellationId==='string'?b.previousCancellationId:undefined)});
+   }
+   if(b.action==='change'){
+    const message=String(b.reason||'').trim();if(!message||message.length>2000)return reply({error:'Tell the shop which date or time you would prefer, using up to 2,000 characters.'},400);
+    await db.$transaction(async tx=>{
+     await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${String(b.ticketId||'')} AND tenantId=${tenantId} AND customerId=${profile.id} FOR UPDATE`;
+     const ticket=await tx.ticket.findFirst({where:{tenantId,id:String(b.ticketId||''),customerId:profile.id,status:{in:['OPEN','CONFIRMED']},checkedInAt:null}});
+     if(!ticket)throw Error('Appointment unavailable.');
+     const settingKey='PORTAL_CHANGE:'+ticket.id,where={tenantId_settingKey:{tenantId,settingKey}};
+     const old=await tx.tenantSetting.findUnique({where});
+     if((old?.value as any)?.state==='PENDING')return;
+     const value={state:'PENDING',requestedAt:new Date().toISOString(),message};
+     await tx.tenantSetting.upsert({where,create:{tenantId,settingKey,value},update:{value}});
+     await tx.auditEntry.create({data:{tenantId,actorType:'SYSTEM',entityType:'TICKET',entityId:ticket.id,customerId:profile.id,action:'CUSTOMER_CHANGE_REQUEST',summary:'Customer requested an appointment change; existing booking retained.',details:value}});
+    });return reply({requested:true});
+   }
+   if(b.action==='document'){
+    const [doc]=await db.$queryRaw<{documentContent:string|null}[]>`SELECT documentContent FROM SignedDocument WHERE tenantId=${tenantId} AND customerId=${profile.id} AND id=${String(b.documentId||'')}`;
+    const pdf=doc?.documentContent&&parseAgreementPdf(doc.documentContent);
+    return pdf?new NextResponse(new Uint8Array(Buffer.from(pdf,'base64')),{headers:{...headers,'Content-Type':'application/pdf','Content-Disposition':'attachment; filename="signed-agreement.pdf"'}}):reply({error:'That signed agreement could not be found.'},404);
+   }
+   return reply({error:'Choose a customer portal action.'},400);
+  };
+  return await(sharing?.enabled?sharingScope.run({tenantId,locationId,locations:sharedLocations(sharing,locationId)},run):run());
+ }catch(e){const message=e instanceof Error?e.message:'';return reply({error:e instanceof Error&&['AgreementError','PortalError'].includes(e.name)?message:'We could not complete this request. Refresh the portal and try again, or contact the shop.'},400);}
+}

@@ -4,7 +4,8 @@ import {businessCookie,businessId,deviceCookie,mayOpenBusinessWithoutPin,session
 
 export async function middleware(request: NextRequest) {
   // Customer agreements use a tenant-scoped, expiring capability instead of an employee session.
-  if(request.nextUrl.pathname==='/api/customer-agreement'&&request.method==='POST')return NextResponse.next();
+  if(['/api/customer-agreement','/api/customer-portal'].includes(request.nextUrl.pathname)&&request.method==='POST')return NextResponse.next();
+  if(request.nextUrl.pathname==='/api/device-authorization'&&['GET','POST'].includes(request.method))return NextResponse.next();
   const tenant = request.cookies.get(businessCookie)?.value;
   const selected=request.headers.get('x-tenant-id')||tenant||process.env.GROOMPRO_DEV_TENANT_ID;
   const headers = new Headers(request.headers);

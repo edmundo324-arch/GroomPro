@@ -21,17 +21,19 @@ export function pilotBusinessInput(input:any) {
 }
 
 export function businessOwnerInput(input:unknown){
-  const value=input as {firstName?:unknown;lastName?:unknown;pin?:unknown}|null;
+  const value=input as {firstName?:unknown;lastName?:unknown;pin?:unknown;email?:unknown}|null;
   const firstName=typeof value?.firstName==='string'?value.firstName.trim():'';
   const lastName=typeof value?.lastName==='string'?value.lastName.trim():'';
   const pin=typeof value?.pin==='string'?value.pin:'';
   if(!firstName||!lastName||firstName.length>100||lastName.length>100)throw Error('Enter the business owner’s first and last name.');
   if(!/^\d{6,10}$/.test(pin))throw Error('Enter a 6–10 digit PIN for the business owner.');
-  return {firstName,lastName,pin};
+  const email=typeof value?.email==='string'?value.email.trim().toLowerCase():'';
+  if(email.length>191||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Enter the business owner’s email for new-device verification.');
+  return {firstName,lastName,pin,email};
 }
 
 export async function saveBusinessOwner(tx:Prisma.TransactionClient,tenantId:string,locationId:string,owner:ReturnType<typeof businessOwnerInput>){
-  const user=await saveWithPin(tenantId,owner.pin,undefined,{tenantId,locationId,firstName:owner.firstName,lastName:owner.lastName,role:'ADMIN',active:true},tx);
+  const user=await saveWithPin(tenantId,owner.pin,undefined,{tenantId,locationId,firstName:owner.firstName,lastName:owner.lastName,email:owner.email,role:'ADMIN',active:true},tx);
   await tx.tenantSetting.create({data:{tenantId,settingKey:businessOwnerKey,value:{userId:user.id}}});
   return user.id as string;
 }

@@ -111,6 +111,18 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
     access: 'manager', anchor: 'no-show-fee', steps: ['Customer Account & Secret Rewards', 'No-Show Fee'],
   },
   {
+    path: ['administration','devices'], title: 'Device access',
+    description: 'Choose owner email-code or password verification for additional devices.',
+    keywords: 'owner email code password device tablet phone PC PIN login verification',
+    access: 'admin', anchor: 'device-access', steps: ['Device access'],
+  },
+  {
+    path: ['rewards'], title: 'Customer portal & cancellation notice',
+    description: 'Choose online booking approval, available services, and the cancellation notice customers receive.',
+    keywords: 'online booking automatic review available portal customer link cancellation cancel notice hours days warning',
+    access: 'manager', anchor: 'customer-portal', steps: ['Customer Account & Secret Rewards', 'Customer portal & cancellation notice'],
+  },
+  {
     path: ['rewards'], title: 'Reward Points per $1 Spent',
     description: 'Set how many reward points customers earn per dollar spent.',
     keywords: 'loyalty points per dollar reward rate secret rewards',

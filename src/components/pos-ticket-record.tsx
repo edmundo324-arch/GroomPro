@@ -36,6 +36,7 @@ import {CustomerProfile} from './customer-profile';
 import {MembershipEnrollment} from './catalog-workspace';
 import {localToInstant,wallTime} from "../lib/operating-hours";
 import {employeeFetch as authorizedRequest} from "../lib/employee-fetch";
+import {TicketTips} from './ticket-tips';
 import { useEffect, useRef, useState } from "react";
 type Employee={id:string;firstName:string;lastName:string;role:string};
 type Account={balanceCents:number;creditCents:number;loyaltyPoints:number};
@@ -46,6 +47,7 @@ const statuses=["OPEN","CONFIRMED","CHECKED_IN","IN_PROGRESS","READY","NO_SHOW",
 const money=(c:number)=>`$${(c/100).toFixed(2)}`;
 function localInput(date:Date){return`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}T${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`}
 export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCustomerId,initialEmployeeId,onSaved,onScheduled,active=true,preferredPanel="Items",onPanelChange}:{preferredPanel?:string;onPanelChange?:(panel:string)=>void;active?:boolean;ticketId?:string;onClose:()=>void;date?:Date;initialEmployeeId?:string;initialCustomerId?:string|null;onSaved?:(id:string)=>void;onScheduled?:(date:string)=>void}){
+ const[showTips,setShowTips]=useState(false);
  const[upcoming,setUpcoming]=useState<any[]>([]),[upcomingError,setUpcomingError]=useState(''),[nearbyWarning,setNearbyWarning]=useState(false);
  const[slotAsset,setSlotAsset]=useState<{id:string;name:string}|null|undefined>(),[rebookAsset,setRebookAsset]=useState<{id:string;name:string}|null>(null);
  const calendarWorkflow=useRef('Items'),customerChoiceVersion=useRef(0),manualItemsVersion=useRef(0);
@@ -410,7 +412,7 @@ account:phone?null:<div className="gp-pos-account-strip"><span><span className="
  noShow:<div><button className="gp-btn" disabled={terminal||noShowing||pendingKeys.includes("payment")||!!uncertainPayment} onClick={processNoShow}>MARK NO-SHOW — PROCESS FEE</button><small style={{display:"block",marginTop:3}}>{cardOnFile?"Card on file will be charged when Clover is connected.":"Without a card on file, the No-Show Fee becomes customer account balance owed."}</small></div>,
  subtotal:<label><span className="gp-field-caption">Subtotal</span> <span>{loading?"":money(totals.subtotalCents)}</span></label>,
  tax:<label>Sales Tax ($)<CurrencyInput value={loading&&!taxManual.current?"":tax} onValueChange={v=>{taxManual.current=true;setTax(v)}}/></label>,
- tip:<label>Tip ($)<CurrencyInput value={loading&&!tipManual.current?"":tip} onValueChange={value=>{tipManual.current=true;setTip(value)}}/></label>,
+ tip:<div><label>Tip ($)<CurrencyInput value={loading&&!tipManual.current?"":tip} onValueChange={value=>{tipManual.current=true;setTip(value)}}/></label><button className="gp-btn" disabled={!ticketId} onClick={()=>setShowTips(true)}>Assign / add tip</button></div>,
  summary:<div className="gp-ticket-money-summary"><span><span className="gp-field-caption">Total</span> {loading?"":money(totals.totalCents)}</span><span><span className="gp-field-caption">Paid</span> {loading?"":money(totals.paidCents)}</span><span><span className="gp-field-caption">Due</span> {loading?"":money(totals.dueCents)}</span></div>,
  paymentType:<label>Payment Type<select disabled={terminal||totals.dueCents<=0||paying||!!uncertainPayment} value={loading?"":paymentType} onChange={e=>setPaymentType(e.target.value)}>{loading&&<option value=""/>}{['CASH','VISA','MASTERCARD','AMEX','DISCOVER','DEBIT','GIFT_CARD','OTHER'].map(type=><option key={type}>{type}</option>)}</select></label>,
  amount:<label>Amount ($)<CurrencyInput disabled={terminal||totals.dueCents<=0||paying||!!uncertainPayment} value={loading&&!paymentManual.current?"":paymentAmount} onValueChange={value=>{paymentManual.current=true;setPaymentAmount(value)}}/></label>,
@@ -419,5 +421,5 @@ account:phone?null:<div className="gp-pos-account-strip"><span><span className="
  }}/>
 
  </>}
- </PosWindowFrame>{packageDeletePrompt&&active&&<div className="gp-package-removal-backdrop"><section role="dialog" aria-modal="true" aria-label="Remove package service" className="gp-package-removal-dialog" onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();packageDeletePrompt.resolve(null);setPackageDeletePrompt(null)}}}><h3>Remove package service?</h3><p>{packageDeletePrompt.description}</p><p>Keep the remaining discounted prices, or switch the remaining services to their regular prices.</p><div>{([{value:'KEEP_DISCOUNT',label:'Keep Discount'},{value:'REMOVE_DISCOUNT',label:'Remove Discount'},{value:null,label:'Cancel'}] as const).map(option=><button autoFocus={option.value===null} type="button" className="gp-btn" key={option.label} onClick={()=>{packageDeletePrompt.resolve(option.value);setPackageDeletePrompt(null)}}>{option.label}</button>)}</div></section></div>}{ownerView&&<CustomerProfile customerId={ownerView.id} initialPetId={ownerView.petId} onClose={()=>void closeOwner()}/>}</>}
+ </PosWindowFrame>{packageDeletePrompt&&active&&<div className="gp-package-removal-backdrop"><section role="dialog" aria-modal="true" aria-label="Remove package service" className="gp-package-removal-dialog" onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();packageDeletePrompt.resolve(null);setPackageDeletePrompt(null)}}}><h3>Remove package service?</h3><p>{packageDeletePrompt.description}</p><p>Keep the remaining discounted prices, or switch the remaining services to their regular prices.</p><div>{([{value:'KEEP_DISCOUNT',label:'Keep Discount'},{value:'REMOVE_DISCOUNT',label:'Remove Discount'},{value:null,label:'Cancel'}] as const).map(option=><button autoFocus={option.value===null} type="button" className="gp-btn" key={option.label} onClick={()=>{packageDeletePrompt.resolve(option.value);setPackageDeletePrompt(null)}}>{option.label}</button>)}</div></section></div>}{showTips&&ticketId&&<TicketTips ticketId={ticketId} locationId={ticket.locationId||ticket.location?.id||""} onClose={()=>setShowTips(false)} onSaved={async()=>{tipManual.current=false;await Promise.all([load(ticketId),loadCheckout(ticketId)])}}/>}{ownerView&&<CustomerProfile customerId={ownerView.id} initialPetId={ownerView.petId} onClose={()=>void closeOwner()}/>}</>}
 

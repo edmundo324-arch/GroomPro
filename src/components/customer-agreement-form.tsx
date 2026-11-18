@@ -27,7 +27,7 @@ function Initials({label,strokes,onChange}:{label:string;strokes:Stroke[];onChan
   {strokes.map((stroke,i)=><polyline key={i} fill="none" stroke="#17324d" strokeWidth="2" strokeLinecap="round" points={stroke.map(([x,y])=>x*230+','+y*70).join(' ')}/>)}
  </svg><button type="button" className="gp-btn" onClick={()=>onChange([])}>Clear initials</button></div>;
 }
-function DogPhoto({dog,request,save}:{dog:AgreementPet;request:Requester;save:(data:string)=>Promise<void>}){
+export function DogPhoto({dog,request,save}:{dog:AgreementPet;request:Requester;save:(data:string)=>Promise<void>}){
  const [image,setImage]=useState('');
  const [error,setError]=useState('');
  useEffect(()=>{

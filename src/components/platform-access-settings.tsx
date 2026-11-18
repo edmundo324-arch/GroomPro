@@ -5,20 +5,21 @@ import {returnToGroomPro} from '../lib/return-to-groompro';
 import {employeeFetch} from '../lib/employee-fetch';
 import {GROOMPRO_ROLES} from '../lib/roles';
 
-type OwnerForm={firstName:string;lastName:string;pin:string};
+type OwnerForm={firstName:string;lastName:string;pin:string;email:string};
 type Business={id:string;name:string};
 type Employee={id:string;firstName:string;lastName:string;displayName?:string;role:string;active:boolean};
-type AccessData={tenants:Business[];currentTenantId:string;canReturnHome:boolean;canManageOwners:boolean;employees?:Employee[];businessOwnerId?:string;access?:{suspended:boolean}};
+type AccessData={tenants:Business[];currentTenantId:string;canReturnHome:boolean;canManageOwners:boolean;employees?:Employee[];businessOwnerId?:string;businessOwnerEmail?:string;access?:{suspended:boolean}};
 type Task='create'|'open'|'business'|'employee'|'owner';
-const blankOwner={firstName:'',lastName:'',pin:''};
+const blankOwner={firstName:'',lastName:'',pin:'',email:''};
 const requestHeaders={'Content-Type':'application/json'};
-const validOwner=(owner:OwnerForm)=>Boolean(owner.firstName.trim()&&owner.lastName.trim()&&/^\d{6,10}$/.test(owner.pin));
+const validOwner=(owner:OwnerForm)=>Boolean(owner.firstName.trim()&&owner.lastName.trim()&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner.email)&&/^\d{6,10}$/.test(owner.pin));
 
 function BusinessOwnerFields({owner,onChange}:{owner:OwnerForm;onChange:(owner:OwnerForm)=>void}){
  return <fieldset className="gp-platform-form-fields">
   <legend>Business owner</legend>
   <label>First name<input required maxLength={100} value={owner.firstName} onChange={e=>onChange({...owner,firstName:e.target.value})}/></label>
   <label>Last name<input required maxLength={100} value={owner.lastName} onChange={e=>onChange({...owner,lastName:e.target.value})}/></label>
+  <label>Owner email<input required type="email" maxLength={191} value={owner.email} onChange={e=>onChange({...owner,email:e.target.value})}/></label>
   <label>Sign-in PIN<input required type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{6,10}" maxLength={10} value={owner.pin} onChange={e=>onChange({...owner,pin:e.target.value})}/></label>
   <small>Use 6–10 digits. The owner signs in to this business with this PIN.</small>
  </fieldset>;
@@ -28,6 +29,7 @@ export function PlatformAccessSettings(){
  const [business,setBusiness]=useState({name:'',location:'Main Location',timezone:'America/Chicago'});
  const [owner,setOwner]=useState<OwnerForm>(blankOwner),[existingOwner,setExistingOwner]=useState<OwnerForm>(blankOwner);
  const [result,setResult]=useState<{tenantId:string;data:AccessData}|null>(null),[tenantId,setTenant]=useState('');
+ const [ownerEmail,setOwnerEmail]=useState('');
  const [userId,setUser]=useState(''),[role,setRole]=useState('FRONT'),[active,setActive]=useState(true),[pin,setPin]=useState('');
  const [businessReason,setBusinessReason]=useState(''),[employeeReason,setEmployeeReason]=useState('');
  const [notice,setNotice]=useState<{task:Task;text:string}|null>(null),[busy,setBusy]=useState(false);
@@ -50,7 +52,7 @@ export function PlatformAccessSettings(){
   return()=>{cancelled=true};
  },[tenantId]);
  function selectBusiness(id:string){
-  setTenant(id);setUser('');setPin('');setBusinessReason('');setEmployeeReason('');setExistingOwner(blankOwner);
+  setOwnerEmail('');setTenant(id);setUser('');setPin('');setBusinessReason('');setEmployeeReason('');setExistingOwner(blankOwner);
  }
  async function send(task:Task,body:object,done:(data:any)=>void|Promise<void>){
   if(busy)return;
@@ -133,6 +135,7 @@ export function PlatformAccessSettings(){
      <BusinessOwnerFields owner={existingOwner} onChange={setExistingOwner}/>
      <button type="submit" className="gp-btn primary" disabled={busy||!validOwner(existingOwner)}>Add business owner</button>
     </form>}
+    {selected.businessOwnerId&&<form onSubmit={e=>{e.preventDefault();void send('owner',{action:'SET_OWNER_EMAIL',tenantId,email:ownerEmail},async()=>{setResult(await read(tenantId));setOwnerEmail('');setNotice({task:'owner',text:'Owner email saved. The owner will verify a code before employees sign in on a new device.'});})}}><label>Owner email for new devices<input type="email" required maxLength={191} value={ownerEmail} placeholder={selected.businessOwnerEmail||'Owner email'} onChange={e=>setOwnerEmail(e.target.value)}/></label><button className="gp-btn" disabled={busy}>Save owner email</button></form>}
     {message('owner')}
     {selected.employees?.length?<label className="gp-platform-field">Employee<select value={userId} disabled={busy} onChange={e=>{
      const employee=selected.employees?.find(item=>item.id===e.target.value);

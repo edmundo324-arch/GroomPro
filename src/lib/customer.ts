@@ -46,26 +46,11 @@ export async function searchCustomers(tenantId: string, query: string, limit: nu
 
 export async function findPossibleDuplicateCustomer(
   tenantId: string,
-  input: { firstName: string; lastName: string; email?: string; phone?: string },
+  input: { firstName: string; lastName: string; email?: string; phone?: string; phones?:string[] },
 ) {
-  const normalizedPhone = input.phone ? normalizePhone(input.phone) : "";
-  const email = input.email?.trim().toLowerCase();
-
-  return db.customer.findFirst({
-    where: {
-      tenantId,
-      active: true,
-      OR: [
-        ...(normalizedPhone ? [{ phones: { some: { tenantId, normalized: normalizedPhone } } }] : []),
-        ...(email ? [{ email: { equals: email } }] : []),
-        {
-          firstName: { equals: normalizeText(input.firstName) },
-          lastName: { equals: normalizeText(input.lastName) },
-        },
-      ],
-    },
-    include: { phones: true, pets: { where: { active: true } } },
-  });
+  const numbers=(input.phones||[input.phone||'']).map(normalizePhone).filter(Boolean);
+  if(!numbers.length)return null;
+  return db.customer.findFirst({where:{tenantId,phones:{some:{tenantId,normalized:{in:numbers}}}},include:{phones:true,pets:{where:{active:true}}}});
 }
 
 export async function getCustomerProfile(tenantId: string, customerId: string) {

@@ -11,7 +11,7 @@ import {petBreedData} from './breed-classification';
 import {agreementChannels,customerFields,dogFields,type AgreementChannel,type AgreementConfig,type AgreementKind,type AgreementProfile,type Quote,type Terms} from './customer-agreement-model';
 
 export type AgreementAccess={
- locationId?:string;kind:AgreementKind;channel:AgreementChannel;expires:number;terms:Terms;shopEmail:string;
+ portal?:boolean;locationId?:string;kind:AgreementKind;channel:AgreementChannel;expires:number;terms:Terms;shopEmail:string;
  customerId?:string;phone?:string;proof?:string;pinExpires?:number;attempts?:number;quote:Quote[];
  documentId?:string;actorId?:string;bookingUrl?:string;tabletStation?:boolean;lastOfflineEdit?:number;lastOfflineRevision?:string;
 };
@@ -113,13 +113,13 @@ export async function startTabletIntake(tenantId:string,stationToken:string,inpu
  }else await saveAccess(db,tenantId,token,state);
  return {token,needsCode:false};
 }
-export async function startPhoneVerification(tenantId:string,input:string,entry?:AgreementAccess,shopLocationId?:string){
+export async function startPhoneVerification(tenantId:string,input:string,entry?:AgreementAccess,shopLocationId?:string,purpose?:'portal'){
  const locationId=await requireAgreementLocation(tenantId,entry?.locationId||shopLocationId);
  const normalized=normalizePhone(input);
  if(!/^\d{10}$/.test(normalized))throw agreementError('Enter a 10-digit mobile number.');
  const config=await readAgreementConfig(tenantId);
  const channel=entry?.channel||'online';
- if(!config.channels.includes(channel)||!(entry?.terms||config.intake).clauses.length||!(entry?.shopEmail||config.shopEmail))throw agreementError('Online intake is unavailable. Ask the shop for an intake link.');
+ if(purpose!=='portal'&&(!config.channels.includes(channel)||!(entry?.terms||config.intake).clauses.length||!(entry?.shopEmail||config.shopEmail)))throw agreementError('Online intake is unavailable. Ask the shop for an intake link.');
  const sms=configFor(tenantId);
  if(!sms)throw agreementError('Text verification is unavailable. Ask the shop for an intake link.');
  const pin=String(randomInt(100000,1000000)),token=newToken(),now=Date.now();
@@ -135,7 +135,7 @@ export async function startPhoneVerification(tenantId:string,input:string,entry?
    const value={count:count+1,expires:count?prior!.expires:now+3600000};
    await tx.tenantSetting.upsert({where:settingWhere(tenantId,key),create:{tenantId,settingKey:key,value},update:{value}});
   }
-  await saveAccess(tx,tenantId,token,{locationId,kind:'intake',channel,terms:entry?.terms||config.intake,shopEmail:entry?.shopEmail||config.shopEmail,
+  await saveAccess(tx,tenantId,token,{portal:purpose==='portal',locationId,kind:'intake',channel,terms:entry?.terms||config.intake,shopEmail:entry?.shopEmail||config.shopEmail,
    bookingUrl:channel==='online'?config.bookingUrl:undefined,expires:now+3600000,pinExpires:now+600000,attempts:0,phone:normalized,proof:digest(token+':'+pin),quote:[]});
  });
  const response=await fetch('https://api.twilio.com/2010-04-01/Accounts/'+sms.accountSid+'/Messages.json',{
@@ -205,11 +205,12 @@ function field(value:unknown,max=191){
 export function readableAgreement(state:AgreementAccess){
  if(state.proof||(!state.customerId&&!state.phone))throw agreementError('Verify your phone number first.');
 }
-export async function updateAgreementProfile(tenantId:string,token:string,input:Record<string,unknown>,replay?:{index:number;revision:string}){
+export async function updateAgreementProfile(tenantId:string,token:string,input:Record<string,unknown>,replay?:{index:number;revision:string},expectedRevision?:string){
  return db.$transaction(async tx=>{
   const state=await readAccess(tx,tenantId,token,true);readableAgreement(state);
   if(state.documentId)throw agreementError('This agreement is already signed.');
   if(state.customerId)await tx.$queryRaw`SELECT id FROM Customer WHERE id=${state.customerId} AND tenantId=${tenantId} FOR UPDATE`;
+  if(expectedRevision!==undefined&&agreementRevision(await agreementProfile(tx,tenantId,state),state.terms,state.quote)!==expectedRevision)throw agreementError('The shop updated this profile while you were editing. Your changes have not been saved. Review the current details with the shop before trying again.');
   if(replay){
    const current=await agreementProfile(tx,tenantId,state);
    const revision=agreementRevision(current,state.terms,state.quote);
@@ -301,4 +302,10 @@ export async function getAgreementPhoto(tenantId:string,petId:string){
 }
 export function markAgreementSigned(tx:Prisma.TransactionClient,tenantId:string,token:string,state:AgreementAccess,documentId:string){
  return saveAccess(tx,tenantId,token,{...state,documentId,expires:state.channel==='tablet'?state.expires:Math.min(state.expires,Date.now()+86400000)});
+}
+
+export async function revokePortalAccess(tenantId:string,token:string){
+ const state=await readAccess(db,tenantId,token);
+ if(!state.portal)throw agreementError('This is not a customer portal session.');
+ await db.tenantSetting.deleteMany({where:{tenantId,settingKey:tokenKey(token)}});
 }

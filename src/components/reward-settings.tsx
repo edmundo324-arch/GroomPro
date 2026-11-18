@@ -1,4 +1,5 @@
 "use client";
+import {PortalSettings} from './portal-settings';
 import {employeeFetch} from "../lib/employee-fetch";
 import { useEffect, useState } from "react";
 
@@ -48,6 +49,7 @@ export function RewardSettings() {
         </div>
         <button className="gp-btn primary" onClick={save} disabled={loading}>Save</button>
       </div>
+      <PortalSettings feeCents={Number.isFinite(Number(fee))?Math.round(Number(fee)*100):0}/>
       {msg && <div className="gp-form-success" style={{ marginTop: 10 }}>{msg}</div>}
     </div>
   );

@@ -18,7 +18,7 @@ export async function freezeNote(tx:any,n:any,now=new Date()):Promise<any>{
  return n;
 }
 export async function ensureGroomingNotes(tx:any,t:any,actorUserId?:string,draftNotes?:Record<string,any>){
- const pets=await tx.pet.findMany({where:{tenantId:t.tenantId,customerId:t.customerId,id:{in:t.pets.map((p:any)=>p.petId||p.pet?.id)}}});
+ const pets=await tx.pet.findMany({where:{tenantId:t.tenantId,id:{in:t.pets.map((p:any)=>p.petId||p.pet?.id)}}});
  const breeds=await loadBreeds(tx,t.tenantId);
  for(const pet of pets){
   const key={tenantId:t.tenantId,ticketId:t.id,petId:pet.id};const existing=await tx.groomingNote.findUnique({where:{tenantId_ticketId_petId:key}});
@@ -31,7 +31,7 @@ export async function ensureGroomingNotes(tx:any,t:any,actorUserId?:string,draft
   const instructions=initialGroomingInstructions(pet,usual?.instructions||null,history[0]?.instructions||null,breeds);
   if(!usual&&!history.length&&pet.groomingNotes)instructions.specialNotes=pet.groomingNotes;
   const draft=draftNotes?.[pet.id];if(draft&&typeof draft.usual!=='boolean')throw Error('Choose whether this is the usual haircut.');
-  const source=draft?.sourceId?(String(draft.sourceId).startsWith('imported-comment:')?importedGroomingHistory([pet],t.customerId).find(v=>v.id===draft.sourceId):await tx.groomingNote.findFirst({where:{id:draft.sourceId,tenantId:t.tenantId,customerId:t.customerId,petId:pet.id}})):null;
+  const source=draft?.sourceId?(String(draft.sourceId).startsWith('imported-comment:')?importedGroomingHistory([pet],t.customerId).find(v=>v.id===draft.sourceId):await tx.groomingNote.findFirst({where:{id:draft.sourceId,tenantId:t.tenantId,petId:pet.id}})):null;
   if(draft?.sourceId&&!source)throw Error('Grooming history must belong to this pet.');
   const applied=draft?validInstructions(draft.instructions):instructions;
   await tx.groomingNote.create({data:{id:offlineCreateId()?t.id+'-note-'+pet.id:undefined,...key,customerId:t.customerId,locationId:t.locationId,appointmentAt:t.scheduledStart||null,instructions:applied,usual:!!draft?.usual,usualAt:draft?.usual?new Date():null}});

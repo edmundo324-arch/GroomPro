@@ -1,3 +1,4 @@
+import {deviceApproved,deviceApprovalCookie} from '@/src/lib/device-authorization';
 import {isPlatformRole} from '@/src/lib/roles';
 import {pinVaultConfigured,pinVaultKey,sealPin} from '@/src/lib/pin-vault';
 import {platformRestriction} from '@/src/lib/platform-restrictions';
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
   }
   if (!user) return NextResponse.json({ error: "Employee PIN not recognized." }, { status: 401 });
 
+  if(!isPlatformRole(user.role)&&!await deviceApproved(tenantId,deviceId,request.cookies.get(deviceApprovalCookie)?.value||''))return NextResponse.json({deviceVerificationRequired:true,error:'The owner needs to verify this device by email before employee PINs can be used.'},{status:401});
   const restriction=await platformRestriction(tenantId,user.id);
   if(restriction&&!isPlatformRole(user.role))return NextResponse.json({error:restriction},{status:403});
   if(body.automatic){
