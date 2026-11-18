@@ -12,3 +12,9 @@ test('employee export includes current and prior-only earnings, time basis and i
  const data={employeeWork:{scope:'TEAM',asOf:'2026-11-18T12:00:00Z',unallocatedTipCents:500,invalidRecords:0,rows:[{id:'a',name:'Alex',elapsedMinutes:120,breakMinutes:30,minutesExcludingBreaks:90,openShifts:1,commissionCents:2000,tipCents:1000}]},previous:{employeeWork:{rows:[{id:'b',name:'Former employee',commissionCents:500,tipCents:200}],unallocatedTipCents:0}}};
  const csv=reportCsv(data,'Shop');assert.ok(csv.includes('"Alex — Hours excluding breaks","1.50","0.00"'));assert.ok(csv.includes('"Former employee — Assigned tips","0.00","2.00"'));assert.ok(csv.includes('"Unallocated tips","5.00","0.00"'));assert.ok(csv.includes('original ticket closing date, including later tips'));assert.ok(csv.includes(data.employeeWork.asOf));
 });
+
+
+test('sales and receivables exports preserve separate bases and prior-only groups',()=>{
+ const csv=reportCsv({salesBreakdowns:{netLineSalesCents:500,products:[{id:'p',name:'Brush',amountCents:500}],packages:[],employees:[],days:[]},previous:{salesBreakdowns:{netLineSalesCents:200,products:[{id:'old',name:'Old product',amountCents:200}],packages:[],employees:[],days:[]}},receivables:{asOf:'2030-01-01',accounts:[{name:'Customer',balanceCents:1000,creditCents:100}],openTickets:[{orderNumber:2,name:'Customer',status:'OPEN',totalCents:1500,paidCents:500,dueCents:1000}]}},'Shop');
+ assert.match(csv,/Old product/);assert.match(csv,/do not add/i);assert.match(csv,/Outstanding balances snapshot/);assert.match(csv,/"Balance owed","10.00","Credit","1.00"/);assert.match(csv,/"Due","10.00"/);
+});

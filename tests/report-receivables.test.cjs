@@ -1,0 +1,6 @@
+const test=require('node:test'),assert=require('node:assert/strict');require('./load-ts.cjs');const {currentReceivables}=require('../src/lib/report-receivables.ts');
+test('account balances and unpaid tickets stay separate; credits are not silently applied',()=>{
+ const result=currentReceivables([{id:'c',firstName:'A',lastName:'Customer',active:false,balanceCents:3000,creditCents:500}],[{id:'t',orderNumber:1,customerId:'c',customer:{firstName:'A',lastName:'Customer'},status:'OPEN',lines:[{description:'Customer Account Balance',totalCents:3000},{description:'Groom',totalCents:5000}],tipCents:100,salesTaxCents:400,payments:[{amount:'20.00'}]}],new Date('2030-01-01T00:00:00Z'));
+ assert.equal(result.accountBalanceCents,3000);assert.equal(result.accountCreditCents,500);assert.equal(result.openTicketDueCents,6500);assert.equal(result.accounts[0].active,false);assert.equal(result.openTickets[0].totalCents,8500);assert.equal(result.combinedTotal,undefined);
+});
+test('fully paid and overpaid saved tickets are not listed as unpaid',()=>{const r=currentReceivables([],[{lines:[{totalCents:100}],payments:[{amount:'1.00'}]},{lines:[{totalCents:100}],payments:[{amount:'2.00'}]}],new Date());assert.deepEqual(r.openTickets,[]);assert.equal(r.openTicketDueCents,0)});

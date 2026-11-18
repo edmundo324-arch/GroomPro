@@ -1,6 +1,7 @@
+import {onlineStartAllowed} from '@/src/lib/online-booking-time';
 import {isFeatureEnabled} from '@/src/lib/feature-access';
 import {createTicket} from '@/src/lib/actions/ticket-booking';
-import {portalSelection,portalAvailability} from '@/src/lib/portal-availability';
+import {portalSelections,portalAvailability} from '@/src/lib/portal-availability';
 import {localToInstant,zonedParts} from '@/src/lib/operating-hours';
 import {agreementRevision} from '@/src/lib/customer-agreement-pdf';
 import {NextRequest,NextResponse} from 'next/server';
@@ -57,19 +58,19 @@ export async function POST(r:NextRequest){
    }
    if(b.action==='slots'||b.action==='book'){
     if(!await isFeatureEnabled(tenantId,'ONLINE_BOOKING')||!await isFeatureEnabled(tenantId,'TICKETS'))return reply({error:'Online booking is unavailable. Contact the shop to book your appointment.'},403);
-    const petId=String(b.petId||''),itemKey=String(b.itemKey||'');
-    const selection=await portalSelection(tenantId,locationId,profile.id,petId,itemKey);
+    const selections=b.selections===undefined?[{petId:String(b.petId||''),itemKey:String(b.itemKey||'')}]:b.selections;
+    const selection=await portalSelections(tenantId,locationId,profile.id,selections);
     if(b.action==='slots'){
      const date=String(b.date||''),available=await portalAvailability(tenantId,locationId,date,selection.duration,selection.serviceType,db,profile.id);
      const slots:Array<{start:string;resourceKey:string;name:string}>=[];
-     for(let minute=0;minute<1440;minute+=30){
+     for(let minute=0;minute<1440;minute+=selection.policy.slotIntervalMinutes){
       let start:Date;try{start=localToInstant(date+'T'+String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0'),available.zone)}catch{continue;}
-      if(+start>Date.now()+selection.policy.advanceDays*86400000)continue;
+      if(!onlineStartAllowed(start,available.zone,selection.policy))continue;
       for(const resource of available.available(start,profile.id))slots.push({start:start.toISOString(),resourceKey:resource.kind+':'+resource.id,name:resource.name});
      }
      return reply({slots,timezone:available.zone,durationMin:selection.duration,subtotalCents:selection.lines.reduce((sum:number,line:any)=>sum+line.totalCents,0)});
     }
-    const response=await createTicket(new NextRequest(new URL('/api/tickets',r.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:profile.id,petIds:[petId],lines:[selection.input],scheduledStart:b.start,bookingSource:'ONLINE'})}),{tenantId,locationId,customerId:profile.id,petId,itemKey,resourceKey:String(b.resourceKey||''),requestId:String(b.requestId||''),durationMin:b.durationMin,subtotalCents:b.subtotalCents});
+    const response=await createTicket(new NextRequest(new URL('/api/tickets',r.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:profile.id,petIds:selection.petIds,lines:selection.inputs,scheduledStart:b.start,bookingSource:'ONLINE'})}),{tenantId,locationId,customerId:profile.id,selections,resourceKey:String(b.resourceKey||''),requestId:String(b.requestId||''),durationMin:b.durationMin,subtotalCents:b.subtotalCents});
     const result=await response.json();if(!response.ok)return reply({error:result.error||'That appointment could not be booked. Choose another time.'},response.status);
     return reply({appointment:{id:result.ticket.id,orderNumber:result.ticket.orderNumber,status:result.ticket.status,bookingDecision:result.ticket.bookingDecision}});
    }

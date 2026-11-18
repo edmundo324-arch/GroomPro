@@ -1,5 +1,6 @@
+import {onlineStartAllowed} from '@/src/lib/online-booking-time';
 import {createHash} from 'node:crypto';
-import {portalAvailability,portalSelection,portalBookingError} from '@/src/lib/portal-availability';
+import {portalAvailability,portalSelections,portalBookingError} from '@/src/lib/portal-availability';
 import {petServiceTypesKey,serviceTypes} from '@/src/lib/calendar-presentation';
 import {offlineCreateId,offlineLineId} from '@/src/lib/offline-transaction';
 import {checkPlannedPackages,writePlannedPackages,readPlannedPackages} from '@/src/lib/planned-package-store';
@@ -31,7 +32,7 @@ type LineInput = {packageId?:string;durationMin?:number; type: "SERVICE" | "PROD
 type PetDetailInput = { petId: string; weightLbs?: number | null; analSituation?: "DONE_REQUESTED" | "DONE_NOT_REQUESTED" | "NOT_NEEDED" | null; vipAvailability?: "AVAILABLE" | "NOT_AVAILABLE" | "NEEDS_MORE_SESSIONS" | null };
 
 export async function POST(request: NextRequest) {return createTicket(request);}
-export type PortalBookingContext={tenantId:string;locationId:string;customerId:string;petId:string;itemKey:string;resourceKey:string;requestId:string;durationMin:number;subtotalCents:number};
+export type PortalBookingContext={tenantId:string;locationId:string;customerId:string;selections:{petId:string;itemKey:string}[];resourceKey:string;requestId:string;durationMin:number;subtotalCents:number};
 export async function createTicket(request:NextRequest,portal?:PortalBookingContext) {
   const tenantId = portal?.tenantId||tenantFrom(request);
   const locationId = portal?.locationId||await requestLocation(request, tenantId);
@@ -81,10 +82,10 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
      if(!/^[0-9a-f-]{36}$/i.test(portal.requestId)||!scheduledStart)throw portalBookingError('Choose an appointment time and try again.');
      portalId='portal_'+createHash('sha256').update(tenantId+':'+portal.customerId+':'+portal.requestId).digest('hex').slice(0,40);
      const existing=await tx.ticket.findFirst({where:{id:portalId,tenantId,customerId:portal.customerId}});if(existing)return existing as any;
-     const selection=await portalSelection(tenantId,locationId,portal.customerId,portal.petId,portal.itemKey,tx);
+     const selection=await portalSelections(tenantId,locationId,portal.customerId,portal.selections,tx);
      if(selection.duration!==portal.durationMin||selection.lines.reduce((sum:number,line:any)=>sum+line.totalCents,0)!==portal.subtotalCents||selection.duration!==durationMin||JSON.stringify(selection.lines)!==JSON.stringify(resolved.lines))throw portalBookingError('The service details changed. Find available times again to review the current price and duration.');
-     if(+scheduledStart>Date.now()+selection.policy.advanceDays*86400000)throw portalBookingError('Choose a date within the shop’s online booking window.');
      const location=await tx.location.findFirstOrThrow({where:{tenantId,id:locationId}});
+     if(!onlineStartAllowed(scheduledStart,location.timezone,selection.policy))throw portalBookingError('This time no longer meets the shop’s online booking notice or start-time rules. Find available times again.');
      const available=await portalAvailability(tenantId,locationId,zonedParts(scheduledStart,location.timezone).date,durationMin,selection.serviceType,tx,portal.customerId);
      const resource=available.available(scheduledStart,portal.customerId).find((resource:any)=>resource.kind+':'+resource.id===portal.resourceKey);
      if(!resource)throw portalBookingError('That time is no longer available. Choose another time.');

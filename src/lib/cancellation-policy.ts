@@ -16,8 +16,8 @@ export function cancellationTiming(start:Date,requestedAt:Date,notice:Cancellati
 }
 
 export const defaultCancellationWarning='{business} requires {notice} notice to cancel. This appointment is within that window, so a Reserved Appointment Fee of {fee} will apply. You can request a waiver for the shop to review. Your appointment stays booked until the shop responds.';
-export type PortalPolicy={approval:'REVIEW'|'AUTOMATIC';notice:CancellationNotice;warning:string;bookableItems:string[];advanceDays:number};
-export const defaultPortalPolicy:PortalPolicy={approval:'REVIEW',notice:defaultCancellationNotice,warning:defaultCancellationWarning,bookableItems:[],advanceDays:30};
+export type PortalPolicy={approval:'REVIEW'|'AUTOMATIC';notice:CancellationNotice;warning:string;bookableItems:string[];advanceDays:number;minimumLeadHours:number;slotIntervalMinutes:number};
+export const defaultPortalPolicy:PortalPolicy={approval:'REVIEW',notice:defaultCancellationNotice,warning:defaultCancellationWarning,bookableItems:[],advanceDays:30,minimumLeadHours:0,slotIntervalMinutes:30};
 export function portalPolicy(value:unknown):PortalPolicy{
  const input=value as PortalPolicy;
  if(!input||!['REVIEW','AUTOMATIC'].includes(input.approval))throw Error('Choose whether the shop reviews online bookings.');
@@ -27,7 +27,10 @@ export function portalPolicy(value:unknown):PortalPolicy{
  const bookableItems=input.bookableItems??[];
  if(!Array.isArray(bookableItems)||bookableItems.length>2000||bookableItems.some(id=>typeof id!=='string'||!/^(SERVICE|PACKAGE):[a-zA-Z0-9_-]+$/.test(id)))throw Error('Choose valid services and packages for online booking.');
  const advanceDays=input.advanceDays??30;if(!Number.isInteger(advanceDays)||advanceDays<1||advanceDays>730)throw Error('Choose a booking window of 1 to 730 days.');
- return {approval:input.approval,notice:cancellationNotice(input.notice),warning:input.warning.trim(),bookableItems:[...new Set(bookableItems)],advanceDays};
+ const minimumLeadHours=input.minimumLeadHours??0,slotIntervalMinutes=input.slotIntervalMinutes??30;
+ if(typeof minimumLeadHours!=='number'||!Number.isFinite(minimumLeadHours)||minimumLeadHours<0||minimumLeadHours>17520)throw Error('Enter booking notice from 0 to 17,520 hours.');
+ if(!Number.isInteger(slotIntervalMinutes)||slotIntervalMinutes<5||slotIntervalMinutes>240)throw Error('Choose 5 to 240 minutes between online start times.');
+ return {approval:input.approval,notice:cancellationNotice(input.notice),warning:input.warning.trim(),bookableItems:[...new Set(bookableItems)],advanceDays,minimumLeadHours,slotIntervalMinutes};
 }
 export function cancellationWarning(policy:PortalPolicy,business:string,feeCents:number){
  const values:Record<string,string>={business,notice:`${policy.notice.amount} ${policy.notice.unit==='DAYS'?(policy.notice.amount===1?'day':'days'):(policy.notice.amount===1?'hour':'hours')}`,fee:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(feeCents/100)};

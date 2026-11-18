@@ -86,3 +86,9 @@
 - Helpful hints prefer the right or left of their associated field, highlight that field without changing layout, and must not cover it. On narrow displays use available adjacent vertical space when neither side fits.
 
 - Helpful-hint highlight color belongs to the tenant under Settings → Calendar & Workflow → Helpful hints; factory default is gold (#c18b16). Preserve the choice across sessions and apply it consistently to shared hints.
+
+## Continuing approved audit implementation
+- Continue the remaining approved capability-audit work after completing each batch; do not end work merely because a commit was published, or require another “Continue” or GoDaddy sync to resume independent work.
+- Stop dependent work only for an unresolved business-rule decision, a concrete blocker, a user-requested pause, or an execution limit. Continue independent approved work while awaiting answers.
+- Clearly distinguish batch completion from overall audit completion. Never claim to continue after ending a turn; report any actual interruption truthfully.
+- The user explicitly authorized publishing all agreed changes to GitHub; that authorization supersedes the older publication-command-only instruction for this audit work.

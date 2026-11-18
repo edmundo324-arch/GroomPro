@@ -9,16 +9,22 @@ import {ticketDuration,timingMode} from './ticket-timing';
 import {workflowSettings} from './workflow-settings';
 import {readPortalPolicy} from './portal-policy-store';
 export function portalBookingError(message:string){return Object.assign(new Error(message),{name:'PortalError'});}
-export async function portalSelection(tenantId:string,locationId:string,customerId:string,petId:string,itemKey:string,client:any=db){
- const policy=await readPortalPolicy(tenantId,client);
- if(!policy.bookableItems.includes(itemKey))throw portalBookingError('This service is not offered online. Ask the shop to help book it.');
- const pet=await client.pet.findFirst({where:{tenantId,customerId,id:petId,active:true}});if(!pet)throw portalBookingError('Choose one of your active dogs.');
- const [type,id]=itemKey.split(':');const input={type:type as SaleInput['type'],id,petId,quantity:1};
- const resolved=await resolveSaleLines(client,tenantId,[input],[petId],locationId);
+export type PortalPetSelection={petId:string;itemKey:string};
+export async function portalSelections(tenantId:string,locationId:string,customerId:string,selections:PortalPetSelection[],client:any=db){
+ if(!Array.isArray(selections)||!selections.length||selections.length>100||selections.some(s=>!s||typeof s.petId!=='string'||!s.petId||typeof s.itemKey!=='string')||new Set(selections.map(s=>s.petId)).size!==selections.length)throw portalBookingError('Choose each dog once and select a service or package for that dog.');
+ const policy=await readPortalPolicy(tenantId,client),inputs:SaleInput[]=[];
+ for(const {petId,itemKey} of selections){
+  if(!policy.bookableItems.includes(itemKey))throw portalBookingError('One of these services is not offered online. Ask the shop to help book it.');
+  const pet=await client.pet.findFirst({where:{tenantId,customerId,id:petId,active:true}});if(!pet)throw portalBookingError('Choose only your active dogs. A dog’s profile may have changed; refresh your details.');
+  const [type,id]=itemKey.split(':');inputs.push({type:type as SaleInput['type'],id,petId,quantity:1});
+ }
+ const petIds=selections.map(s=>s.petId),resolved=await resolveSaleLines(client,tenantId,inputs,petIds,locationId);
  const mode=timingMode((await workflowSettings(tenantId,client)).timingMode),duration=ticketDuration(resolved.lines,mode);
- if(duration<=0)throw portalBookingError('The shop needs to set this service’s duration before it can be booked online.');
- const serviceType=petServiceType({lines:resolved.lines},petId);
- return {policy,input,lines:resolved.lines,duration,serviceType};
+ if(duration<=0)throw portalBookingError('The shop needs to set these services’ durations before they can be booked online.');
+ return {policy,inputs,petIds,lines:resolved.lines,duration,serviceType:petServiceType({lines:resolved.lines},petIds[0])};
+}
+export async function portalSelection(tenantId:string,locationId:string,customerId:string,petId:string,itemKey:string,client:any=db){
+ const selected=await portalSelections(tenantId,locationId,customerId,[{petId,itemKey}],client);return {...selected,input:selected.inputs[0]};
 }
 export async function portalAvailability(tenantId:string,locationId:string,date:string,duration:number,serviceType:string,client:any=db,customerId?:string){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw portalBookingError('Choose a valid date.');

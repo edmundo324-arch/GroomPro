@@ -13,6 +13,17 @@ export function reportCsv(data:any,locationName:string){
   const current:any[]=data[key]||[],previous:any[]=data.previous?.[key]||[],id=(r:any)=>r.id||r.name;
   for(const k of new Set([...current,...previous].map(id))){const a=current.find(r=>id(r)===k),b=previous.find(r=>id(r)===k);rows.push([section,(a||b).name,money(a?.amountCents),data.previous?money(b?.amountCents):'']);if(key==='serviceSales')rows.push([section+' quantity',(a||b).name,a?.quantity||0,data.previous?b?.quantity||0:'']);}
  }
+ if(data.salesBreakdowns){
+  rows.push(['Sales breakdown basis','Closed saved line totals after discounts; excludes tax, tips and prior balances. Product/package/employee views overlap; do not add them together. Employee rows use recorded permitted assignments only.']);
+  rows.push(['Sales breakdown total','Closed sales excluding prior balances',money(data.salesBreakdowns.netLineSalesCents),data.previous?.salesBreakdowns?money(data.previous.salesBreakdowns.netLineSalesCents):'']);
+  for(const key of ['products','packages','employees','days']){const a=data.salesBreakdowns[key]||[],b=data.previous?.salesBreakdowns?.[key]||[];for(const id of new Set([...a,...b].map((r:any)=>r.id))){const current=a.find((r:any)=>r.id===id),previous=b.find((r:any)=>r.id===id);rows.push(['Sales — '+key,(current||previous).name,money(current?.amountCents),data.previous?.salesBreakdowns?money(previous?.amountCents):'']);}}
+ }
+ if(data.receivables){
+  rows.push(['Outstanding balances basis','Current snapshot independent of sales dates. Accessible customer accounts and selected-location open tickets can overlap; do not add totals. Credits are not automatically applied.']);
+  rows.push(['Outstanding balances snapshot',data.receivables.asOf]);
+  for(const c of data.receivables.accounts)rows.push(['Customer account',c.name,'Balance owed',money(c.balanceCents),'Credit',money(c.creditCents)]);
+  for(const t of data.receivables.openTickets)rows.push(['Unpaid ticket',t.orderNumber,t.name,t.status,'Saved total',money(t.totalCents),'Paid',money(t.paidCents),'Due',money(t.dueCents)]);
+ }
  if(data.employeeWork){
   rows.push(['Employee report basis','Attendance: recorded shift location and selected dates; open shifts through snapshot time. Commissions and tips: original ticket closing date, including later tips. Not wages or payroll payments.']);
   rows.push(['Employee report scope',data.employeeWork.scope],['Employee report snapshot',data.employeeWork.asOf]);

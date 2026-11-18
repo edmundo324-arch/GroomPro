@@ -119,7 +119,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   {
     path: ['rewards'], title: 'Customer portal & cancellation notice',
     description: 'Choose online booking approval, available services, and the cancellation notice customers receive.',
-    keywords: 'online booking automatic review available portal customer link cancellation cancel notice hours days warning',
+    keywords: 'online booking automatic review available portal customer link cancellation cancel notice hours days warning minimum lead time interval spacing start times',
     access: 'manager', anchor: 'customer-portal', steps: ['Customer Account & Secret Rewards', 'Customer portal & cancellation notice'],
   },
   {

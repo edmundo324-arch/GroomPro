@@ -123,6 +123,16 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  return date+'T'+time;
  });setRebookStart(current=>current||wallTime(x,d.ticket.location?.timezone||"America/Chicago"))}}catch(e){if(mounted.current&&sequence===loadSequence.current)setReadError(e instanceof Error?e.message:"Ticket could not be loaded.")}}
  async function loadGroomers(){try{const r=await employeeFetch("/api/employees");if(r.ok){const d=await r.json();setGroomers((d.employees||[]).filter((e:any)=>e.active&&["GROOMER","MASTER_GROOMER","BACK"].includes(e.role)))}}catch{}}
+ const [receiptEmail,setReceiptEmail]=useState<{url:string;email:string;revision:string;requestId:string}|null>(null),[receiptEmailBusy,setReceiptEmailBusy]=useState(false),[receiptEmailNotice,setReceiptEmailNotice]=useState('');
+ async function prepareReceiptEmail(){
+  if(!ticketId)return;
+  const url='/api/tickets/receipt?ticketId='+encodeURIComponent(ticketId)+'&locationId='+encodeURIComponent(ticket.locationId||ticket.location?.id||'');
+  try{const r=await employeeFetch(url),d=await r.json();if(!r.ok)throw Error(d.error);if(!d.email)throw Error('Add the customer’s email address in Customer Profile → Details, then try again.');setReceiptEmailNotice('');setReceiptEmail({url,email:d.email,revision:d.revision,requestId:crypto.randomUUID()});}catch(e){setError((e as Error).message);}
+ }
+ async function emailReceipt(){
+  if(!receiptEmail||receiptEmailBusy)return;setReceiptEmailBusy(true);
+  try{const r=await employeeFetch(receiptEmail.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:receiptEmail.requestId,revision:receiptEmail.revision})}),d=await r.json();if(!r.ok)throw Error(d.error);setReceiptEmailNotice(d.message);setReceiptEmail(null);}catch(e){setReceiptEmailNotice((e as Error).message);}finally{setReceiptEmailBusy(false);}
+ }
  async function openReceipt(){
   if(!ticketId)return;
   const preview=window.open('','_blank');if(!preview){setError('Allow a new browser tab to open the invoice or receipt.');return;}preview.opener=null;
@@ -370,8 +380,10 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
   <div className="gp-floating-title"><PosTicketLabel compact={phone} number={loading?undefined:ticket.orderNumber||draft?.orderNumber}/></div>
   <PosCustomerTitle name={!loading&&ticket.customer.id?[ticket.customer.firstName,ticket.customer.lastName].filter(Boolean).join(' '):''} disabled={terminal} onEdit={()=>setOwnerView({id:ticket.customer.id})} onReplace={()=>{setPendingOwner(null);setCustomerQuery('');setChoosingCustomer(v=>!v)}}/>
   <PosVisitStamps checkedIn={ticket.checkedInAt} completed={ticket.pickupAt} called={ticket.pickupCalledAt} texted={ticket.pickupTextedAt} timezone={timezone} contactNeeded={ticket.status==='READY'&&!!ticket.pickupAt&&!ticket.pickupCompletedAt&&!ticket.readyContacted}/>
-  <div className="gp-pos-window-actions"><PosFullSizeButton/><PosHeaderMenu onReceipt={ticketId?()=>void openReceipt():undefined} onCalendar={ticketId?(send)=>void calendarInvite(send):undefined} details={phoneDetails} onDetails={phone?showDetails:undefined} onCall={canRecordCall?()=>void recordPickupCall():undefined} callPending={pendingKeys.includes('pickup-call')}/><DismissButton label="Dismiss POS Ticket" onClick={()=>void closeWindow()}/></div>
+  <div className="gp-pos-window-actions"><PosFullSizeButton/><PosHeaderMenu onEmailReceipt={ticketId?()=>void prepareReceiptEmail():undefined} onReceipt={ticketId?()=>void openReceipt():undefined} onCalendar={ticketId?(send)=>void calendarInvite(send):undefined} details={phoneDetails} onDetails={phone?showDetails:undefined} onCall={canRecordCall?()=>void recordPickupCall():undefined} callPending={pendingKeys.includes('pickup-call')}/><DismissButton label="Dismiss POS Ticket" onClick={()=>void closeWindow()}/></div>
  </div>
+ {receiptEmail&&<section aria-label="Email invoice or receipt" className="gp-settings-card"><strong>Email saved invoice or receipt</strong><p>Send this copy to {receiptEmail.email}. Unsaved ticket changes are not included.</p><button type="button" className="gp-btn primary" disabled={receiptEmailBusy} onClick={()=>void emailReceipt()}>Send email</button><button type="button" className="gp-btn" disabled={receiptEmailBusy} onClick={()=>setReceiptEmail(null)}>Cancel</button></section>}
+ {receiptEmailNotice&&<p role="status">{receiptEmailNotice}<button type="button" onClick={()=>setReceiptEmailNotice('')}>Dismiss</button></p>}
  {!!inventoryWarnings.length&&<div role="status" className="gp-form-error"><strong>Ticket closed. Inventory needs attention.</strong>{inventoryWarnings.map((warning,i)=><p key={i}>{warning}</p>)}<button type="button" onClick={()=>setInventoryWarnings([])}>Dismiss</button></div>}
  {readError&&<div role="alert" className="gp-form-error">{readError}</div>}
  {loading&&recordReady&&ticketId&&<button type="button" className="gp-btn" onClick={()=>void load()}>Retry ticket</button>}
