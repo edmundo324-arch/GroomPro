@@ -29,7 +29,7 @@ async function call(path:string,method='GET',body?:object){
 function AgreementLocation({value,onChange}:{value:string;onChange:(id:string)=>void}){
  const [locations,setLocations]=useState<{id:string;name:string}[]>([]),[error,setError]=useState('');
  useEffect(()=>{let live=true;call('?locations=1').then(data=>{if(!live)return;setLocations(data.locations);if(data.locations.length===1)onChange(data.locations[0].id)}).catch(e=>{if(live)setError(e.message)});return()=>{live=false}},[]);
- return <div><label>Shop location <select value={value} onChange={e=>onChange(e.target.value)}><option value="">Choose shop location</option>{locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}</select></label><HelpPopup label="Shop location">New customers who complete this form belong to this shop’s customer-sharing group. Existing customers keep their current assignment.</HelpPopup>{error&&<p role="alert">{error}</p>}</div>;
+ return <div>{locations.length>1&&<label>Shop location <select value={value} onChange={e=>onChange(e.target.value)}><option value="">Choose shop location</option>{locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}</select></label>}<HelpPopup label="Shop location">New customers who complete this form belong to this shop’s customer-sharing group. Existing customers keep their current assignment.</HelpPopup>{error&&<p role="alert">{error}</p>}</div>;
 }
 function AgreementHelp({label,children}:{label:string;children:ReactNode}){
  return <HelpPopup label={label}>{children}</HelpPopup>;

@@ -7,3 +7,8 @@ test('CSV keeps current calculations, prior-only rows, scope and offline snapsho
 test('CSV neutralizes spreadsheet formulas in customer-controlled names',()=>{
  const csv=reportCsv({referrals:{'=HYPERLINK("bad")':1,'\t+formula':2}},'@formula');assert.ok(csv.includes('"\'@formula"'));assert.ok(csv.includes('"\'=HYPERLINK'));assert.ok(csv.includes('"\'\t+formula"'));
 });
+
+test('employee export includes current and prior-only earnings, time basis and incomplete assignments',()=>{
+ const data={employeeWork:{scope:'TEAM',asOf:'2026-11-18T12:00:00Z',unallocatedTipCents:500,invalidRecords:0,rows:[{id:'a',name:'Alex',elapsedMinutes:120,breakMinutes:30,minutesExcludingBreaks:90,openShifts:1,commissionCents:2000,tipCents:1000}]},previous:{employeeWork:{rows:[{id:'b',name:'Former employee',commissionCents:500,tipCents:200}],unallocatedTipCents:0}}};
+ const csv=reportCsv(data,'Shop');assert.ok(csv.includes('"Alex — Hours excluding breaks","1.50","0.00"'));assert.ok(csv.includes('"Former employee — Assigned tips","0.00","2.00"'));assert.ok(csv.includes('"Unallocated tips","5.00","0.00"'));assert.ok(csv.includes('original ticket closing date, including later tips'));assert.ok(csv.includes(data.employeeWork.asOf));
+});
