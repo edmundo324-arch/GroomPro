@@ -8,7 +8,7 @@ The original audit counted 42 missing and 124 partial entries. Those are baselin
 - Maps/live routing, payment-processor selection, shop .bak/live 123Pet validation, and Whiteboard layout remain deferred.
 - Future Training/Sales Studio remains unauthorized under AGENTS.md; audit entries do not silently override that restriction.
 - Sales breakdown basis approved: closed saved line totals after discounts, excluding tax, tips and prior-balance collection; no inferred employee attribution.
-- Automatic confirmation requests default ON; stop when confirmed. Customer may choose several reminders (two days before, one day before, evening before, or morning of), each with a chosen time, and may add to calendar. Repeat confirmation requests are approved; the user will specify their schedule. Do not invent the repeat schedule.
+- Automatic confirmation requests default ON; stop when confirmed. Customer may choose several reminders (two days before, one day before, evening before, or morning of), each with a chosen time, and may add to calendar. Factory repeat confirmation days are 7, 5, 3, 2 and appointment morning; tenant configurable. Each includes tenant-editable no-show/same-day cancellation fee wording. Factory clocks: 9 AM on earlier days, 7 AM appointment morning. Customer attendance confirmation is separate from shop acceptance. Existing upcoming appointments are included by default; past request times are skipped. Date/time-change reconfirmation is awaiting clarification.
 
 ## Published batches
 
@@ -33,6 +33,16 @@ Remaining items include automatic messaging (approved ON; timing questions pendi
 - Settings → Communications → Message templates stores tenant-owned SMS/email wording with validated automatic details. Messaging inserts the selected template using the chosen customer and appointment; existing draft text is preserved and sending remains explicit.
 - Local review caught and corrected a Settings search crash caused by the missing Device access breadcrumb registration. A regression checks every registered destination.
 - Focused tests passed for template context, ownership, channel, missing details, calendar access, and existing business libraries. Production build passed. Local browser review verified template search/navigation and insertion preserving an existing draft, and the confirmed-appointment calendar control, using fictional API responses. No live messages were sent. Automatic reminder sending remains unfinished; templates do not claim to schedule or send reminders.
+
+## Appointment reports continuation — checked
+
+- Reports now includes counts by scheduled day/hour, saved status, service and actual assigned employee. Cancelled/no-show tickets are included in this separate breakdown; the original summary and sales calculations remain unchanged. Services/employees count each ticket once per group and clearly disclose overlapping groups.
+- Print report opens a printable copy from the same report rows as CSV, retaining date/location, prior comparison, and offline snapshot information. Printing sends no messages and changes no business records.
+- Focused report grouping, timezone, employee visibility, preserved summary, CSV and escaped-print tests passed. Production build passed; final print-format changes passed focused tests and type checking. Local browser verified cancelled/no-show counts and a fictional printable snapshot with readable dates and comparison columns. The in-app browser did not expose the new print window from the button; its rendered formatter output was checked separately. Actual printing/GoDaddy remain unverified. Audit 9 and printing portion of 19; fee/waiver analysis and scheduled delivery remain pending.
+
+## Reused findings
+
+- Inbound SMS STOP/START synchronization already exists in `app/api/integrations/twilio/route.ts` with signed provider callbacks, tenant/recipient checks, duplicate-message protection and audited phone preferences. Do not reimplement this portion of audit 49/110/121. Live provider verification and email-preference gaps remain distinct.
 
 ## Audit backlog
 

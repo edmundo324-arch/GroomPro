@@ -1,7 +1,7 @@
 import {reconciliationMeasures} from './report-reconciliation';
 // Export the same snapshot shown in Reports; never recalculate financial measures.
 function cell(value:unknown){const text=String(value??'');return '"'+(/^[\s]*[=+@-]/.test(text)?"'"+text:text).replace(/"/g,'""')+'"';}
-export function reportCsv(data:any,locationName:string){
+export function reportRows(data:any,locationName:string){
  const rows:unknown[][]=[['GroomPro report'],['Location',locationName],['Period begins',data.start],['Period ends (exclusive)',data.end],['Snapshot',data.offlineReport?'Saved offline report':'Report retrieved from server'],['Saved at',data.offlineSavedAt||''],['Scope','Payments and ticket sales: selected location. Memberships and referrals: all accessible customer records.'],['Basis','Payments: payment date. Sales/tips/commissions: closing date. Sales exclude tax and tips.'],['Section','Measure','Selected period','Previous period']];
  const money=(n:number)=>(Number(n||0)/100).toFixed(2);
  for(const [label,key,currency] of [['Appointments','appointments',false],['Projected sales','projectedSalesCents',true],['Payments collected','collectedCents',true],['Closed-ticket sales','closedSalesCents',true],['Tips on closed tickets','tipsCents',true],['VIP memberships started','membershipStarts',false],['VIP memberships ended','membershipEnds',false]] as const){
@@ -17,6 +17,11 @@ export function reportCsv(data:any,locationName:string){
   rows.push(['Sales breakdown basis','Closed saved line totals after discounts; excludes tax, tips and prior balances. Product/package/employee views overlap; do not add them together. Employee rows use recorded permitted assignments only.']);
   rows.push(['Sales breakdown total','Closed sales excluding prior balances',money(data.salesBreakdowns.netLineSalesCents),data.previous?.salesBreakdowns?money(data.previous.salesBreakdowns.netLineSalesCents):'']);
   for(const key of ['products','packages','employees','days']){const a=data.salesBreakdowns[key]||[],b=data.previous?.salesBreakdowns?.[key]||[];for(const id of new Set([...a,...b].map((r:any)=>r.id))){const current=a.find((r:any)=>r.id===id),previous=b.find((r:any)=>r.id===id);rows.push(['Sales — '+key,(current||previous).name,money(current?.amountCents),data.previous?.salesBreakdowns?money(previous?.amountCents):'']);}}
+ }
+ if(data.appointmentVolume){
+  rows.push(['Appointment volume basis','Scheduled date; all statuses including cancelled/no-show. One ticket per total; service/actual employee groups overlap. Current saved status, not historical status.']);
+  rows.push(['Appointment volume','All appointments',data.appointmentVolume.total,data.previous?.appointmentVolume?.total??'']);
+  for(const key of ['statuses','days','hours','services','employees']){const a=data.appointmentVolume[key]||[],b=data.previous?.appointmentVolume?.[key]||[];for(const id of new Set([...a,...b].map((r:any)=>r.id))){const x=a.find((r:any)=>r.id===id),y=b.find((r:any)=>r.id===id);rows.push(['Appointments — '+key,(x||y).name,x?.count||0,data.previous?.appointmentVolume?y?.count||0:'']);}}
  }
  if(data.receivables){
   rows.push(['Outstanding balances basis','Current snapshot independent of sales dates. Accessible customer accounts and selected-location open tickets can overlap; do not add totals. Credits are not automatically applied.']);
@@ -34,5 +39,8 @@ export function reportCsv(data:any,locationName:string){
  }
  for(const [name,count] of Object.entries(data.currentMembershipStatuses||{}))rows.push(['Current VIP membership statuses',name,count,'']);
  for(const name of new Set([...Object.keys(data.referrals||{}),...Object.keys(data.previous?.referrals||{})]))rows.push(['Referral sources',name,data.referrals?.[name]||0,data.previous?data.previous.referrals?.[name]||0:'']);
- return '\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n')+'\r\n';
+ return rows;
+}
+export function reportCsv(data:any,locationName:string){
+ return '\uFEFF'+reportRows(data,locationName).map(row=>row.map(cell).join(',')).join('\r\n')+'\r\n';
 }

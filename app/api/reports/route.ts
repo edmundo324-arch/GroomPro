@@ -1,3 +1,4 @@
+import {appointmentBreakdowns} from '@/src/lib/report-appointments';
 import {currentReceivables} from '@/src/lib/report-receivables';
 import {salesBreakdowns} from '@/src/lib/report-sales-breakdowns';
 import {employeeReport} from '@/src/lib/employee-report';
@@ -29,7 +30,7 @@ async function get(r:NextRequest){
  const asOf=new Date();
  async function period(a:Date,b:Date){
  const [tickets,payments,closed,memberships,customers,referrals]=await Promise.all([
- db.ticket.findMany({where:{tenantId,locationId,scheduledStart:{gte:a,lt:b},status:{not:'CANCELLED'}},include:{lines:true}}),
+ db.ticket.findMany({where:{tenantId,locationId,scheduledStart:{gte:a,lt:b}},include:{lines:{include:{service:{select:{name:true}}}}}}),
  db.payment.findMany({where:{tenantId,paidAt:{gte:a,lt:b},ticket:{tenantId,locationId}}}),
  db.ticket.findMany({where:{tenantId,locationId,status:'CLOSED',closedAt:{gte:a,lt:b}},include:{lines:{include:{service:{select:{name:true}},assignedUser:true}}}}),
  db.$queryRaw<any[]>`SELECT customerId,status,startedAt,endedAt FROM Membership WHERE tenantId=${tenantId}`,
@@ -39,7 +40,7 @@ async function get(r:NextRequest){
  const allocations=new Map(tipRecords.map(row=>[row.settingKey.slice('TICKET_TIPS:'.length),row.value as any]));
  const sources=new Map(referrals.map(row=>[row.settingKey.slice('CUSTOMER_REFERRAL:'.length),(row.value as any)?.referralSource||'Not recorded']));
  const settlements=payments.length?await db.$queryRaw<any[]>`SELECT referenceId,entryType,amountCents FROM CustomerAccountLedger WHERE tenantId=${tenantId} AND entryType='OWED' AND amountCents<0 AND referenceId IN (${Prisma.join(payments.map(p=>p.id))})`:[];
- return {...reportSummary(tickets,payments,closed,memberships,customers.map(c=>({source:sources.get(c.id)||'Not recorded'})),a,b),reconciliation:reportReconciliation(payments,closed,settlements),salesBreakdowns:salesBreakdowns(closed,employees,reportTimezone),employeeWork:{...employeeReport(employees,closed,clocks,locationId,a,b,asOf,allocations),scope:canManageTime?'TEAM':'SELF'}};
+ return {appointmentVolume:appointmentBreakdowns(tickets,employees,reportTimezone),...reportSummary(tickets.filter(t=>t.status!=='CANCELLED'),payments,closed,memberships,customers.map(c=>({source:sources.get(c.id)||'Not recorded'})),a,b),reconciliation:reportReconciliation(payments,closed,settlements),salesBreakdowns:salesBreakdowns(closed,employees,reportTimezone),employeeWork:{...employeeReport(employees,closed,clocks,locationId,a,b,asOf,allocations),scope:canManageTime?'TEAM':'SELF'}};
  }
  const [accountCustomers,openTickets]=await Promise.all([
   db.customer.findMany({where:{tenantId,OR:[{balanceCents:{gt:0}},{creditCents:{gt:0}}]},select:{id:true,firstName:true,lastName:true,active:true,balanceCents:true,creditCents:true},orderBy:{lastName:'asc'}}),
