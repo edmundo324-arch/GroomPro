@@ -1,3 +1,4 @@
+import {customerMessagePreferences} from '@/src/lib/customer-message-preferences';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {customerContactFeature,isFeatureEnabled} from '@/src/lib/feature-access';
 import {customerDetails} from "@/src/lib/customer-details";
@@ -32,7 +33,7 @@ async function handlePolicyPATCH(request:NextRequest,{params}:{params:Promise<{c
  try{const b=await request.json();const firstName=String(b.firstName||"").trim(),lastName=String(b.lastName||"").trim(),email=String(b.email||"").trim();
  if(!firstName||!lastName||firstName.length>191||lastName.length>191||email.length>191)return NextResponse.json({error:"Valid first and last names are required (up to 191 characters)."},{status:400});
  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return NextResponse.json({error:"Enter a valid email address."},{status:400});
- const data={...customerDetails(b),firstName,lastName,email:email||null,notes:String(b.notes||"").trim()||null};
+ const data={...customerDetails(b),...customerMessagePreferences(b),firstName,lastName,email:email||null,notes:String(b.notes||"").trim()||null};
  const expected=b.expectedUpdatedAt===undefined?undefined:new Date(String(b.expectedUpdatedAt));
  if(expected&&Number.isNaN(expected.getTime()))return NextResponse.json({error:'Reload the customer before saving.'},{status:400});
  const result=await db.$transaction(async tx=>{

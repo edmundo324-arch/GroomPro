@@ -7,8 +7,9 @@ export function customerEmailConfig(tenantId:string):{apiKey:string;from:string}
  }catch{return null;}
 }
 
-export async function sendCustomerEmail({tenantId,customerId,body,document}:{tenantId:string;customerId:string;body:string;document?:{id:string;ticketId:string;subject:string;html:string;expectedEmail:string}}){
+export async function sendCustomerEmail({tenantId,customerId,body,document,appointmentMessage=false}:{tenantId:string;customerId:string;body:string;appointmentMessage?:boolean;document?:{id:string;ticketId:string;subject:string;html:string;expectedEmail:string}}){
  const customer=await db.customer.findFirst({where:{id:customerId,tenantId,active:true}});
+ if(appointmentMessage&&customer&&(customer.appointmentEmail===false||customer.invalidEmail))throw Error('Appointment email is turned off or the address is marked invalid on this customer’s profile. Review their communication preferences before sending.');
  const text=body.trim();
  if(!customer?.email||!text||text.length>10000)throw Error('Choose a customer with an email address and enter a message of up to 10,000 characters.');
  if(document&&customer.email!==document.expectedEmail)throw Error('The customer’s email address changed. Reopen the receipt action to review it.');

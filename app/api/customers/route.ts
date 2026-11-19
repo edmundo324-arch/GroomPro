@@ -1,3 +1,4 @@
+import {customerMessagePreferences} from '@/src/lib/customer-message-preferences';
 import {newCustomerPhones} from '@/src/lib/new-customer-phones';
 import {offlineCreateId} from '@/src/lib/offline-transaction';
 import {withRequestPolicy} from '@/src/lib/request-policy';
@@ -39,7 +40,7 @@ async function handlePolicyPOST(request: NextRequest) {
 
   try {
   const customer = await db.$transaction(async (tx) => {
-    const created = await tx.customer.create({ data: { ...customerDetails(body),id:offlineCreateId(),tenantId, firstName, lastName, email, notes: body.notes?.trim() || null } });
+    const created = await tx.customer.create({ data: { ...customerDetails(body),...customerMessagePreferences(body),id:offlineCreateId(),tenantId, firstName, lastName, email, notes: body.notes?.trim() || null } });
     await saveCustomerPhones(tx,tenantId,created.id,phones);
     await saveCustomerReferral(tx, tenantId, created.id, body);
     const record=await tx.customer.findUniqueOrThrow({ where: { id: created.id }, include: { phones: true, pets: true } });

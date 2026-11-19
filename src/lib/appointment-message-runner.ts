@@ -51,13 +51,15 @@ export async function runAppointmentMessages(cursor:MessageCursor|null=null){
      if(!planAppointmentMessages({...ticket,...fresh},liveState,latest.policy,new Date(latest.activeSince),new Date(),liveCancel?.state==='PENDING').some(p=>p.kind===plan.kind&&+p.at===+plan.at))continue;
      let result;
      if(channel==='SMS'){
+      if(ticket.customer.appointmentSms===false||ticket.customer.invalidSmsNumber)continue;
       if(!configFor(tenantId)||!await isFeatureEnabled(tenantId,customerContactFeature)){problem='Texting setup or texting subscription needs attention.';continue;}
       const phone=ticket.customer.phones[0];if(!phone){problem='Some appointments have no customer number with texting enabled. Review their profiles.';continue;}
       const digits=normalizePhone(phone.number),to=phone.number.trim().startsWith('+')?'+'+phone.number.replace(/\D/g,''):digits.length===10?'+1'+digits:'+'+digits;
       result=await sendCustomerSms({tenantId,customerId:ticket.customerId,ticketId:ticket.id,phoneId:phone.id,subject,body,operation:{id,expectedPhone:to}});
      }else{
+      if(ticket.customer.appointmentEmail===false||ticket.customer.invalidEmail)continue;
       if(!customerEmailConfig(tenantId)||!ticket.customer.email){problem='Email setup or a customer email address needs attention.';continue;}
-      result=await sendCustomerEmail({tenantId,customerId:ticket.customerId,body,document:{id,ticketId:ticket.id,subject,expectedEmail:ticket.customer.email,html:'<p>'+escapeHtml(body).replace(/\n/g,'<br>')+'</p>'}});
+      result=await sendCustomerEmail({tenantId,customerId:ticket.customerId,body,appointmentMessage:true,document:{id,ticketId:ticket.id,subject,expectedEmail:ticket.customer.email,html:'<p>'+escapeHtml(body).replace(/\n/g,'<br>')+'</p>'}});
      }
      if(['UNKNOWN','FAILED','NOT_CONFIGURED','SENDING'].includes(result.communication.deliveryStatus))problem='Review Communication History for messages whose delivery failed or could not be confirmed. GroomPro will not resend an uncertain copy automatically.';
     }

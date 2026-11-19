@@ -1,9 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
 function fixture(){
- let row;const calls=[];const db={ticket:{findFirst:async({where})=>where.tenantId==='tenant'&&where.customerId==='customer'?{id:where.id}:null},customer:{findFirst:async({where})=>where.tenantId==='tenant'&&where.id==='customer'?{id:'customer',email:'customer@example.test'}:null},tenant:{findUniqueOrThrow:async()=>({name:'Test Grooming'})},communication:{create:async({data})=>{if(data.id&&row?.id===data.id)throw Object.assign(Error('duplicate'),{code:'P2002'});return row={id:'message',...data}},findFirst:async()=>row,update:async({data})=>(row={...row,...data}),updateMany:async({where,data})=>{if(row.deliveryStatus===where.deliveryStatus)row={...row,...data}},findUniqueOrThrow:async()=>row}};
+ let row;const customer={id:'customer',email:'customer@example.test'};const calls=[];const db={ticket:{findFirst:async({where})=>where.tenantId==='tenant'&&where.customerId==='customer'?{id:where.id}:null},customer:{findFirst:async({where})=>where.tenantId==='tenant'&&where.id==='customer'?customer:null},tenant:{findUniqueOrThrow:async()=>({name:'Test Grooming'})},communication:{create:async({data})=>{if(data.id&&row?.id===data.id)throw Object.assign(Error('duplicate'),{code:'P2002'});return row={id:'message',...data}},findFirst:async()=>row,update:async({data})=>(row={...row,...data}),updateMany:async({where,data})=>{if(row.deliveryStatus===where.deliveryStatus)row={...row,...data}},findUniqueOrThrow:async()=>row}};
  const env={GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON:JSON.stringify({tenant:{apiKey:'secret',from:'shop@example.test'}})};let response={ok:true,status:200,json:async()=>({id:'receipt'})};
  const api={};new Function('require','exports','process','fetch',ts.transpileModule(fs.readFileSync('src/lib/customer-email.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(()=>({db}),api,{env},async(...args)=>{calls.push(args);if(response instanceof Error)throw response;return response});
- return {api,env,calls,setResponse:r=>response=r,send:()=>api.sendCustomerEmail({tenantId:'tenant',customerId:'customer',body:'Hello'})};
+ return {api,env,calls,customer,setResponse:r=>response=r,send:()=>api.sendCustomerEmail({tenantId:'tenant',customerId:'customer',body:'Hello'})};
 }
 test('email sends only for the tenant/customer and records acceptance rather than delivery',async()=>{
  const f=fixture();await assert.rejects(f.api.sendCustomerEmail({tenantId:'other',customerId:'customer',body:'Hello'}));assert.equal(f.calls.length,0);
@@ -28,3 +28,5 @@ test('receipt retries reuse the recorded request without sending twice, includin
 test('a changed recipient prevents receipt delivery',async()=>{
  const f=fixture();await assert.rejects(f.api.sendCustomerEmail({tenantId:'tenant',customerId:'customer',body:'Invoice',document:{id:'copy',ticketId:'ticket',subject:'Ticket',html:'<p>Invoice</p>',expectedEmail:'old@example.test'}}));assert.equal(f.calls.length,0);
 });
+
+test('appointment email preference is rechecked at delivery without blocking explicitly requested ordinary messages',async()=>{for(const [key,value] of [['appointmentEmail',false],['invalidEmail',true]]){const f=fixture();f.customer[key]=value;await assert.rejects(f.api.sendCustomerEmail({tenantId:'tenant',customerId:'customer',body:'Reminder',appointmentMessage:true}),/communication preferences/);assert.equal(f.calls.length,0);await f.send();assert.equal(f.calls.length,1);}});

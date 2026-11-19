@@ -33,3 +33,5 @@ No schema migration is introduced; policy, attendance and runtime check metadata
 ## Verification
 
 Focused tests cover the scheduler lifecycle and private endpoint, tenant and customer isolation, saved delivery identifiers, uncertain outcomes, confirmation/reminder selection, activation, rescheduling, indirect timing changes and offline decision metadata. No live customer texts or emails were sent during implementation. Live provider delivery, host uptime and a full device/database offline round trip require deployment validation.
+
+Customer Profile → Details exposes the existing appointment-email/text choices and invalid-address flags. Automatic messages skip disabled or invalid channels, and the delivery helper checks again immediately before sending. Individual phone SMS permission remains required. These choices do not change the existing explicit receipt/agreement/manual-message workflows.

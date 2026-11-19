@@ -13,6 +13,7 @@ export async function sendCustomerSms({tenantId,customerId,ticketId,phoneId,body
  if (!await isFeatureEnabled(tenantId, customerContactFeature)) throw new TextingPlanError();
  if(!body.trim()||body.length>1600)throw Error('Enter a text message of up to 1,600 characters before sending.');
  const customer=await db.customer.findFirst({where:{id:customerId,tenantId,active:true},include:{phones:{where:{smsEnabled:true},orderBy:{isPrimary:'desc'}}}});if(!customer)throw Error('Customer not found.');
+ if(operation&&(customer.appointmentSms===false||customer.invalidSmsNumber))throw Error('Appointment texts are turned off or the number is marked invalid on this customer’s profile. Review their communication preferences before sending.');
  const phone=phoneId?customer.phones.find(p=>p.id===phoneId):customer.phones[0];if(!phone)throw Error('Choose a phone number from this customer’s profile that has texting enabled.');
  const digits=normalizePhone(phone.number),to=phone.number.trim().startsWith('+')?'+'+phone.number.replace(/\D/g,''):digits.length===10?'+1'+digits:'+'+digits;
  if(!/^\+[1-9]\d{7,14}$/.test(to))throw Error('Check the phone number, including its country code, before sending.');

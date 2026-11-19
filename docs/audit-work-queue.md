@@ -44,7 +44,7 @@ Remaining items include live verification of automatic messaging (approved ON; t
 
 - Inbound SMS STOP/START synchronization already exists in `app/api/integrations/twilio/route.ts` with signed provider callbacks, tenant/recipient checks, duplicate-message protection and audited phone preferences. Do not reimplement this portion of audit 49/110/121. Live provider verification and email-preference gaps remain distinct.
 
-## Native automatic appointment messages — implementation completed locally
+## Native automatic appointment messages — published 6bfc998
 
 - GroomPro's production launcher now runs its own background scheduler; no Airo automation, external cron or open shop browser is required. The host must keep the production Node process running. Private internal authorization is generated automatically at startup, not entered by tenants.
 - Approved factory schedule is enabled for existing upcoming appointments: 7/5/3/2 days before at 9 AM, appointment morning at 7 AM, in the shop time zone. Elapsed activation times and requests at/after the appointment are skipped. Initial acceptance/new-booking requests and customer-selected multiple reminders use the same dispatcher.
@@ -54,6 +54,20 @@ Remaining items include live verification of automatic messaging (approved ON; t
 - Focused tests passed for native startup/loop, private endpoint, acceptance, planning, settings revisions, customer ownership, attendance/reschedule conflicts, indirect time changes, offline decision binding, SMS/email duplicate handling and existing affected booking/package flows. Final production build and type checks passed. Final browser review verified the website address on its own row, the runtime check and saving message rules using fictional responses.
 - Fictional browser review verified separate attendance, multiple reminder choices and settings. No live customer messages or production data were used. Full hosted delivery remains unverified. The existing offline browser harness fails identically on the unchanged baseline; the older pet-items rendering assertion also expects superseded headings despite unchanged POS Items code. These are not claimed as passing integration checks.
 - See `docs/native-appointment-messages.md` for operation and verification limits. This addresses appointment-specific portions of audit 78/82/83/84/85/86/101/107/108/109/119; it does not complete the general workflow engine or all audit gaps.
+
+## Customer appointment communication preferences — current continuation
+
+- Automatic email/text dispatch now respects existing `appointmentEmail` / `appointmentSms` choices and invalid-address flags. Delivery helpers recheck those fields immediately before sending. Explicit staff messages and requested receipts retain their existing behavior.
+- Customer Profile → Details exposes those existing fields with helpful explanations and field-search destinations. New-record defaults match the existing database; omitted values preserve imported preferences. No schema migration or reset of existing choices is involved.
+- Updates use existing employee authorization, tenant scope and stale-record protection. Offline profile edits retain these ordinary boolean fields in the established queue.
+- Focused dispatcher/delivery and preference validation/save tests passed, as did hint placement checks. Final production build passed. Fictional browser review verified imported email-off/invalid-email choices, a saved text preference and the adjacent highlighted hint. An older customer-display test harness has a missing profileDisplayPolicy dependency; that unchanged report/display path was not modified or claimed to pass.
+- This advances audit 121; customer-facing email opt-out controls and live provider verification remain outstanding.
+
+## Existing pet care fields — current continuation
+
+- Customer Profile → Pets → Edit pet now exposes the existing Medical conditions and Special behaviors fields, using the same names and saved records as intake and the customer portal. No duplicate note field or automatic interpretation of health/behavior information is introduced.
+- Staff can view and edit the complete saved notes, with helpful hints and field-search destinations. Omitted fields remain untouched; unrelated grooming notes, ownership and vaccinations are not replaced.
+- Focused validation and tenant/owner-scoped route tests passed. Final production build passed. Fictional browser review verified existing medical/behavior information, editing and reopening the saved pet note. This addresses the medical/behavior editing portion of audit 146, not every remaining pet/document workflow.
 
 ## Audit backlog
 
