@@ -77,12 +77,25 @@ Remaining items include live verification of automatic messaging (approved ON; t
 - Twelve focused email/callback tests and the production build passed. Fictional browser review verified delivered/bounced explanations in Customer Profile → Communication History. Messaging uses the same formatter; its separate screen was not visually reviewed in this batch.
 - Operation and verification limits: `docs/email-delivery-results.md`.
 
-## Customer portal message choices — current continuation
+## Customer portal message choices — published bb54277
 
 - Verified customers can view/change Appointment emails and Appointment texts in their portal. These are the existing Customer Profile fields, not duplicate preferences. Customer identity comes from the verified session, never a submitted customer ID.
 - Customer updates cannot change invalid-contact flags, SMS consent on individual phones, other customers, balances or unrelated profile details. Existing automated delivery checks continue to enforce all restrictions; explicit requested receipts/agreements retain existing behavior.
 - Stale saves ask customers to review saved choices. Late loading preserves input entered while the request was running. Changes are recorded in the existing customer audit history; no schema or provider changes.
 - Ten focused route/service tests and the production build passed. Fictional browser review verified existing choices, saving/reopening email-off, and an adjacent highlighted helpful explanation. This advances audit 121; live hosted delivery remains unverified.
+
+## Inventory stock history — current continuation
+
+- Inventory → Stock history shows recorded opening counts, manual adjustments and ticket-close stock sales, including before/after quantities and shortages. It reuses the existing stock audit records and adds transactional count records to both product-editing routes. Existing checkout subtraction/shortage behavior is unchanged.
+- The history window uses the shared movable/resizable window with saved placement, close control and a complete table before loading. History is paged and requires employee authorization plus inventory access. Platform owner names remain hidden from ordinary tenant viewers; customer IDs and ticket links are not exposed.
+- Products remain business-wide, not per-location stock. Earlier unrecorded counts cannot be reconstructed. Historical cost of goods, purchasing and per-location stock are not implemented by this change.
+- Thirteen focused history, product-save, catalog and existing checkout-stock checks passed. Final production build passed. Fictional browser review verified opening/sale rows and caught a stacking issue; the corrected history window was verified above the blue menu. No production inventory was changed. This advances audit 16, not the full inventory/accounting scope.
+
+## Reporting decisions awaiting the user
+
+- Retention: how many weeks without completed grooming should count as overdue? Do not invent the factory interval.
+- Cancellation/no-show analysis: group by appointment date or by the date the cancellation/no-show was recorded? Example: an appointment on December 2 cancelled on November 30 belongs to different periods depending on this choice.
+- These questions do not block independent approved work. Financial/processor rules, live shop import validation and deferred Whiteboard changes retain their established boundaries.
 
 ## Audit backlog
 

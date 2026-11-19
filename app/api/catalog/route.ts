@@ -1,3 +1,4 @@
+import {recordStockCount} from '@/src/lib/stock-history';
 import {offlineCreateId} from '@/src/lib/offline-transaction';
 import {catalogVersion} from '@/src/lib/catalog-version';
 import {serviceIsCurrentOffer,serviceIsPromoting,servicePromotionFields} from '@/src/lib/service-promotion';
@@ -50,10 +51,13 @@ async function save(r:NextRequest){
  for(const item of data.items)if(!body.items?.find((i:any)=>i.serviceId===item.serviceId)?.role)item.role=defaults.find(s=>s.id===item.serviceId)?.workflowRole||"ADD_ON";
  }
  if(data.kind==="products"){
+ await tx.$queryRaw`SELECT id FROM Product WHERE id=${id} AND tenantId=${tenantId} FOR UPDATE`;
+ const previous=await tx.product.findFirst({where:{id,tenantId}});
  if(r.method==="PATCH"&&!await tx.product.findFirst({where:{id,tenantId}}))throw new Error("Item not found.");
  if(data.sku&&await tx.product.findFirst({where:{tenantId,sku:data.sku,id:{not:id}}}))throw new Error("That SKU is already in use.");
  const values={...common,priceCents:data.priceCents,sku:data.sku,quantity:data.quantity,costCents:data.costCents};
- return r.method==="PATCH"?tx.product.update({where:{id},data:values}):tx.product.create({data:{id,tenantId,...values}});
+ const saved=r.method==="PATCH"?await tx.product.update({where:{id},data:values}):await tx.product.create({data:{id,tenantId,...values}});
+ await recordStockCount(tx,tenantId,saved,previous?.quantity??null,session.user.id);return saved;
  }
  if(data.kind==="packages"){
  if(r.method==="PATCH"&&!await tx.package.findFirst({where:{id,tenantId}}))throw new Error("Item not found.");

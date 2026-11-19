@@ -1,0 +1,6 @@
+import type {Prisma} from '@prisma/client';
+export async function recordStockCount(tx:Prisma.TransactionClient,tenantId:string,product:{id:string;name:string;quantity:number},before:number|null,actorUserId:string){
+ if(before===product.quantity)return;
+ await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId,entityType:'INVENTORY_ITEM',entityId:product.id,action:before===null?'STOCK_OPENING':'STOCK_ADJUSTMENT',summary:before===null?`${product.name}: opening stock recorded as ${product.quantity}.`:`${product.name}: stock count changed from ${before} to ${product.quantity}.`,details:{before,after:product.quantity}}});
+}
+export function stockHistoryRow(row:any,showPlatformActor=false){const d=row.details||{};return {id:row.id,occurredAt:row.occurredAt,summary:row.summary,actor:row.actorUser&&['PLATFORM_OWNER','DEVELOPER'].includes(row.actorUser.role)&&!showPlatformActor?'GroomPro support':row.actorUser?.displayName?.trim()||[row.actorUser?.firstName,row.actorUser?.lastName].filter(Boolean).join(' ')||(row.actorType==='SYSTEM'?'GroomPro':'Employee'),before:Number.isFinite(d.before)?d.before:null,after:Number.isFinite(d.after)?d.after:null,sold:Number.isFinite(d.sold)?d.sold:null,shortage:Number.isFinite(d.shortage)?d.shortage:null};}

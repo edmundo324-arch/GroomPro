@@ -1,3 +1,5 @@
+import {recordStockCount} from '@/src/lib/stock-history';
+import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {moduleDenial} from '@/src/lib/module-entitlement';
 import {managerAction} from '@/src/lib/protected-action';
@@ -23,7 +25,8 @@ async function handlePOST(request: NextRequest) {
   const b=await request.json(); const name=String(b.name||"").trim(),sku=String(b.sku||"").trim()||null,priceCents=Math.max(0,Math.round(Number(b.priceCents)||0)),quantity=Math.max(0,Math.round(Number(b.quantity)||0));
   if(!name)return NextResponse.json({error:"Product name is required."},{status:400});
   if(sku&&await db.product.findFirst({where:{tenantId,sku}}))return NextResponse.json({error:"That SKU is already in use."},{status:409});
-  const product=await db.product.create({data:{tenantId,name,sku,priceCents,quantity,active:true},select:{id:true,name:true,sku:true,priceCents:true,quantity:true}});
+  const session=await getActiveEmployeeSession(tenantId,request.cookies.get("groompro_session")!.value);
+  const product=await db.$transaction(async tx=>{const saved=await tx.product.create({data:{tenantId,name,sku,priceCents,quantity,active:true},select:{id:true,name:true,sku:true,priceCents:true,quantity:true}});await recordStockCount(tx,tenantId,saved,null,session!.user.id);return saved;});
   return NextResponse.json({product},{status:201});
 }
 
@@ -32,7 +35,8 @@ async function handlePATCH(request: NextRequest) {
   const b=await request.json(),id=String(b.id||""); if(!id)return NextResponse.json({error:"Product id is required."},{status:400});
   const existing=await db.product.findFirst({where:{id,tenantId}}); if(!existing)return NextResponse.json({error:"Product not found."},{status:404});
   const data:any={}; if(b.name!==undefined){const name=String(b.name).trim();if(!name)return NextResponse.json({error:"Product name is required."},{status:400});data.name=name} if(b.sku!==undefined)data.sku=String(b.sku||"").trim()||null; if(b.priceCents!==undefined)data.priceCents=Math.max(0,Math.round(Number(b.priceCents)||0)); if(b.quantity!==undefined)data.quantity=Math.max(0,Math.round(Number(b.quantity)||0)); if(b.active!==undefined)data.active=Boolean(b.active);
-  const product=await db.product.update({where:{id},data,select:{id:true,name:true,sku:true,priceCents:true,quantity:true}}); return NextResponse.json({product});
+  const session=await getActiveEmployeeSession(tenantId,request.cookies.get("groompro_session")!.value);
+  const product=await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Product WHERE id=${id} AND tenantId=${tenantId} FOR UPDATE`;const previous=await tx.product.findFirst({where:{id,tenantId}});if(!previous)return null;const saved=await tx.product.update({where:{id},data,select:{id:true,name:true,sku:true,priceCents:true,quantity:true}});await recordStockCount(tx,tenantId,saved,previous.quantity,session!.user.id);return saved;}); return product?NextResponse.json({product}):NextResponse.json({error:"Product not found."},{status:404});
 }
 
 const handlePolicyPOST=managerAction(handlePOST);
