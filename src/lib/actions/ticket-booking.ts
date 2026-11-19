@@ -1,3 +1,5 @@
+import {queueInitialAttendanceRequest} from '@/src/lib/appointment-message-acceptance';
+import {recordAttendanceMove,attendanceDecisionDetails} from '@/src/lib/attendance-move';
 import {onlineStartAllowed} from '@/src/lib/online-booking-time';
 import {createHash} from 'node:crypto';
 import {portalAvailability,portalSelections,portalBookingError} from '@/src/lib/portal-availability';
@@ -110,6 +112,7 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
     if(lines.some(l=>l.role==='GROOM'&&l.assignedUserId))await syncActualGroomers(tx,created.id);
     if(scheduledStart)await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session?.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
     if(draft)await tx.posDraft.update({where:{id:draft.id},data:{promotedAt:new Date()}});
+    await queueInitialAttendanceRequest(tx,created);
     return created;
   });
   if(orderNumber)await writeAudit({ tenantId, actorUserId: session?.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? (ticket.status==="CONFIRMED"?"Confirmed online appointment":"Received online request") : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.`, details: { scheduledStart: scheduledStart?.toISOString()||null, petCount: petIds.length, lineCount: lines.length, arrivalPriority: body.arrivalPriority ?? null } });
@@ -144,7 +147,7 @@ export async function PATCH(request: NextRequest) {
   const nearby=!sameDay&&rules.conflicts.length?'Appointment spacing warning: '+rules.conflicts.map(c=>c.message).join('\n'):'';
   if(nearby&&!await approvedScheduling(request,nearby))return NextResponse.json(schedulingWarning(nearby),{status:409});
   const previousStart = ticket.scheduledStart;
-  const updated = await db.$transaction(async tx => {
+  let updated;try{updated = await db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;
     const live=await tx.ticket.findUnique({where:{id:ticket.id}});
     if(body.expectedStart&&live?.scheduledStart?.toISOString()!==body.expectedStart)throw Error('Appointment changed elsewhere. Refresh before moving.');
@@ -153,10 +156,12 @@ export async function PATCH(request: NextRequest) {
     if(body.groomerId!==undefined){await tx.ticketAssignment.deleteMany({where:{ticketId:ticket.id,role:{in:['GROOMER','PLANNED_GROOMER']}}});if(body.groomerId)await tx.ticketAssignment.createMany({data:[{ticketId:ticket.id,userId:body.groomerId,role:'GROOMER'},{ticketId:ticket.id,userId:body.groomerId,role:'PLANNED_GROOMER'}]});}
     const oldTimes=await readLineStarts(tx,tenantId,ticket.id);if(Object.keys(oldTimes).length&&ticket.scheduledStart){const delta=+newStart-+ticket.scheduledStart;await writeLineStarts(tx,tenantId,ticket.id,Object.fromEntries(Object.entries(oldTimes).map(([id,start])=>[id,new Date(+new Date(start)+delta).toISOString()])),ticket);}
     await moveGroomingNotes(tx,tenantId,ticket.id,newStart);
+    await recordAttendanceMove(tx,live,newStart,request,session.user.id);
     const changed = await tx.ticket.update({ where: { id: ticket.id }, data: { scheduledStart: newStart,...(body.bookingAssetId!==undefined?{bookingAssetId:body.bookingAssetId||null}:{}) } });
     await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "MOVED", previousStart, newStart } });
     return changed;
   });
+  }catch(error){const details=attendanceDecisionDetails(error);if(details.attendanceDecision)return NextResponse.json({error:(error as Error).message,...details},{status:409});throw error;}
   await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: ticket.customerId, action: "MOVE", summary: `Moved appointment #${ticket.orderNumber} from ${previousStart?.toLocaleString()||"unscheduled"} to ${newStart.toLocaleString()}.`, details: { previousStart: previousStart?.toISOString()||null, newStart: newStart.toISOString() } });
   await reconcileEmployeeAssignments(tenantId);
   return NextResponse.json({ ticket: updated, moved: true, previousStart, newStart });

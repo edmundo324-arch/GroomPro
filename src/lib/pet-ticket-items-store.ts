@@ -1,8 +1,8 @@
-import {ticketTiming} from './line-time-store';
+import {ticketTiming,type AttendanceTimingContext} from './line-time-store';
 import {syncAppointmentPets} from './appointment-pet-store';
 import {ticketDuration} from './ticket-timing';
 // The caller owns the transaction. Snapshot IDs preserve items added after Remove was clicked.
-export async function removePetTicketItems(tx:any,tenantId:string,ticketId:string,petId:string,lineIds:unknown){
+export async function removePetTicketItems(tx:any,tenantId:string,ticketId:string,petId:string,lineIds:unknown,attendance?:AttendanceTimingContext){
  if(!ticketId||!petId||!Array.isArray(lineIds)||!lineIds.length||lineIds.length>2000||lineIds.some(id=>typeof id!=='string'||!id||id.length>128))throw Error('Choose a dog and the items to remove.');
  await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticketId} AND tenantId=${tenantId} FOR UPDATE`;
  const ticket=await tx.ticket.findFirst({where:{id:ticketId,tenantId},include:{pets:true,lines:{include:{service:true}},assignments:true}});
@@ -16,6 +16,6 @@ export async function removePetTicketItems(tx:any,tenantId:string,ticketId:strin
  if(removedIds.length)await tx.ticketLine.deleteMany({where:{ticketId,petId,id:{in:removedIds}}});
  await syncAppointmentPets(tx,ticket,remaining);
  const durationMin=ticketDuration(remaining,ticket.timingMode);
- await tx.ticket.update({where:{id:ticketId},data:await ticketTiming(tx,ticket,remaining)});
+ await tx.ticket.update({where:{id:ticketId},data:await ticketTiming(tx,ticket,remaining,attendance)});
  return {ticket,removed,remaining,durationMin};
 }

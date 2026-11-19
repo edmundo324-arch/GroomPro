@@ -1,3 +1,4 @@
+import {queueInitialAttendanceRequest} from '@/src/lib/appointment-message-acceptance';
 import {offlineCreateId,offlineLineId} from '@/src/lib/offline-transaction';
 import {workflowSettings} from '@/src/lib/workflow-settings';
 import {ticketDuration} from '@/src/lib/ticket-timing';
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest) {
       });
       await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
       await ensureGroomingNotes(tx,ticket,session.user.id);
+      await queueInitialAttendanceRequest(tx,ticket);
       return ticket;
     });
 

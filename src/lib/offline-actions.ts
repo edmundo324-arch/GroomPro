@@ -7,6 +7,7 @@ export type OfflineVersion = string | null;
 export type OfflineCommand = OfflineScope & {
   id: string; url: string; method: string; body: string;
   version?: OfflineVersion; follows?: string; createdAt: number;
+  attendanceDecision?:{ticketId:string;from:string;to:string};attendanceChoice?:{ticketId:string;from:string;to:string;send:boolean};
   issue?: string; cloud?: unknown; warning?: string; overrides?: string[]; directUntil?: number;
 };
 
@@ -53,3 +54,9 @@ export const offlineScopeKey = (s: OfflineScope) => JSON.stringify([s.tenantId, 
 export const offlineTargetKey = (t: OfflineTarget) => t.entity + ':' + t.id;
 
 export function offlineRecordVersion(record:any):string|null {const value=record?._offlineVersion||record?.updatedAt;return value instanceof Date?value.toISOString():typeof value==='string'?value:null;}
+
+export function offlineAttendanceChoice(command:OfflineCommand,send:boolean){
+ const decision=command.attendanceDecision;
+ if(!decision||typeof decision.ticketId!=='string'||!Number.isFinite(+new Date(decision.from))||!Number.isFinite(+new Date(decision.to)))throw Error('Refresh this offline change before choosing whether to send confirmation.');
+ return {...decision,send};
+}

@@ -72,6 +72,7 @@ export function OfflineIndicator({ scope, employeeId }: { scope: string; employe
         {issue.cloud != null && <details><summary>Current GoDaddy record</summary><pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(issue.cloud, null, 2)}</pre></details>}
         <div className="gp-actions">
           {issue.cloud != null && <button className="gp-btn" onClick={() => void reviewOffline(issue.id, 'device')}>Use my changes</button>}
+          {issue.attendanceDecision&&<><button className="gp-btn" onClick={()=>void reviewOffline(issue.id,'attendance-send')}>Send new request and sync</button><button className="gp-btn" onClick={()=>void reviewOffline(issue.id,'attendance-skip')}>Sync without sending</button></>}
           {issue.warning && <button className="gp-btn" onClick={() => void reviewOffline(issue.id, 'warning')}>Accept warning and sync</button>}
           <button className="gp-btn" onClick={() => void reviewOffline(issue.id, 'retry')}>Try again</button>
           <button className="gp-btn" onClick={() => void reviewOffline(issue.id, 'cloud')}>{issue.cloud == null ? 'Set change aside' : 'Keep GoDaddy version'}</button>

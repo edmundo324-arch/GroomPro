@@ -1,3 +1,4 @@
+import {attendanceDecisionDetails} from '@/src/lib/attendance-move';
 import {offlineLineId} from '@/src/lib/offline-transaction';
 import {ticketTiming} from '@/src/lib/line-time-store';
 import {packageMembersForPet} from '@/src/lib/appointment-pets';
@@ -33,10 +34,10 @@ async function handlePolicyPOST(r:NextRequest){
  if(!b.present)await tx.ticketLine.deleteMany({where:{ticketId:ticket.id,id:{in:existing.map(l=>l.id)}}});
  for(const [index,line] of addition.lines.entries())await tx.ticketLine.create({data:{...line,id:offlineLineId(index),ticketId:ticket.id,sortOrder:remaining.length+line.sortOrder}});
  await syncAppointmentPets(tx,ticket,[...remaining,...addition.lines]);
- await tx.ticket.update({where:{id:ticket.id},data:await ticketTiming(tx,ticket,await tx.ticketLine.findMany({where:{ticketId:ticket.id},include:{service:true},orderBy:{sortOrder:'asc'}}))});return{changed:true};});
+ await tx.ticket.update({where:{id:ticket.id},data:await ticketTiming(tx,ticket,await tx.ticketLine.findMany({where:{ticketId:ticket.id},include:{service:true},orderBy:{sortOrder:'asc'}}),{request:r,userId:session.user.id})});return{changed:true};});
  if(result.changed)await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:b.ticketId,action:b.present?'ADD_PACKAGE':'REMOVE_PACKAGE',summary:b.present?'Added pet package.':'Removed pet package.',details:{petId:b.petId,packageId:b.packageId}});
  return NextResponse.json(result);
- }catch(e){return NextResponse.json({...warningDetails(e),error:e instanceof Error?e.message:'Package could not update.'},{status:400})}
+ }catch(e){return NextResponse.json({...warningDetails(e),...attendanceDecisionDetails(e),error:e instanceof Error?e.message:'Package could not update.'},{status:attendanceDecisionDetails(e).attendanceDecision?409:400})}
 }
 
 export const POST=withRequestPolicy(handlePolicyPOST, {feature:'TICKETS'});

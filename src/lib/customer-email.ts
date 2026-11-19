@@ -12,6 +12,7 @@ export async function sendCustomerEmail({tenantId,customerId,body,document}:{ten
  const text=body.trim();
  if(!customer?.email||!text||text.length>10000)throw Error('Choose a customer with an email address and enter a message of up to 10,000 characters.');
  if(document&&customer.email!==document.expectedEmail)throw Error('The customer’s email address changed. Reopen the receipt action to review it.');
+ if(document&&!await db.ticket.findFirst({where:{id:document.ticketId,tenantId,customerId}}))throw Error('This appointment no longer belongs to the selected customer. Refresh it before sending.');
  const tenant=await db.tenant.findUniqueOrThrow({where:{id:tenantId},select:{name:true}});
  const config=customerEmailConfig(tenantId),subject=document?.subject||`A message from ${tenant.name}`;
  let communication;

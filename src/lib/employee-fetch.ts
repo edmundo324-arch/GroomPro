@@ -55,6 +55,12 @@ async function authorizedFetch(input:string,init?:RequestInit):Promise<Response>
   const response=await pinAuthorizedFetch(input,init);
   if(response.ok)return response;
   const body=await response.clone().json().catch(()=>({}));
+  if(body.attendanceDecision&&typeof init?.body==='string'){
+   const send=await new Promise<boolean|null>(attendanceComplete=>window.dispatchEvent(new CustomEvent('groompro:attendance-move',{detail:{message:body.error,attendanceComplete}})));
+   if(send===null)return new Response(JSON.stringify({error:'Move cancelled. The appointment time is unchanged.'}),{status:409,headers:{'Content-Type':'application/json'}});
+   if(epoch!==contextEpoch)throw Error('Business or employee changed. Reopen this record before saving.');
+   const headers=new Headers(init.headers);headers.set('x-groompro-attendance-choice',JSON.stringify({...body.attendanceDecision,send}));init={...init,headers};continue;
+  }
   if(!body.schedulingWarning||typeof init?.body!=='string'||approved.includes(body.schedulingWarning))return response;
   const accepted=await new Promise<boolean>(complete=>window.dispatchEvent(new CustomEvent('groompro:scheduling-warning',{detail:{message:body.error,complete}})));
   if(!accepted)return new Response(JSON.stringify({error:'Action cancelled.'}),{status:409,headers:{'Content-Type':'application/json'}});

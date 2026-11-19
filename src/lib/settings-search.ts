@@ -55,6 +55,7 @@ const businessOnly = new Set(['ticket-layout', 'profiles', 'booking', 'calendar-
 const importPath = ['data', 'imports'];
 const ticketPath = ['workflow', 'ticket-layout'];
 export const settingsSearchEntries: SettingsSearchEntry[] = [
+ {path:['communications'],title:'Automatic appointment messages',description:'Choose confirmation schedules, message channels and fee-reminder wording.',keywords:'automatic confirmation request reminders attendance days morning sms email cancellation fee',access:'manager'},
  {path:['communications'],title:'Message templates',description:'Save reusable SMS and email wording for Messaging.',keywords:'message templates sms email saved wording automatic details',access:'manager'},
  {path:['categories'],title:'Grooming quick picks',description:'Manage reusable grooming instructions.',keywords:'quick picks grooming body ears tail face tbf special notes',access:'manager'},
  {path:['data','imports'],title:'Export business records',description:'Download readable linked records for another provider.',keywords:'export download data portable migrate leave',access:'admin'},

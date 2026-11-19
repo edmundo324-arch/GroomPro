@@ -1,4 +1,5 @@
 "use client";
+import {AppointmentMessageSettings} from './appointment-message-settings';
 import {DeviceSettings} from './device-settings';
 import {CustomerSharing} from './customer-sharing';
 import './settings-workspace.css';
@@ -32,7 +33,7 @@ const items=type==="SERVICE"?services:packages;return <section className="gp-set
  {id:'breeds',label:'Breeds',content:<BreedSettings/>},
  {id:'categories',label:'Service categories',content:<><CategorySettings/><BusinessLibrary kind="grooming-picks"/></>},
  {id:'rewards',label:'Rewards',content:<><ReferralRewardSettings/><RewardSettings/></>},
- {id:'communications',label:'Communications',content:<><BusinessLibrary kind="message-templates"/><HeyRosieSettings/></>},
+ {id:'communications',label:'Communications',content:<><AppointmentMessageSettings/><BusinessLibrary kind="message-templates"/><HeyRosieSettings/></>},
  {id:'data',label:'Data & integrations',content:<SettingsSections id="settings-data" label="Data and integrations" sections={[{id:'imports',label:'Import & migration',content:<><CustomerImport/><TenantExport/></>},{id:'123pet',label:'123Pet connection',content:<Pet123Settings/>},{id:'library',label:'Starter library',content:<StarterLibrary/>}]}/>},
  {id:'administration',label:'Access & subscription',content:<SettingsSections id="settings-administration" label="Administration" sections={[{id:'access',label:'Platform access',content:<PlatformControls/>},{id:'subscription',label:'Subscription',content:<SubscriptionSettings/>},{id:'devices',label:'Device access',content:<DeviceSettings/>}]}/>}
  ]}/></SettingsSearch></section>}

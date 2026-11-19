@@ -1,5 +1,5 @@
 "use client";
-import { offlineAction, offlineRecordVersion, offlineScopeKey, offlineTargetKey, type OfflineCommand, type OfflineScope } from './offline-actions';
+import { offlineAttendanceChoice, offlineAction, offlineRecordVersion, offlineScopeKey, offlineTargetKey, type OfflineCommand, type OfflineScope } from './offline-actions';
 import { deviceRead, deviceUpdate, emptyOutbox, outboxKey, snapshotKey, type OfflineOutbox } from './offline-device-store';
 import { findRecord, offlineReadRecords, projectOffline, type OfflineRecords } from './offline-records';
 
@@ -144,6 +144,7 @@ function sendCommand(command: OfflineCommand, version: OfflineCommand['version']
   const headers = new Headers(live?.headers);
   headers.set('Content-Type', 'application/json');
   headers.set('x-groompro-offline', encodeURIComponent(JSON.stringify(metadata)));
+  if(command.attendanceChoice)headers.set('x-groompro-attendance-choice',JSON.stringify(command.attendanceChoice));
   if (command.overrides?.length) headers.set('x-groompro-scheduling-overrides', encodeURIComponent(JSON.stringify(command.overrides)));
   return fetch(url, { ...live, method: command.method, body: command.body || '{}', headers, cache: 'no-store' });
 }
@@ -309,7 +310,7 @@ export function syncOffline() {
         }
         await deviceUpdate<OfflineOutbox>(key, latest => latest && ({
           ...latest, pending: latest.pending.map(entry => entry.id === command.id ? {
-            ...entry, issue: result.error || 'Review this offline change.', cloud: result.cloud, warning: result.schedulingWarning,
+            ...entry, issue: result.error || 'Review this offline change.', cloud: result.cloud, warning: result.schedulingWarning, attendanceDecision:result.attendanceDecision, attendanceChoice:undefined,
           } : entry),
         }));
         change();
@@ -330,7 +331,7 @@ export function syncOffline() {
   return syncing;
 }
 
-export async function reviewOffline(id: string, resolution: 'retry' | 'device' | 'cloud' | 'warning') {
+export async function reviewOffline(id: string, resolution: 'retry' | 'device' | 'cloud' | 'warning' | 'attendance-send' | 'attendance-skip') {
   const active = await activeDevice();
   if (!active) return;
   const key = outboxKey(active.scope);
@@ -346,6 +347,7 @@ export async function reviewOffline(id: string, resolution: 'retry' | 'device' |
       return [{
         ...entry, issue: undefined, cloud: undefined,
         ...(resolution === 'device' ? { version: offlineRecordVersion(entry.cloud), follows: undefined } : {}),
+        ...(['attendance-send','attendance-skip'].includes(resolution)?{attendanceChoice:offlineAttendanceChoice(entry,resolution==='attendance-send'),attendanceDecision:undefined}:{}),
         ...(resolution === 'warning' && entry.warning ? { overrides: [...(entry.overrides || []), entry.warning] } : {}),
       }];
     }),

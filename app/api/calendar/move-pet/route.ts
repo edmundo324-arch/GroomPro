@@ -1,3 +1,4 @@
+import {recordAttendanceMove,attendanceDecisionDetails} from '@/src/lib/attendance-move';
 import {moveGroomingNotes} from '@/src/lib/grooming-notes-store';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -30,10 +31,11 @@ async function move(r:NextRequest){const tenantId=r.headers.get('x-tenant-id')||
   const changed=plans.filter(p=>p.petId!==b.petId);changed.push({petId:b.petId,userId:employeeId});for(const p of plans.filter(p=>p.petId===b.petId&&p.packageKey))changed.push({...p,userId:employeeId});
   if(b.employeeId!==undefined)await writePlannedPackages(tx,tenantId,ticket.id,changed,ticket,plans);await writeLineStarts(tx,tenantId,ticket.id,nextStarts,ticket);
   if(!sameDay)await moveGroomingNotes(tx,tenantId,ticket.id,ticket.timingMode==='CONCURRENT'?new Date(bounds.scheduledStart):start,ticket.timingMode==='CONCURRENT'?undefined:b.petId);
+  await recordAttendanceMove(tx,ticket,new Date(bounds.scheduledStart),r,session.user.id);
   const updated=await tx.ticket.update({where:{id:ticket.id},data:bounds});
   await tx.ticketScheduleHistory.create({data:{tenantId,ticketId:ticket.id,actorUserId:session.user.id,changeType:'MOVED',previousStart:ticket.scheduledStart,newStart:new Date(bounds.scheduledStart)}});
   await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:'MOVE_PET',summary:'Moved one dog’s planned Calendar placement.',details:{petId:b.petId,employeeId,previousStart:previous.start.toISOString(),newStart:start.toISOString(),timingMode:ticket.timingMode}}});return {ticket:updated};
  });return NextResponse.json(result);
- }catch(e){return NextResponse.json({error:(e as Error).message,...warningDetails(e)},{status:409})}
+ }catch(e){return NextResponse.json({error:(e as Error).message,...warningDetails(e),...attendanceDecisionDetails(e)},{status:409})}
 }
 export const PATCH=withRequestPolicy(move,{feature:'CALENDAR'});

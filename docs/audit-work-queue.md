@@ -8,7 +8,7 @@ The original audit counted 42 missing and 124 partial entries. Those are baselin
 - Maps/live routing, payment-processor selection, shop .bak/live 123Pet validation, and Whiteboard layout remain deferred.
 - Future Training/Sales Studio remains unauthorized under AGENTS.md; audit entries do not silently override that restriction.
 - Sales breakdown basis approved: closed saved line totals after discounts, excluding tax, tips and prior-balance collection; no inferred employee attribution.
-- Automatic confirmation requests default ON; stop when confirmed. Customer may choose several reminders (two days before, one day before, evening before, or morning of), each with a chosen time, and may add to calendar. Factory repeat confirmation days are 7, 5, 3, 2 and appointment morning; tenant configurable. Each includes tenant-editable no-show/same-day cancellation fee wording. Factory clocks: 9 AM on earlier days, 7 AM appointment morning. Customer attendance confirmation is separate from shop acceptance. Existing upcoming appointments are included by default; past request times are skipped. Date/time-change reconfirmation is awaiting clarification.
+- Automatic confirmation requests default ON; stop when confirmed. Customer may choose several reminders (two days before, one day before, evening before, or morning of), each with a chosen time, and may add to calendar. Factory repeat confirmation days are 7, 5, 3, 2 and appointment morning; tenant configurable. Each includes tenant-editable no-show/same-day cancellation fee wording. Factory clocks: 9 AM on earlier days, 7 AM appointment morning. Customer attendance confirmation is separate from shop acceptance. Existing upcoming appointments are included by default; past request times are skipped. After a customer-confirmed appointment moves, ask the employee whether to request a new confirmation; factory-on prompt, tenant editable.
 
 ## Published batches
 
@@ -25,7 +25,7 @@ The original audit counted 42 missing and 124 partial entries. Those are baselin
 
 Verification: focused policy, availability, household, receipt sending/retries/access, sales/receivables and CSV tests passed. Production build passed. Local browser review used fictional responses: multi-dog selection/quote controls, receipt recipient review and accepted-but-not-delivered result, report sections, and booking defaults. No live email, SMS, customer database or GoDaddy deployment was used.
 
-Remaining items include automatic messaging (approved ON; timing questions pending), the rest of the workflow engine, advanced reporting, document workflows, and other gaps listed below. Do not interpret this continuation as overall audit completion.
+Remaining items include live verification of automatic messaging (approved ON; timing specified), the rest of the workflow engine, advanced reporting, document workflows, and other gaps listed below. Do not interpret this continuation as overall audit completion.
 
 ## Message templates and calendar continuation
 
@@ -43,6 +43,17 @@ Remaining items include automatic messaging (approved ON; timing questions pendi
 ## Reused findings
 
 - Inbound SMS STOP/START synchronization already exists in `app/api/integrations/twilio/route.ts` with signed provider callbacks, tenant/recipient checks, duplicate-message protection and audited phone preferences. Do not reimplement this portion of audit 49/110/121. Live provider verification and email-preference gaps remain distinct.
+
+## Native automatic appointment messages — implementation completed locally
+
+- GroomPro's production launcher now runs its own background scheduler; no Airo automation, external cron or open shop browser is required. The host must keep the production Node process running. Private internal authorization is generated automatically at startup, not entered by tenants.
+- Approved factory schedule is enabled for existing upcoming appointments: 7/5/3/2 days before at 9 AM, appointment morning at 7 AM, in the shop time zone. Elapsed activation times and requests at/after the appointment are skipped. Initial acceptance/new-booking requests and customer-selected multiple reminders use the same dispatcher.
+- Settings → Communications → Automatic appointment messages controls channels, schedule, fee wording, customer website address, reschedule prompt and shows the last scheduler check. Actual SMS/email provider setup remains required. Customer attendance remains separate from POS status and is available through its helpful hint.
+- Confirmations, pending cancellations, changed times, access restrictions and changed recipients are rechecked before sending. Recorded operation IDs prevent duplicate sends across retries/restarts; uncertain provider results are not resent automatically. After downtime, only the latest due request of each kind is eligible, not a flood of older requests.
+- Moving a customer-confirmed appointment asks Send new request / Move without sending / Cancel move. Explicit moves and indirect service-time changes share the transaction guard. Declining remains respected through later moves. Offline review offers the same send/skip decision bound to the exact conflicting times.
+- Focused tests passed for native startup/loop, private endpoint, acceptance, planning, settings revisions, customer ownership, attendance/reschedule conflicts, indirect time changes, offline decision binding, SMS/email duplicate handling and existing affected booking/package flows. Final production build and type checks passed. Final browser review verified the website address on its own row, the runtime check and saving message rules using fictional responses.
+- Fictional browser review verified separate attendance, multiple reminder choices and settings. No live customer messages or production data were used. Full hosted delivery remains unverified. The existing offline browser harness fails identically on the unchanged baseline; the older pet-items rendering assertion also expects superseded headings despite unchanged POS Items code. These are not claimed as passing integration checks.
+- See `docs/native-appointment-messages.md` for operation and verification limits. This addresses appointment-specific portions of audit 78/82/83/84/85/86/101/107/108/109/119; it does not complete the general workflow engine or all audit gaps.
 
 ## Audit backlog
 
