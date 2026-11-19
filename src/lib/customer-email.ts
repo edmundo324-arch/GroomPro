@@ -1,9 +1,10 @@
+import {emailDeliveryMessage} from './email-delivery';
 import {db} from './db';
 
-export function customerEmailConfig(tenantId:string):{apiKey:string;from:string}|null{
+export function customerEmailConfig(tenantId:string):{apiKey:string;from:string;webhookSecret?:string}|null{
  try{
   const value=JSON.parse(process.env.GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON||'{}')[tenantId];
-  return typeof value?.apiKey==='string'&&value.apiKey.trim()&&typeof value?.from==='string'&&value.from.trim()?{apiKey:value.apiKey,from:value.from}:null;
+  return typeof value?.apiKey==='string'&&value.apiKey.trim()&&typeof value?.from==='string'&&value.from.trim()?{apiKey:value.apiKey,from:value.from,webhookSecret:typeof value.webhookSecret==='string'?value.webhookSecret:undefined}:null;
  }catch{return null;}
 }
 
@@ -27,19 +28,19 @@ export async function sendCustomerEmail({tenantId,customerId,body,document,appoi
  try{
   const response=await fetch('https://api.resend.com/emails',{
    method:'POST',headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json','Idempotency-Key':'communication-'+communication.id},
-   body:JSON.stringify({from:config.from,to:[customer.email],subject,text,...(document?{html:document.html}:{})}),signal:AbortSignal.timeout(12000),
+   body:JSON.stringify({from:config.from,to:[customer.email],subject,text,tags:[{name:'groompro_communication',value:communication.id}],...(document?{html:document.html}:{})}),signal:AbortSignal.timeout(12000),
   });
   // A timeout/server failure may follow acceptance. Never invite a blind resend.
   if(response.status>=500||response.status===408)throw Error('Uncertain provider outcome');
   if(!response.ok){
-   const failed=await db.communication.update({where:{id:communication.id},data:{deliveryStatus:'FAILED',deliveryError:'The email service rejected this message.'}});
-   return {communication:failed,message:'The email was not sent. Ask the business owner to check the email service before trying again.'};
+   await db.communication.updateMany({where:{id:communication.id,deliveryStatus:'SENDING'},data:{deliveryStatus:'FAILED',deliveryError:'The email service rejected this message.'}});const failed=await db.communication.findUniqueOrThrow({where:{id:communication.id}});
+   return {communication:failed,message:emailDeliveryMessage(failed.deliveryStatus)};
   }
   const result=await response.json();if(typeof result.id!=='string'||!result.id)throw Error('Missing provider receipt');
-  const accepted=await db.communication.update({where:{id:communication.id},data:{externalId:result.id,deliveryStatus:'ACCEPTED'}});
-  return {communication:accepted,message:'The email service accepted your message. Delivery has not been confirmed.'};
+  await db.communication.updateMany({where:{id:communication.id,deliveryStatus:'SENDING'},data:{externalId:result.id,deliveryStatus:'ACCEPTED'}});const accepted=await db.communication.findUniqueOrThrow({where:{id:communication.id}});
+  return {communication:accepted,message:emailDeliveryMessage(accepted.deliveryStatus)};
  }catch{
   await db.communication.updateMany({where:{id:communication.id,deliveryStatus:'SENDING'},data:{deliveryStatus:'UNKNOWN',deliveryError:'Delivery outcome unknown. Check the email service before sending again.'}});
-  return {communication:await db.communication.findUniqueOrThrow({where:{id:communication.id}}),message:'We could not confirm whether the email was sent. Ask the business owner to check the email service before sending it again.'};
+  const current=await db.communication.findUniqueOrThrow({where:{id:communication.id}});return {communication:current,message:emailDeliveryMessage(current.deliveryStatus)};
  }
 }

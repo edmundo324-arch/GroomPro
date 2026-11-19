@@ -55,7 +55,7 @@ Remaining items include live verification of automatic messaging (approved ON; t
 - Fictional browser review verified separate attendance, multiple reminder choices and settings. No live customer messages or production data were used. Full hosted delivery remains unverified. The existing offline browser harness fails identically on the unchanged baseline; the older pet-items rendering assertion also expects superseded headings despite unchanged POS Items code. These are not claimed as passing integration checks.
 - See `docs/native-appointment-messages.md` for operation and verification limits. This addresses appointment-specific portions of audit 78/82/83/84/85/86/101/107/108/109/119; it does not complete the general workflow engine or all audit gaps.
 
-## Customer appointment communication preferences — current continuation
+## Customer appointment communication preferences — published b7fbe54
 
 - Automatic email/text dispatch now respects existing `appointmentEmail` / `appointmentSms` choices and invalid-address flags. Delivery helpers recheck those fields immediately before sending. Explicit staff messages and requested receipts retain their existing behavior.
 - Customer Profile → Details exposes those existing fields with helpful explanations and field-search destinations. New-record defaults match the existing database; omitted values preserve imported preferences. No schema migration or reset of existing choices is involved.
@@ -63,11 +63,19 @@ Remaining items include live verification of automatic messaging (approved ON; t
 - Focused dispatcher/delivery and preference validation/save tests passed, as did hint placement checks. Final production build passed. Fictional browser review verified imported email-off/invalid-email choices, a saved text preference and the adjacent highlighted hint. An older customer-display test harness has a missing profileDisplayPolicy dependency; that unchanged report/display path was not modified or claimed to pass.
 - This advances audit 121; customer-facing email opt-out controls and live provider verification remain outstanding.
 
-## Existing pet care fields — current continuation
+## Existing pet care fields — published b7fbe54
 
 - Customer Profile → Pets → Edit pet now exposes the existing Medical conditions and Special behaviors fields, using the same names and saved records as intake and the customer portal. No duplicate note field or automatic interpretation of health/behavior information is introduced.
 - Staff can view and edit the complete saved notes, with helpful hints and field-search destinations. Omitted fields remain untouched; unrelated grooming notes, ownership and vaccinations are not replaced.
 - Focused validation and tenant/owner-scoped route tests passed. Final production build passed. Fictional browser review verified existing medical/behavior information, editing and reopening the saved pet note. This addresses the medical/behavior editing portion of audit 146, not every remaining pet/document workflow.
+
+## Email delivery results — current continuation
+
+- Signed Resend callbacks update the existing outbound communication record, scoped to the business, sender, recipient and provider message. Duplicate/older callbacks cannot regress the result, and an early delivery callback is preserved when the sending response arrives afterward.
+- Messaging and Customer Profile → Communication History share plain-language explanations. Delivered means the recipient mail server accepted the email, not that the person read it. Customer preferences are never changed by this callback.
+- No new dependencies, schema migration, live provider calls or customer messages. Provider endpoint configuration and a real hosted delivery remain unverified. Signed agreement attachment delivery uses a separate path and is not included in this batch. Audit 118 remains partial for those remaining paths.
+- Twelve focused email/callback tests and the production build passed. Fictional browser review verified delivered/bounced explanations in Customer Profile → Communication History. Messaging uses the same formatter; its separate screen was not visually reviewed in this batch.
+- Operation and verification limits: `docs/email-delivery-results.md`.
 
 ## Audit backlog
 

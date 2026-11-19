@@ -5,6 +5,8 @@ import {businessCookie,businessId,deviceCookie,mayOpenBusinessWithoutPin,session
 export async function middleware(request: NextRequest) {
   // The native launcher authenticates this endpoint with its private per-process credential.
   if(request.nextUrl.pathname==='/api/internal/appointment-messages'&&request.method==='POST')return NextResponse.next();
+  // Provider callbacks authenticate their raw payload with the tenant's signing secret.
+  if(request.nextUrl.pathname==='/api/integrations/resend'&&request.method==='POST')return NextResponse.next();
   // Customer agreements use a tenant-scoped, expiring capability instead of an employee session.
   if(['/api/customer-agreement','/api/customer-portal'].includes(request.nextUrl.pathname)&&request.method==='POST')return NextResponse.next();
   if(request.nextUrl.pathname==='/api/device-authorization'&&['GET','POST'].includes(request.method))return NextResponse.next();
