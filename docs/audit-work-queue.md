@@ -69,13 +69,20 @@ Remaining items include live verification of automatic messaging (approved ON; t
 - Staff can view and edit the complete saved notes, with helpful hints and field-search destinations. Omitted fields remain untouched; unrelated grooming notes, ownership and vaccinations are not replaced.
 - Focused validation and tenant/owner-scoped route tests passed. Final production build passed. Fictional browser review verified existing medical/behavior information, editing and reopening the saved pet note. This addresses the medical/behavior editing portion of audit 146, not every remaining pet/document workflow.
 
-## Email delivery results — current continuation
+## Email delivery results — published 2033f29
 
 - Signed Resend callbacks update the existing outbound communication record, scoped to the business, sender, recipient and provider message. Duplicate/older callbacks cannot regress the result, and an early delivery callback is preserved when the sending response arrives afterward.
 - Messaging and Customer Profile → Communication History share plain-language explanations. Delivered means the recipient mail server accepted the email, not that the person read it. Customer preferences are never changed by this callback.
 - No new dependencies, schema migration, live provider calls or customer messages. Provider endpoint configuration and a real hosted delivery remain unverified. Signed agreement attachment delivery uses a separate path and is not included in this batch. Audit 118 remains partial for those remaining paths.
 - Twelve focused email/callback tests and the production build passed. Fictional browser review verified delivered/bounced explanations in Customer Profile → Communication History. Messaging uses the same formatter; its separate screen was not visually reviewed in this batch.
 - Operation and verification limits: `docs/email-delivery-results.md`.
+
+## Customer portal message choices — current continuation
+
+- Verified customers can view/change Appointment emails and Appointment texts in their portal. These are the existing Customer Profile fields, not duplicate preferences. Customer identity comes from the verified session, never a submitted customer ID.
+- Customer updates cannot change invalid-contact flags, SMS consent on individual phones, other customers, balances or unrelated profile details. Existing automated delivery checks continue to enforce all restrictions; explicit requested receipts/agreements retain existing behavior.
+- Stale saves ask customers to review saved choices. Late loading preserves input entered while the request was running. Changes are recorded in the existing customer audit history; no schema or provider changes.
+- Ten focused route/service tests and the production build passed. Fictional browser review verified existing choices, saving/reopening email-off, and an adjacent highlighted helpful explanation. This advances audit 121; live hosted delivery remains unverified.
 
 ## Audit backlog
 

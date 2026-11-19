@@ -1,3 +1,4 @@
+import {readPortalMessagePreferences,savePortalMessagePreferences} from '@/src/lib/portal-message-preferences';
 import {attendanceKey,attendanceFor,updateCustomerAttendance} from '@/src/lib/customer-attendance';
 import {calendarInvitation} from '@/src/lib/calendar-invitation';
 import {onlineStartAllowed} from '@/src/lib/online-booking-time';
@@ -48,6 +49,8 @@ export async function POST(r:NextRequest){
     return reply({intakeAvailable:agreementConfig.channels.includes('online')&&agreementConfig.intake.clauses.length>0&&!!agreementConfig.shopEmail,profile,revision:agreementRevision(profile,state.terms,state.quote),business:business.name,approval:policy.approval,catalog:[...services.map(s=>({...s,key:'SERVICE:'+s.id})),...packages.map(p=>({...p,key:'PACKAGE:'+p.id}))],feeCents,warning:cancellationWarning(policy,business.name,feeCents),appointments:appointments.map(a=>({...a,attendance:attendanceFor(requests.find(q=>q.settingKey===attendanceKey(a.id))?.value,a.scheduledStart),late:a.scheduledStart?cancellationTiming(a.scheduledStart,new Date(),policy.notice).late:false,cancellationRequest:requests.find(q=>q.settingKey===cancellationKey(a.id))?.value||null})),documents});
    }
    if(!profile.id)return reply({error:'Complete your name and contact details first.'},400);
+   if(b.action==='messagePreferences')return reply({preferences:await readPortalMessagePreferences(tenantId,profile.id)});
+   if(b.action==='saveMessagePreferences')return reply({preferences:await savePortalMessagePreferences(tenantId,profile.id,b.preferences)});
    if(b.action==='attendance')return reply({attendance:await updateCustomerAttendance(tenantId,profile.id,String(b.ticketId||''),{revision:b.revision,scheduledStart:b.scheduledStart,confirm:b.confirm===true,reminders:b.reminders})});
    if(b.action==='calendar'){
     const ticket=await db.ticket.findFirst({where:{tenantId,id:String(b.ticketId||''),customerId:profile.id,status:{in:['CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED']},bookingDecision:{notIn:['REQUESTED','PENDING']}},include:{tenant:{select:{name:true}},location:true}});
