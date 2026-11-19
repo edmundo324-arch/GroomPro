@@ -1,5 +1,6 @@
 // Reviewed field destinations; contains no customer data.
 export const moduleFields:{module:string;name:string;path:string;settingsPath?:string[]}[]=[
+ {module:"Reports",name:"Overdue after (weeks)",path:"Reports → Customer retention → Overdue after (weeks)"},
  {
   "module": "Customers",
   "name": "First name",

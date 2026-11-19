@@ -84,18 +84,20 @@ Remaining items include live verification of automatic messaging (approved ON; t
 - Stale saves ask customers to review saved choices. Late loading preserves input entered while the request was running. Changes are recorded in the existing customer audit history; no schema or provider changes.
 - Ten focused route/service tests and the production build passed. Fictional browser review verified existing choices, saving/reopening email-off, and an adjacent highlighted helpful explanation. This advances audit 121; live hosted delivery remains unverified.
 
-## Inventory stock history — current continuation
+## Inventory stock history — published e73ec20
 
 - Inventory → Stock history shows recorded opening counts, manual adjustments and ticket-close stock sales, including before/after quantities and shortages. It reuses the existing stock audit records and adds transactional count records to both product-editing routes. Existing checkout subtraction/shortage behavior is unchanged.
 - The history window uses the shared movable/resizable window with saved placement, close control and a complete table before loading. History is paged and requires employee authorization plus inventory access. Platform owner names remain hidden from ordinary tenant viewers; customer IDs and ticket links are not exposed.
 - Products remain business-wide, not per-location stock. Earlier unrecorded counts cannot be reconstructed. Historical cost of goods, purchasing and per-location stock are not implemented by this change.
 - Thirteen focused history, product-save, catalog and existing checkout-stock checks passed. Final production build passed. Fictional browser review verified opening/sale rows and caught a stacking issue; the corrected history window was verified above the blue menu. No production inventory was changed. This advances audit 16, not the full inventory/accounting scope.
 
-## Reporting decisions awaiting the user
+## Customer retention and cancellation analysis — current continuation
 
-- Retention: how many weeks without completed grooming should count as overdue? Do not invent the factory interval.
-- Cancellation/no-show analysis: group by appointment date or by the date the cancellation/no-show was recorded? Example: an appointment on December 2 cancelled on November 30 belongs to different periods depending on this choice.
-- These questions do not block independent approved work. Financial/processor rules, live shop import validation and deferred Whiteboard changes retain their established boundaries.
+- Approved November 18: overdue factory interval is six weeks, tenant editable; cancellation/no-show date ranges use appointment dates (December 2 cancelled November 30 belongs to December).
+- Reports → Customer retention shows active accessible customers across shared locations, last completed grooming, due date, next booked appointment, current overdue/no-history counts and first-time/returning visitors in the selected period. Closed tickets with pet-linked GROOM/BATH/PREP/DRY service lines count once; merchandise, fees and cancelled tickets do not restart the clock. No-history customers are not guessed overdue. Current overdue uses local calendar days, including daylight-saving boundaries; it is not a historical overdue reconstruction or full cohort analysis.
+- Reports → Customer retention → Overdue after (weeks) defaults to six and allows owner/manager updates with validation, tenant isolation, stale-save checks and audit history. Blue-menu search includes the field. The preference is included in tenant exports. Changes do not schedule messages, change appointments or mark customers inactive.
+- Reports → Cancellations and no-shows uses the selected location and saved appointment date, retaining pending bookings separately. Rates exclude drafts and unaccepted requests. Fee processing can save a ticket as Cancelled, so recorded status and assessed fees remain separate; fee records alone are not treated as proof of a no-show. Waiver decisions are deduplicated by request, and assessed fees are not claimed as collected payments. Earlier cancelled dates after subsequent moves are not reconstructed.
+- CSV and printable report share the same data and basis descriptions; existing sales/reconciliation calculations are unchanged. Seventeen focused calculation, authorization, isolation, stale-save, existing report, CSV and print checks passed. Final production build passed. Fictional browser review verified the six-week default, saving eight weeks, overdue/no-history/next-booking rows, cancellation appointment dates and previous-period columns. No production records were changed; live hosted operation remains unverified. This advances audit 10/11/153; it does not complete every remaining audit capability.
 
 ## Audit backlog
 

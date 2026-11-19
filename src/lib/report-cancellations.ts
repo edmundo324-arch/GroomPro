@@ -1,0 +1,8 @@
+export function cancellationReport(tickets:any[],requests:any[],reviews:any[]){
+ const accepted=tickets.filter(t=>t.status!=='DRAFT'&&!['REQUESTED','PENDING'].includes(t.bookingDecision));const ids=new Set(accepted.map(t=>t.id)),latest=new Map<string,any>();
+ for(const r of reviews){if(!ids.has(r.entityId)||!r.details?.id)continue;const old=latest.get(r.details.id);if(!old||new Date(r.occurredAt)>new Date(old.occurredAt))latest.set(r.details.id,r);}
+ const pending=new Map(requests.map(r=>[r.settingKey.slice('PORTAL_CANCELLATION:'.length),r.value]));
+ const rows=accepted.filter(t=>['CANCELLED','NO_SHOW'].includes(t.status)||t.noShowFeeProcessedAt||pending.get(t.id)?.state==='PENDING'||[...latest.values()].some(r=>r.entityId===t.id)).map(t=>{const decisions=[...latest.values()].filter(r=>r.entityId===t.id);return {id:t.id,orderNumber:t.orderNumber,scheduledStart:t.scheduledStart,status:t.status,pending:pending.get(t.id)?.state==='PENDING',waivers:decisions.filter(r=>r.details.state==='WAIVED').length,feesCents:(t.noShowFeeProcessedAt?Number(t.noShowFeeCents)||0:0)+decisions.reduce((sum,r)=>sum+(Number.isSafeInteger(r.details.feeAppliedCents)&&r.details.feeAppliedCents>0?r.details.feeAppliedCents:0),0),feeProcessed:!!t.noShowFeeProcessedAt};});
+ const cancelled=accepted.filter(t=>t.status==='CANCELLED').length,noShows=accepted.filter(t=>t.status==='NO_SHOW').length;
+ return {appointments:accepted.length,cancelled,noShows,cancellationRate:accepted.length?cancelled/accepted.length*100:0,noShowRate:accepted.length?noShows/accepted.length*100:0,pending:rows.filter(r=>r.pending).length,waivers:rows.reduce((n,r)=>n+r.waivers,0),feesCents:rows.reduce((n,r)=>n+r.feesCents,0),rows};
+}

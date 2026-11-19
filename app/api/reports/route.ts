@@ -1,3 +1,5 @@
+import {retentionReport} from '@/src/lib/report-customer-outcomes';
+import {cancellationReport} from '@/src/lib/report-cancellations';
 import {appointmentBreakdowns} from '@/src/lib/report-appointments';
 import {currentReceivables} from '@/src/lib/report-receivables';
 import {salesBreakdowns} from '@/src/lib/report-sales-breakdowns';
@@ -40,16 +42,17 @@ async function get(r:NextRequest){
  const allocations=new Map(tipRecords.map(row=>[row.settingKey.slice('TICKET_TIPS:'.length),row.value as any]));
  const sources=new Map(referrals.map(row=>[row.settingKey.slice('CUSTOMER_REFERRAL:'.length),(row.value as any)?.referralSource||'Not recorded']));
  const settlements=payments.length?await db.$queryRaw<any[]>`SELECT referenceId,entryType,amountCents FROM CustomerAccountLedger WHERE tenantId=${tenantId} AND entryType='OWED' AND amountCents<0 AND referenceId IN (${Prisma.join(payments.map(p=>p.id))})`:[];
- return {appointmentVolume:appointmentBreakdowns(tickets,employees,reportTimezone),...reportSummary(tickets.filter(t=>t.status!=='CANCELLED'),payments,closed,memberships,customers.map(c=>({source:sources.get(c.id)||'Not recorded'})),a,b),reconciliation:reportReconciliation(payments,closed,settlements),salesBreakdowns:salesBreakdowns(closed,employees,reportTimezone),employeeWork:{...employeeReport(employees,closed,clocks,locationId,a,b,asOf,allocations),scope:canManageTime?'TEAM':'SELF'}};
+ const [cancellationRequests,cancellationReviews]=tickets.length?await Promise.all([db.tenantSetting.findMany({where:{tenantId,settingKey:{in:tickets.map(t=>'PORTAL_CANCELLATION:'+t.id)}}}),db.auditEntry.findMany({where:{tenantId,entityType:'TICKET',entityId:{in:tickets.map(t=>t.id)},action:'CANCELLATION_REVIEW'},select:{entityId:true,occurredAt:true,details:true}})]):[[],[]];
+ return {cancellations:cancellationReport(tickets,cancellationRequests,cancellationReviews),appointmentVolume:appointmentBreakdowns(tickets,employees,reportTimezone),...reportSummary(tickets.filter(t=>t.status!=='CANCELLED'),payments,closed,memberships,customers.map(c=>({source:sources.get(c.id)||'Not recorded'})),a,b),reconciliation:reportReconciliation(payments,closed,settlements),salesBreakdowns:salesBreakdowns(closed,employees,reportTimezone),employeeWork:{...employeeReport(employees,closed,clocks,locationId,a,b,asOf,allocations),scope:canManageTime?'TEAM':'SELF'}};
  }
  const [accountCustomers,openTickets]=await Promise.all([
   db.customer.findMany({where:{tenantId,OR:[{balanceCents:{gt:0}},{creditCents:{gt:0}}]},select:{id:true,firstName:true,lastName:true,active:true,balanceCents:true,creditCents:true},orderBy:{lastName:'asc'}}),
   db.ticket.findMany({where:{tenantId,locationId,status:{in:['OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS','READY']}},include:{lines:true,payments:true,customer:{select:{firstName:true,lastName:true}}},orderBy:{orderNumber:'asc'}})
  ]);
  const receivables=currentReceivables(accountCustomers,openTickets,asOf);
- const result=await period(start,end);let previous;
+ const [result,retention]=await Promise.all([period(start,end),retentionReport(tenantId,asOf,start,end,reportTimezone)]);let previous;
  if(r.nextUrl.searchParams.get('compare')==='true'){let priorStart=new Date(+start-(+end-+start));if(from&&through){const days=Math.round((Date.parse(through+'T12:00:00Z')-Date.parse(from+'T12:00:00Z'))/86400000)+1;priorStart=localToInstant(new Date(Date.parse(from+'T12:00:00Z')-days*86400000).toISOString().slice(0,10)+'T00:00',location.timezone);}previous=await period(priorStart,start);}
- return NextResponse.json({...result,receivables,start,end,locationId,timezone:location.timezone,previous},{headers:{'Cache-Control':'no-store'}});
+ return NextResponse.json({...result,receivables,retention,start,end,locationId,timezone:location.timezone,previous},{headers:{'Cache-Control':'no-store'}});
  }catch(e){return NextResponse.json({error:(e as Error).message},{status:400});}
 }
 export const GET=withRequestPolicy(get,{feature:'REPORTS'});
