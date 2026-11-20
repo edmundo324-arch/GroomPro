@@ -2,6 +2,7 @@
 import {workflowDefaults} from '../lib/workflow-defaults';
 import {reconcileForm} from '../lib/form-hydration';
 import {HelpPopup} from './help-popup';
+import {GroomingInstructionSettings} from './grooming-instruction-settings';
 import {CalendarPreferenceSettings} from './calendar-preference-settings';
 import {PosLayoutSettings} from './pos-layout-settings';
 import {SettingsSections} from './settings-sections';
@@ -32,6 +33,7 @@ const sections=s?[
  {id:'appearance',label:'Appointment appearance',content:<AppointmentAppearance s={s} change={change}/>},
  {id:'popup',label:'Popup content',content:<HoverChoices settings={s} onChange={change}/>},
  ...(scope==='PERSONAL'?[]:[
+ {id:'care-instructions',label:'Seven-stage care',content:<GroomingInstructionSettings/>},
  {id:'helpful-hints',label:'Helpful hints',content:<fieldset className="gp-workflow-section"><legend>Helpful hints</legend><label><input type="checkbox" checked={s.helpfulHints!==false} onChange={e=>change({...s,helpfulHints:e.target.checked})}/>Show helpful hints</label><p>Show floating explanations of fields and where to find them. Factory setting: on.</p><label>Highlight color <Help text="Choose the color that marks the field while its helpful hint is open. This applies throughout your business, except Whiteboard."/><input type="color" value={s.hintHighlightColor||workflowDefaults.hintHighlightColor} onChange={e=>change({...s,hintHighlightColor:e.target.value})}/></label></fieldset>},
   {id:'ticket-layout',label:'POS ticket layout',content:<PosLayoutSettings canResize={!!access.canResize} value={s.posLayout} savedValue={snapshots.current[scope]?.posLayout} onDraftChange={layout=>setS((current:any)=>({...current,posLayout:layout}))} onSaved={layout=>{setS((current:any)=>({...current,posLayout:layout}));snapshots.current[scope]={...snapshots.current[scope],posLayout:layout};drafts.current[scope]={...drafts.current[scope],posLayout:layout};setBusiness((current:any)=>({...current,posLayout:layout}))}}/>},
   {id:'profiles',label:'Customer / Pet profiles',content:<fieldset className="gp-workflow-section"><legend>Customer / Pet Profile Settings</legend><label><input type="checkbox" checked={!!s.showInactivePets} onChange={e=>change({...s,showInactivePets:e.target.checked})}/>Show Inactive pets by default</label><p>Users can change Show Inactive for their current view without changing this business default. Inactive pets cannot be booked.</p></fieldset>},

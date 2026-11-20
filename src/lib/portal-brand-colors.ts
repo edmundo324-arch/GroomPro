@@ -1,0 +1,1 @@
+export function portalButtonText(accent:string){if(!/^#[0-9a-f]{6}$/i.test(accent))return '#ffffff';const values=[1,3,5].map(i=>parseInt(accent.slice(i,i+2),16)/255).map(v=>v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4);const luminance=0.2126*values[0]+0.7152*values[1]+0.0722*values[2];return luminance>0.179?'#000000':'#ffffff';}

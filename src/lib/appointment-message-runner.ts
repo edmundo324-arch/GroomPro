@@ -1,3 +1,4 @@
+import {lifecyclePlans,lifecycleMessage,rebookingCandidateIds} from './appointment-lifecycle-messages';
 import {createHash} from 'node:crypto';
 import {db} from './db';
 import {initializeAppointmentMessageSettings,readAppointmentMessageSettings} from './appointment-message-store';
@@ -24,31 +25,34 @@ export async function runAppointmentMessages(cursor:MessageCursor|null=null){
  const settings=await initializeAppointmentMessageSettings(tenantId);
  if(!settings.policy.enabled){await status(tenantId,'Automatic appointment messages are turned off.',now);return {cursor:nextTenant};}
  if(!settings.policy.publicOrigin){await status(tenantId,'Save the customer website address in these settings before GroomPro can send appointment links.',now);return {cursor:nextTenant};}
- const tickets=await db.ticket.findMany({where:{tenantId,...(cursor?.ticketId?{id:{gt:cursor.ticketId}}:{}),scheduledStart:{gt:now},status:{in:['OPEN','CONFIRMED']},bookingDecision:{notIn:['REQUESTED','PENDING']}},select:{id:true},orderBy:{id:'asc'},take:100});
+ const rebookingCandidates=settings.policy.rebookingEnabled?await rebookingCandidateIds(db,tenantId,cursor?.ticketId||''):[];
+ const tickets=await db.ticket.findMany({where:{tenantId,...(cursor?.ticketId?{id:{gt:cursor.ticketId}}:{}),OR:[{scheduledStart:{gt:now},status:{in:['OPEN','CONFIRMED']},bookingDecision:{notIn:['REQUESTED','PENDING']}},{status:'READY',pickupAt:{gte:new Date(settings.lifecycleActiveSince||settings.activeSince!)}},{status:'CANCELLED',updatedAt:{gte:new Date(settings.lifecycleActiveSince||settings.activeSince!)}},{id:{in:rebookingCandidates.map((r:any)=>r.id)},status:'CLOSED'},...(settings.policy.reportCardMode==='AUTO'&&settings.reportCardActiveSince?[{status:'CLOSED' as const,closedAt:{gte:new Date(settings.reportCardActiveSince)}}]:[]),...(settings.policy.reviewEnabled&&settings.policy.reviewLink&&settings.reviewActiveSince?[{status:'CLOSED' as const,closedAt:{gte:new Date(settings.reviewActiveSince)}}]:[])]},select:{id:true},orderBy:{id:'asc'},take:100});
  let last=cursor?.ticketId||'',problem='';
  for(const entry of tickets){
   if(last&&Date.now()-began>45000){await status(tenantId,problem||'Scheduler is checking upcoming appointments.',new Date());return {cursor:{tenantId,ticketId:last}};}
   try{
    // Reload at dispatch rather than trusting a previously scheduled time or recipient.
    const ticket=await db.ticket.findFirst({where:{id:entry.id,tenantId},include:{location:true,customer:{include:{phones:{where:{smsEnabled:true},orderBy:{isPrimary:'desc'}}}},pets:{include:{pet:true}}}});
-   if(!ticket?.scheduledStart||!ticket.customer.active){last=entry.id;continue;}
+   if(!ticket||(!ticket.scheduledStart&&!ticket.closedAt)||!ticket.customer.active){last=entry.id;continue;}
    const current=await readAppointmentMessageSettings(tenantId),rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[attendanceKey(ticket.id),'PORTAL_CANCELLATION:'+ticket.id]}}});
    const state=rows.find(row=>row.settingKey===attendanceKey(ticket.id))?.value as any,cancellation=rows.find(row=>row.settingKey==='PORTAL_CANCELLATION:'+ticket.id)?.value as any;
    if(!current.activeSince||!current.policy.publicOrigin){last=entry.id;continue;}
-   const plans=planAppointmentMessages(ticket,state,current.policy,new Date(current.activeSince),new Date(),cancellation?.state==='PENDING');
-   for(const plan of plans){
+   const plans=[...planAppointmentMessages(ticket,state,current.policy,new Date(current.activeSince),new Date(),cancellation?.state==='PENDING'),...await lifecyclePlans(db,ticket,current.policy,new Date(current.lifecycleActiveSince||current.activeSince),new Date(),new Date(current.reviewActiveSince||Date.now()),new Date(current.reportCardActiveSince||Date.now()))];
+   for(const plan of plans){const messageDate=ticket.scheduledStart||ticket.closedAt!;
     const portal=new URL('/portal',current.policy.publicOrigin);portal.searchParams.set('tenant',tenantId);portal.searchParams.set('location',ticket.locationId);
     const cancellationPolicy=await readPortalPolicy(tenantId),fee=await getTenantNumberSetting(tenantId,'NO_SHOW_FEE_CENTS',4500),zone=ticket.location.timezone;
-    const values={business:tenant.name,customer:[ticket.customer.firstName,ticket.customer.lastName].filter(Boolean).join(' '),firstName:ticket.customer.firstName,pets:ticket.pets.map(p=>p.pet.name).join(', '),appointmentDate:ticket.scheduledStart.toLocaleDateString('en-US',{timeZone:zone,weekday:'long',month:'long',day:'numeric',year:'numeric'}),appointmentTime:ticket.scheduledStart.toLocaleTimeString('en-US',{timeZone:zone,hour:'numeric',minute:'2-digit'}),location:ticket.location.name,portalLink:portal.toString(),notice:cancellationPolicy.notice.amount+' '+cancellationPolicy.notice.unit.toLowerCase(),fee:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(fee/100)};
-    const body=renderAppointmentMessage(plan.kind==='CONFIRMATION'?current.policy.confirmationText+'\n'+current.policy.feeReminder:current.policy.reminderText,values),subject=plan.kind==='CONFIRMATION'?'Appointment confirmation request':'Appointment reminder';
+    const values={reviewLink:current.policy.reviewLink,business:tenant.name,customer:[ticket.customer.firstName,ticket.customer.lastName].filter(Boolean).join(' '),firstName:ticket.customer.firstName,pets:ticket.pets.filter(p=>plan.kind!=='REBOOKING'||(p.pet.customerId===ticket.customerId&&p.pet.active)).map(p=>p.pet.name).join(', '),appointmentDate:ticket.scheduledStart?.toLocaleDateString('en-US',{timeZone:zone,weekday:'long',month:'long',day:'numeric',year:'numeric'})||'',appointmentTime:ticket.scheduledStart?.toLocaleTimeString('en-US',{timeZone:zone,hour:'numeric',minute:'2-digit'})||'',location:ticket.location.name,portalLink:portal.toString(),notice:cancellationPolicy.notice.amount+' '+cancellationPolicy.notice.unit.toLowerCase(),fee:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(fee/100)};
+    const lifecycle=plan.kind==='CONFIRMATION'||plan.kind==='REMINDER'?null:lifecycleMessage(plan.kind,current.policy);
+    const body=renderAppointmentMessage(lifecycle?.text||(plan.kind==='CONFIRMATION'?current.policy.confirmationText+'\n'+current.policy.feeReminder:current.policy.reminderText),values),subject=lifecycle?.subject||(plan.kind==='CONFIRMATION'?'Appointment confirmation request':'Appointment reminder');
     for(const channel of current.policy.channels){
-     const id=appointmentMessageId(tenantId,ticket.id,ticket.scheduledStart,plan.kind,plan.at,channel);
+     const id=appointmentMessageId(tenantId,ticket.id,messageDate,plan.kind,plan.at,channel);
      if(await db.communication.findFirst({where:{id,tenantId,customerId:ticket.customerId,ticketId:ticket.id}}))continue;
      // A preceding provider call may take time: recheck cancellation, confirmation and policy before the next send.
-     const fresh=await db.ticket.findFirst({where:{id:ticket.id,tenantId},select:{customerId:true,scheduledStart:true,status:true,bookingDecision:true}}),latest=await readAppointmentMessageSettings(tenantId),latestRows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[attendanceKey(ticket.id),'PORTAL_CANCELLATION:'+ticket.id]}}});
-     if(!fresh?.scheduledStart||fresh.customerId!==ticket.customerId||+fresh.scheduledStart!==+ticket.scheduledStart||latest.revision!==current.revision||await platformRestriction(tenantId)||!await isFeatureEnabled(tenantId,'MESSAGING'))continue;
+     const fresh=await db.ticket.findFirst({where:{id:ticket.id,tenantId},select:{id:true,tenantId:true,customerId:true,scheduledStart:true,status:true,bookingDecision:true,pickupAt:true,pickupCompletedAt:true,closedAt:true}}),latest=await readAppointmentMessageSettings(tenantId),latestRows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[attendanceKey(ticket.id),'PORTAL_CANCELLATION:'+ticket.id]}}});
+     if(!fresh||(!fresh.scheduledStart&&!fresh.closedAt)||fresh.customerId!==ticket.customerId||+(fresh.scheduledStart||fresh.closedAt!)!==+messageDate||latest.revision!==current.revision||await platformRestriction(tenantId)||!await isFeatureEnabled(tenantId,'MESSAGING'))continue;
      const liveState=latestRows.find(r=>r.settingKey===attendanceKey(ticket.id))?.value as any,liveCancel=latestRows.find(r=>r.settingKey==='PORTAL_CANCELLATION:'+ticket.id)?.value as any;
-     if(!planAppointmentMessages({...ticket,...fresh},liveState,latest.policy,new Date(latest.activeSince),new Date(),liveCancel?.state==='PENDING').some(p=>p.kind===plan.kind&&+p.at===+plan.at))continue;
+     const freshPlans=lifecycle?await lifecyclePlans(db,{...ticket,...fresh},latest.policy,new Date(latest.lifecycleActiveSince||latest.activeSince),new Date(),new Date(latest.reviewActiveSince||Date.now()),new Date(latest.reportCardActiveSince||Date.now())):planAppointmentMessages({...ticket,...fresh},liveState,latest.policy,new Date(latest.activeSince),new Date(),liveCancel?.state==='PENDING');
+     if(!freshPlans.some(p=>p.kind===plan.kind&&+p.at===+plan.at))continue;
      let result;
      if(channel==='SMS'){
       if(ticket.customer.appointmentSms===false||ticket.customer.invalidSmsNumber)continue;

@@ -1,13 +1,16 @@
+import {salesBreakdowns} from './report-sales-breakdowns';
 import type {ClockState} from './time-clock';
 
-export type EmployeeReportRow={id:string;name:string;commissionCents:number;tipCents:number;elapsedMinutes:number;breakMinutes:number;minutesExcludingBreaks:number;openShifts:number};
+export type EmployeeReportRow={id:string;name:string;salesCents:number;commissionCents:number;tipCents:number;elapsedMinutes:number;breakMinutes:number;minutesExcludingBreaks:number;openShifts:number};
 // Attendance is clipped to the requested period and the shift's recorded location.
 // Never infer grooming duration, paid breaks, wages or overtime from these records.
-export function employeeReport(employees:{id:string;firstName:string;lastName:string;displayName?:string|null}[],closed:any[],clocks:Map<string,ClockState>,locationId:string,start:Date,end:Date,asOf:Date,allocations:Map<string,{shares?:{userId:string;amountCents:number}[]}>=new Map()){
- const rows=new Map<string,EmployeeReportRow>(employees.map(e=>[e.id,{id:e.id,name:e.displayName||[e.firstName,e.lastName].filter(Boolean).join(' '),commissionCents:0,tipCents:0,elapsedMinutes:0,breakMinutes:0,minutesExcludingBreaks:0,openShifts:0}]));
- let invalidRecords=0,unallocatedTipCents=0;
- for(const ticket of closed){let assigned=0;for(const share of allocations.get(ticket.id)?.shares||[]){if(!Number.isSafeInteger(share.amountCents)||share.amountCents<0){invalidRecords++;continue;}assigned+=share.amountCents;const row=rows.get(share.userId);if(row)row.tipCents+=share.amountCents;}unallocatedTipCents+=(ticket.tipCents||0)-assigned;}
+export function employeeReport(employees:{id:string;firstName:string;lastName:string;displayName?:string|null}[],closed:any[],clocks:Map<string,ClockState>,locationId:string,start:Date,end:Date,asOf:Date,allocations:Map<string,{shares?:{userId:string;amountCents:number}[]}>=new Map(),refunds:any[]=[]){
+ const rows=new Map<string,EmployeeReportRow>(employees.map(e=>[e.id,{id:e.id,name:e.displayName||[e.firstName,e.lastName].filter(Boolean).join(' '),salesCents:0,commissionCents:0,tipCents:0,elapsedMinutes:0,breakMinutes:0,minutesExcludingBreaks:0,openShifts:0}]));
+ for(const sale of salesBreakdowns(closed.map(t=>({...t,lines:(t.lines||[]).filter((l:any)=>Number.isSafeInteger(l.totalCents))})),employees,'UTC').employees){const row=rows.get(sale.id);if(row)row.salesCents=sale.amountCents;}
+ let invalidRecords=0,unallocatedTipCents=0;const closedIds=new Set(closed.map(t=>t.id)),ticketRefunds=refunds.filter(r=>closedIds.has(r.ticketId));
+ for(const ticket of closed){let assigned=0;for(const share of allocations.get(ticket.id)?.shares||[]){if(!Number.isSafeInteger(share.amountCents)||share.amountCents<0){invalidRecords++;continue;}assigned+=share.amountCents;const row=rows.get(share.userId);if(row)row.tipCents+=share.amountCents;}unallocatedTipCents+=(ticket.tipCents||0)-ticketRefunds.filter(r=>r.ticketId===ticket.id).reduce((sum,r)=>sum+r.tipCents,0)-assigned;}
  for(const ticket of closed)for(const line of ticket.lines||[]){const row=rows.get(line.assignedUserId);if(row)row.commissionCents+=line.commissionCents||0;}
+ for(const refund of ticketRefunds)for(const item of refund.items||[]){const row=rows.get(item.assignedUserId);if(row)row.commissionCents-=item.commissionReversalCents||0;}
  for(const [id,state] of clocks){
   const row=rows.get(id);if(!row)continue;
   for(const shift of state.shifts||[]){
@@ -23,5 +26,5 @@ export function employeeReport(employees:{id:string;firstName:string;lastName:st
    row.elapsedMinutes+=(b-a)/60000;row.breakMinutes+=breakMs/60000;row.minutesExcludingBreaks+=(b-a-breakMs)/60000;if(!shift.end)row.openShifts++;
   }
  }
- return {rows:[...rows.values()].filter(r=>r.commissionCents||r.tipCents||r.elapsedMinutes||r.openShifts),invalidRecords,unallocatedTipCents,asOf:asOf.toISOString()};
+ return {rows:[...rows.values()].filter(r=>r.salesCents||r.commissionCents||r.tipCents||r.elapsedMinutes||r.openShifts),invalidRecords,unallocatedTipCents,asOf:asOf.toISOString()};
 }

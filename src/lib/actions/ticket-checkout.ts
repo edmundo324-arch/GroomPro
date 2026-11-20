@@ -1,3 +1,7 @@
+import {consumeReferralRewards} from '@/src/lib/referral-rewards';
+import {updateRebookingDiscounts,refreshRebookingDiscounts} from '@/src/lib/rebooking-discount-store';
+import {activatePrepaidPurchases,consumeTicketPrepaid} from '@/src/lib/prepaid-balances';
+import {activateGiftCards,redeemGiftCard,giftCardCode,isGiftCardLine} from '@/src/lib/gift-cards';
 import {subtractTicketStock} from '@/src/lib/ticket-inventory';
 import {awardFirstGroomReferral} from '@/src/lib/customer-referrals';
 import {snapshotGroomingClosure} from '@/src/lib/grooming-notes-store';
@@ -55,6 +59,7 @@ export async function POST(request: NextRequest) {
     if (!ticket) return NextResponse.json({ error: "Ticket could not be found." }, { status: 404 });
     if (ticket.status === "CANCELLED") return NextResponse.json({ error: "A cancelled ticket cannot be checked out." }, { status: 409 });
     if (ticket.status === "CLOSED") return NextResponse.json({ error: "This ticket is already closed." }, { status: 409 });
+    await updateRebookingDiscounts(tenantId,ticket.id,session.user.id);
     await ensureAccountBalanceLine(tenantId,ticket.id,ticket.customerId);
     ticket = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { lines: true, payments: true, customer: true } });
     if (!ticket) throw new Error("Ticket could not be reloaded.");
@@ -67,32 +72,36 @@ export async function POST(request: NextRequest) {
     if (action === "PAYMENT") {
       const paymentType = String(body.paymentType || "");
       const amountCents = Math.round(Number(body.amountCents));
+      if(paymentType==="GIFT_CARD")giftCardCode(body.giftCardCode);
       if (!PAYMENT_TYPES.includes(paymentType as typeof PAYMENT_TYPES[number])) return NextResponse.json({ error: "Valid payment type is required." }, { status: 400 });
       if (!Number.isInteger(amountCents) || amountCents <= 0) return NextResponse.json({ error: "Payment amount must be a positive dollar amount with no more than two decimal places." }, { status: 400 });
       if (amountCents > dueBefore) return NextResponse.json({ error: "Payment cannot exceed the ticket balance. Closed tickets cannot carry a credit." }, { status: 409 });
       const result = await db.$transaction(async tx => {
         await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;
+        await refreshRebookingDiscounts(tx,tenantId,ticket.id,session.user.id);
         const current=await tx.ticket.findFirst({where:{id:ticket.id,tenantId},include:{lines:true,payments:true}});
         if(!current||['CLOSED','CANCELLED','NO_SHOW'].includes(current.status))throw Error('This ticket cannot accept payment.');
         const currentPaid=current.payments.reduce((n,p)=>n+Math.round(Number(p.amount)*100),0);
         if(amountCents>totals(current.lines,tipCents,salesTaxCents).totalCents-currentPaid)throw Error('The balance changed. Review payments before continuing.');
-        const updated = await tx.ticket.update({ where: { id: ticket.id }, data: { tipCents, salesTaxCents, totalCents: t.totalCents } });
+        const updated = await tx.ticket.update({ where: { id: ticket.id }, data: { tipCents, salesTaxCents, totalCents: totals(current.lines,tipCents,salesTaxCents).totalCents } });
         const payment = await tx.payment.create({ data: { tenantId, ticketId: ticket.id, amount: (amountCents / 100).toFixed(2), paymentType: paymentType as typeof PAYMENT_TYPES[number] } });
-        return { updated, payment, paidBefore:currentPaid };
+        const giftCard=paymentType==='GIFT_CARD'?await redeemGiftCard(tx,{tenantId,code:body.giftCardCode,amountCents,ticketId:ticket.id,locationId,paymentId:payment.id,actorUserId:session.user.id}):undefined;
+        return { updated, payment, paidBefore:currentPaid,giftCard,totals:totals(current.lines,tipCents,salesTaxCents) };
       });
+      Object.assign(t,result.totals);
       const settled = await settleOwedBalance({tenantId,customerId:ticket.customerId,ticketId:ticket.id,actorUserId:session.user.id,amountCents:amountCents,reason:`Payment applied to Ticket #${ticket.orderNumber} account balance.` ,referenceId:result.payment.id});
       const newPaid = result.paidBefore + amountCents;
       await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "PAYMENT", entityId: result.payment.id, customerId: ticket.customerId, action: "PAYMENT", summary: `Recorded $${(amountCents / 100).toFixed(2)} payment on ticket #${ticket.orderNumber}.`, details: { ticketId: ticket.id, paymentType, amountCents, accountBalanceSettledCents:settled.amountCents, dueAfterCents: Math.max(0, t.totalCents - newPaid) } });
       const account=await db.$queryRaw<any[]>`SELECT balanceCents,creditCents,loyaltyPoints FROM Customer WHERE id=${ticket.customerId} AND tenantId=${tenantId} LIMIT 1`;
-      return NextResponse.json({ ticket: result.updated, payment: result.payment, subtotalCents: t.subtotalCents, tipCents, salesTaxCents, totalCents: t.totalCents, paidCents: newPaid, dueCents: Math.max(0, t.totalCents - newPaid), account:account[0] });
+      return NextResponse.json({ ticket: result.updated, payment: result.payment, giftCard:result.giftCard, subtotalCents: t.subtotalCents, tipCents, salesTaxCents, totalCents: t.totalCents, paidCents: newPaid, dueCents: Math.max(0, t.totalCents - newPaid), account:account[0] });
     }
     if (action === "CLOSE") {
       if (dueBefore !== 0) return NextResponse.json({ error: `Ticket still has a $${(dueBefore / 100).toFixed(2)} balance. A closed ticket cannot have a balance.` }, { status: 409 });
-      const result = await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;const current=await tx.ticket.findFirst({where:{id:ticket.id,tenantId},include:{lines:true,payments:true}});if(!current||current.status==="CLOSED")throw Error("Ticket was already closed. Refresh its details.");if(totals(current.lines,tipCents,salesTaxCents).totalCents!==current.payments.reduce((n,p)=>n+Math.round(Number(p.amount)*100),0))throw Error("The ticket balance changed. Review it before closing.");const inventoryWarnings=await subtractTicketStock(tx,tenantId,current,session.user.id);await finalizeTicketCommissions(tx,tenantId,ticket.id);await snapshotGroomingClosure(tx,tenantId,ticket.id);const updated=await tx.ticket.update({ where: { id: ticket.id }, data: { status: "CLOSED", tipCents, salesTaxCents, totalCents: t.totalCents, pickupCompletedAt: ticket.pickupCompletedAt || new Date(), closedAt: ticket.closedAt || new Date() } });await awardFirstGroomReferral(tx,updated,session.user.id);return {closed:updated,inventoryWarnings};},{timeout:30000});
+      const result = await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;const current=await tx.ticket.findFirst({where:{id:ticket.id,tenantId},include:{lines:true,payments:true}});if(!current||current.status==="CLOSED")throw Error("Ticket was already closed. Refresh its details.");if(totals(current.lines,tipCents,salesTaxCents).totalCents!==current.payments.reduce((n,p)=>n+Math.round(Number(p.amount)*100),0))throw Error("The ticket balance changed. Review it before closing.");await consumeReferralRewards(tx,tenantId,current,session.user.id);const inventoryWarnings=await subtractTicketStock(tx,tenantId,current,session.user.id);const closingAt=ticket.closedAt||new Date(),closing={...current,status:'CLOSED',tipCents,salesTaxCents};const prepaidPurchases=await activatePrepaidPurchases(tx,tenantId,closing,session.user.id,closingAt),prepaidCommissionBases=await consumeTicketPrepaid(tx,tenantId,closing,session.user.id,closingAt);await finalizeTicketCommissions(tx,tenantId,ticket.id,prepaidCommissionBases);await snapshotGroomingClosure(tx,tenantId,ticket.id);const updated=await tx.ticket.update({ where: { id: ticket.id }, data: { status: "CLOSED", tipCents, salesTaxCents, totalCents: t.totalCents, pickupCompletedAt: ticket.pickupCompletedAt || new Date(), closedAt: ticket.closedAt || new Date() } });const giftCards=await activateGiftCards(tx,tenantId,{...updated,lines:current.lines,payments:current.payments},session.user.id,updated.closedAt!);await awardFirstGroomReferral(tx,updated,session.user.id);return {closed:updated,inventoryWarnings,giftCards,prepaidPurchases};},{timeout:30000});
       const alreadyAwarded=await db.$queryRaw<any[]>`SELECT id FROM CustomerRewardLedger WHERE tenantId=${tenantId} AND customerId=${ticket.customerId} AND referenceId=${`CLOSE:${ticket.id}`} LIMIT 1`;
-      if(!alreadyAwarded.length){const rewardRate=await getTenantNumberSetting(tenantId,"REWARD_POINTS_PER_DOLLAR",1);const rewardableCents=ticket.lines.filter(l=>!/^Customer Account Balance$/i.test(l.description)&&!/^No-Show Fee$/i.test(l.description)).reduce((sum,l)=>sum+Math.max(0,l.unitPriceCents*l.quantity-l.discountCents),0);const points=Math.floor((rewardableCents/100)*rewardRate);if(points>0)await awardRewards({tenantId,customerId:ticket.customerId,ticketId:ticket.id,actorUserId:session.user.id,points,reason:`${points} Reward Points earned from Ticket #${ticket.orderNumber}.`,referenceId:`CLOSE:${ticket.id}`});}
+      if(!alreadyAwarded.length){const rewardRate=await getTenantNumberSetting(tenantId,"REWARD_POINTS_PER_DOLLAR",1);const rewardableCents=ticket.lines.filter(l=>!isGiftCardLine(l)&&!/^Customer Account Balance$/i.test(l.description)&&!/^No-Show Fee$/i.test(l.description)).reduce((sum,l)=>sum+Math.max(0,l.unitPriceCents*l.quantity-l.discountCents),0);const points=Math.floor((rewardableCents/100)*rewardRate);if(points>0)await awardRewards({tenantId,customerId:ticket.customerId,ticketId:ticket.id,actorUserId:session.user.id,points,reason:`${points} Reward Points earned from Ticket #${ticket.orderNumber}.`,referenceId:`CLOSE:${ticket.id}`});}
       await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId:ticket.customerId, action: "CLOSE", summary: `Closed paid ticket #${ticket.orderNumber}.`, details: { totalCents: t.totalCents } });
-      return NextResponse.json({ ticket: result.closed, inventoryWarnings:result.inventoryWarnings, subtotalCents: t.subtotalCents, tipCents, salesTaxCents, totalCents: t.totalCents, paidCents, dueCents: 0 });
+      return NextResponse.json({ ticket: result.closed, giftCards:result.giftCards, prepaidPurchases:result.prepaidPurchases.map(p=>({id:p.id,name:p.offer.name,visitsRemaining:p.visitsRemaining})), inventoryWarnings:result.inventoryWarnings, subtotalCents: t.subtotalCents, tipCents, salesTaxCents, totalCents: t.totalCents, paidCents, dueCents: 0 });
     }
     return NextResponse.json({ error: "Unknown checkout action." }, { status: 400 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to process checkout." }, { status: 400 }); }

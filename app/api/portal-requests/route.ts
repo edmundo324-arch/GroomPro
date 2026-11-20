@@ -1,3 +1,4 @@
+import {unfinishedBookings,reviewUnfinishedBooking} from '@/src/lib/unfinished-bookings';
 import {queueInitialAttendanceRequest} from '@/src/lib/appointment-message-acceptance';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -15,9 +16,9 @@ async function handle(r:NextRequest){
   const pending=rows.filter(row=>(row.value as unknown as CancellationRequest)?.state==='PENDING');
   const tickets=await db.ticket.findMany({where:{tenantId,id:{in:pending.map(row=>row.settingKey.slice(row.settingKey.indexOf(':')+1))}},select:{id:true,orderNumber:true,scheduledStart:true,customer:{select:{firstName:true,lastName:true}},location:{select:{name:true,timezone:true}}}});
   const bookings=await db.ticket.findMany({where:{tenantId,bookingSource:'ONLINE',bookingDecision:{in:['REQUESTED','PENDING']},status:{in:['OPEN','CONFIRMED']}},select:{id:true,orderNumber:true,scheduledStart:true,requestedAt:true,customer:{select:{firstName:true,lastName:true}},location:{select:{name:true,timezone:true}}}});
-  return NextResponse.json({requests:[...bookings.map(ticket=>({...ticket,kind:'BOOKING',request:{requestedAt:ticket.requestedAt,message:'Online booking awaiting shop confirmation.'}})),...pending.flatMap(row=>{const ticket=tickets.find(t=>t.id===row.settingKey.slice(row.settingKey.indexOf(':')+1));return ticket?[{...ticket,kind:row.settingKey.startsWith('PORTAL_CHANGE:')?'CHANGE':'CANCELLATION',request:row.value}]:[]})],canReview:permission?.enabled!==false,canReviewFees},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({unfinishedBookings:await unfinishedBookings(tenantId),requests:[...bookings.map(ticket=>({...ticket,kind:'BOOKING',request:{requestedAt:ticket.requestedAt,message:'Online booking awaiting shop confirmation.'}})),...pending.flatMap(row=>{const ticket=tickets.find(t=>t.id===row.settingKey.slice(row.settingKey.indexOf(':')+1));return ticket?[{...ticket,kind:row.settingKey.startsWith('PORTAL_CHANGE:')?'CHANGE':'CANCELLATION',request:row.value}]:[]})],canReview:permission?.enabled!==false,canReviewFees},{headers:{'Cache-Control':'no-store'}});
  }
- try{const b=await r.json();if(b.kind==='BOOKING'){
+ try{const b=await r.json();if(b.kind==='UNFINISHED'){await reviewUnfinishedBooking(tenantId,String(b.attemptId||''),session.user.id,String(b.lastActivityAt||''));return NextResponse.json({reviewed:true});}if(b.kind==='BOOKING'){
  if(typeof b.ticketId!=='string'||typeof b.accept!=='boolean')throw Error('Choose whether to accept this booking.');
  await db.$transaction(async tx=>{
   await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${b.ticketId} AND tenantId=${tenantId} FOR UPDATE`;

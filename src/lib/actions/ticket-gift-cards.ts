@@ -1,0 +1,6 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {db} from '../db';
+import {platformSession} from '../platform-access';
+import {requestLocation} from '../request-location';
+import {prepareGiftCardSale} from '../gift-cards';
+export async function POST(r:NextRequest){const session=await platformSession(r);if(!session)return NextResponse.json({error:'Enter your employee PIN.'},{status:401});try{const locationId=await requestLocation(r,session.tenantId),b=await r.json(),tenantId=session.tenantId;const result=await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Ticket WHERE tenantId=${tenantId} AND id=${String(b.ticketId||'')} FOR UPDATE`;const ticket=await tx.ticket.findFirst({where:{tenantId,id:String(b.ticketId||''),locationId},include:{lines:true}});const card=await prepareGiftCardSale(tx,tenantId,ticket,b.amountCents,session.user.id);const totalCents=ticket!.lines.reduce((n,l)=>n+Math.max(0,l.quantity*l.unitPriceCents-l.discountCents),0)+ticket!.tipCents+ticket!.salesTaxCents+b.amountCents;if(!Number.isSafeInteger(totalCents)||totalCents>2147483647)throw Error('This amount is too large for the ticket.');await tx.ticket.update({where:{id:ticket!.id},data:{totalCents}});return {card,ticketId:ticket!.id};});return NextResponse.json(result);}catch(e){return NextResponse.json({error:(e as Error).message},{status:400})}}

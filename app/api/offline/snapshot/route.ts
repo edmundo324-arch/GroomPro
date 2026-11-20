@@ -66,7 +66,7 @@ async function snapshot(request: NextRequest) {
   ]);
   const readyIds=tickets.filter(ticket=>ticket.pickupAt).map(ticket=>ticket.id);
   const [settings,calls]=await Promise.all([
-    db.tenantSetting.findMany({ where: { tenantId, settingKey: { in: tickets.flatMap(ticket => [lineStartsKey(ticket.id), plannedSettingKey(ticket.id)]) } }, select: { settingKey: true, value: true } }),
+    db.tenantSetting.findMany({ where: { tenantId, settingKey: { in: [...tickets.flatMap(ticket => [lineStartsKey(ticket.id), plannedSettingKey(ticket.id)]),...customerIds.map(id=>'CUSTOMER_TAGS:'+id)] } }, select: { settingKey: true, value: true } }),
     readyIds.length?db.auditEntry.findMany({where:{tenantId,entityType:'TICKET',entityId:{in:readyIds},action:pickupCallAction},orderBy:{occurredAt:'asc'},select:{entityId:true,occurredAt:true,details:true}}):[],
   ]);
   const values = new Map(settings.map(entry => [entry.settingKey, entry.value]));
@@ -81,7 +81,7 @@ async function snapshot(request: NextRequest) {
   return NextResponse.json({
     scope: { tenantId, locationId, employeeId: session.user.id },
     employee: { id: session.user.id, displayName: session.user.displayName, firstName: session.user.firstName, lastName: session.user.lastName, role: session.user.role },
-    location, start, since, through, customers: customers.map(customer => ({ ...customer, ...referrals.get(customer.id) })), tickets: records, notes, drafts, fetchedAt: Date.now(),
+    location, start, since, through, customers: customers.map(customer => ({ ...customer, tagIds:(values.get('CUSTOMER_TAGS:'+customer.id) as {tagIds?:string[]}|undefined)?.tagIds||[], ...referrals.get(customer.id) })), tickets: records, notes, drafts, fetchedAt: Date.now(),
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
 

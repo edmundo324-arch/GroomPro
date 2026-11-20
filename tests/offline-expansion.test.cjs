@@ -25,7 +25,7 @@ test('offline expansion does not enable payment or external messaging replay',()
 });
 
 test('offline schedules edit recurring shifts and date overrides without losing the cloud revision',()=>{
- const s=state();s.lookups['/api/offline/schedules']={_offlineVersion:'original',schedules:[],assetSchedules:[],overrides:[]};
+ const s=state();s.lookups['/api/offline/schedules']={_offlineVersion:'original',locations:[{id:'shop'}],employeeLocations:{},schedules:[],assetSchedules:[],overrides:[]};
  projectOffline(s,command('shift','/api/employee-schedules','PUT',{userId:'employee',dayOfWeek:3,startTime:'08:00',endTime:'17:00'}));
  assert.equal(offlineReadRecords(s,new URL('https://test/api/employee-schedules')).schedules[0].id,'offline-shift');
  projectOffline(s,command('off','/api/schedule-overrides','PUT',{resourceKind:'employee',resourceId:'employee',date:'2026-11-18',dayOff:true,absence:'SICK'}));
@@ -50,3 +50,4 @@ test('offline calendar reflects edited schedules only for its visible resources'
  const s=state();s.since='2026-01-01T00:00:00Z';s.through='2027-01-01T00:00:00Z';s.lookups['/api/calendar']={employees:[{id:'employee'}],assets:[]};s.lookups['/api/offline/schedules']={schedules:[{userId:'employee',dayOfWeek:3,startTime:'09:00',endTime:'15:00',active:true},{userId:'outside',active:true}],assetSchedules:[],overrides:[]};
  const result=offlineReadRecords(s,new URL('https://test/api/calendar?start=2026-11-18T00:00:00Z&end=2026-11-19T00:00:00Z'));assert.equal(result.employeeSchedules.length,1);assert.equal(result.employeeSchedules[0].startTime,'09:00');
 });
+test('offline customer tag filters use saved assignments before the display limit',()=>{const s=state();s.customers=[{id:'a',active:true,firstName:'First',lastName:'A',phones:[],pets:[],tagIds:[]},{id:'b',active:true,firstName:'Second',lastName:'B',phones:[],pets:[],tagIds:['weekly','vip']}];const results=offlineReadRecords(s,new URL('https://test/api/customers/search?tag=weekly&tag=vip&tagMatch=ALL&limit=1'));assert.deepEqual(results.customers.map(c=>c.id),['b']);delete s.customers[0].tagIds;assert.throws(()=>offlineReadRecords(s,new URL('https://test/api/customers/search?tag=weekly')),/Reconnect once/);assert.equal(offlineReadRecords(s,new URL('https://test/api/customers/search')).customers.length,2);});

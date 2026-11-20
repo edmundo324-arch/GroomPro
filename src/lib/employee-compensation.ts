@@ -1,3 +1,4 @@
+import {isPrepaidPurchaseLine} from './prepaid-lines';
 import {db} from './db';
 import {workflowSettings} from './workflow-settings';
 import {zonedParts,localToInstant} from './operating-hours';
@@ -23,22 +24,22 @@ export async function employeeQualification(tenantId:string,userId:string,now=ne
 
 // Called inside the close transaction. Historical closed tickets retain their
 // original amounts; changing a compensation plan never rewrites past payroll.
-export async function finalizeTicketCommissions(tx:any,tenantId:string,ticketId:string){
+export async function finalizeTicketCommissions(tx:any,tenantId:string,ticketId:string,prepaidBases:Map<string,number>=new Map()){
  const lines=await tx.ticketLine.findMany({where:{ticketId,ticket:{tenantId}},include:{service:true,product:true},orderBy:{sortOrder:'asc'}});
  const employees=new Map<string,Awaited<ReturnType<typeof employeeQualification>>>();const perDog=new Set<string>();
  for(const line of lines){
-  if(!line.assignedUserId||line.sourceKey?.startsWith('MEMBERSHIP_START:')){await tx.ticketLine.update({where:{id:line.id},data:{commissionCents:0}});continue}
+  if(!line.assignedUserId||isPrepaidPurchaseLine(line)||line.sourceKey?.startsWith('MEMBERSHIP_START:')){await tx.ticketLine.update({where:{id:line.id},data:{commissionCents:0}});continue}
   let context=employees.get(line.assignedUserId);
   if(!context){context=await employeeQualification(tenantId,line.assignedUserId,new Date(),tx);employees.set(line.assignedUserId,context)}
   const {employee,rules,qualification}=context;
   const scope=line.packageId?'PACKAGE':line.lineType==='PRODUCT'?'PRODUCT':'SERVICE';
   const keys=[line.serviceId,line.service?.code,line.service?.category,line.productId,line.product?.category,line.packageId,line.role].filter(Boolean);
   const exemptRoles=Array.isArray(line.service?.commissionExemptRoles)?line.service.commissionExemptRoles:[];
-  let commission=calculateCommission({rules,employeeRole:employee.role,exemptRoles,percent:qualification?.appliedPercent||0,scope,keys,totalCents:line.totalCents,quantity:line.quantity,hasPet:!!line.petId,legacyPercent:line.commissionPct==null?null:Number(line.commissionPct)});
+  let commission=calculateCommission({rules,employeeRole:employee.role,exemptRoles,percent:qualification?.appliedPercent||0,scope,keys,totalCents:prepaidBases.get(line.id)??line.totalCents,quantity:line.quantity,hasPet:!!line.petId,legacyPercent:line.commissionPct==null?null:Number(line.commissionPct)});
   // Package components can still use per-service rules (prep/bath/dry), unless
   // a package-specific commission explicitly overrides that scope.
   const packageRule=rules?.rules.some(r=>r.scope==='PACKAGE'&&(r.match==='*'||keys.includes(r.match)));
-  if(scope==='PACKAGE'&&!packageRule)commission=calculateCommission({rules,employeeRole:employee.role,exemptRoles,percent:qualification?.appliedPercent||0,scope:'SERVICE',keys,totalCents:line.totalCents,quantity:line.quantity,hasPet:!!line.petId,legacyPercent:line.commissionPct==null?null:Number(line.commissionPct)});
+  if(scope==='PACKAGE'&&!packageRule)commission=calculateCommission({rules,employeeRole:employee.role,exemptRoles,percent:qualification?.appliedPercent||0,scope:'SERVICE',keys,totalCents:prepaidBases.get(line.id)??line.totalCents,quantity:line.quantity,hasPet:!!line.petId,legacyPercent:line.commissionPct==null?null:Number(line.commissionPct)});
   const matched=rules?.rules.filter(r=>r.scope===(scope==='PACKAGE'&&!packageRule?'SERVICE':scope)).find(r=>r.match!=='*'&&keys.includes(r.match))||rules?.rules.find(r=>r.scope===(scope==='PACKAGE'&&!packageRule?'SERVICE':scope)&&r.match==='*');
   if(matched?.method==='PER_DOG'&&commission.commissionCents){const key=[employee.id,line.petId,matched.scope,matched.match].join(':');if(perDog.has(key))commission.commissionCents=0;else perDog.add(key)}
   await tx.ticketLine.update({where:{id:line.id},data:commission});

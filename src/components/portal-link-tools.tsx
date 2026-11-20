@@ -1,0 +1,10 @@
+"use client";
+import {useEffect,useState} from 'react';
+import {portalLink,portalEmbed} from '../lib/portal-link';
+import {HelpPopup} from './help-popup';
+export function PortalLinkTools({tenant,location}:{tenant:string;location:string}){
+ const [origin,setOrigin]=useState(''),[message,setMessage]=useState('');useEffect(()=>setOrigin(window.location.origin),[]);useEffect(()=>setMessage(''),[tenant,location]);
+ let link='',embed='',error='';if(origin&&tenant&&location)try{link=portalLink(origin,tenant,location);embed=portalEmbed(origin,tenant,location);}catch(e){error=(e as Error).message;}
+ async function copy(value:string,label:string){try{await navigator.clipboard.writeText(value);setMessage(label+' copied.');}catch{setMessage('Copy is unavailable in this browser. Select the text below and copy it.');}}
+ return <section aria-label="Website booking link"><h4>Website booking link<HelpPopup label="Website booking link">Use this shop’s link on your website or send it to customers. Customers use the same portal, saved profiles and booking rules whether they open the link or book within your website.</HelpPopup></h4><label>Customer portal link<input readOnly value={link} onFocus={e=>e.currentTarget.select()} /></label><button type="button" className="gp-btn" disabled={!link} onClick={()=>void copy(link,'Booking link')}>Copy booking link</button><details><summary>Place booking on your website</summary><p>Give this code to the person who edits your website, or paste it into a custom HTML section. It includes a new-window link for customers who prefer more room. Use the link from your published GroomPro site, not a local preview.</p><label>Website booking code<textarea readOnly rows={5} value={embed}/></label><button type="button" className="gp-btn" disabled={!embed} onClick={()=>void copy(embed,'Website booking code')}>Copy website code</button><p>Publish and test the page on your website. Some website builders restrict embedded pages; the booking link remains available if yours does.</p></details>{(message||error)&&<p role="status">{message||error}</p>}</section>;
+}

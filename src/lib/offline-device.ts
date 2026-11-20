@@ -4,7 +4,7 @@ import { deviceRead, deviceUpdate, emptyOutbox, outboxKey, snapshotKey, type Off
 import { findRecord, offlineReadRecords, projectOffline, type OfflineRecords } from './offline-records';
 
 const activeKey = 'active-employee';
-const lookups = ['/api/offline/schedules','/api/booking-assets','/api/locations','/api/time-clock','/api/catalog', '/api/operating-hours', '/api/workflow-settings', '/api/customer-display', '/api/pet-display', '/api/breeds', '/api/features'];
+const lookups = ['/api/customer-tags','/api/staff-tasks','/api/offline/schedules','/api/booking-assets','/api/locations','/api/time-clock','/api/catalog', '/api/operating-hours', '/api/workflow-settings', '/api/customer-display', '/api/pet-display', '/api/breeds', '/api/features'];
 type ActiveDevice = { scope: OfflineScope; validUntil: number };
 let syncing: Promise<void> | null = null;
 let preparing: Promise<void> | null = null;
@@ -118,6 +118,7 @@ async function projected(active: ActiveDevice) {
         const record = findRecord(snapshot, key.slice(0, colon), key.slice(colon + 1));
         if(record){if(key.startsWith('package:')||key.startsWith('schedules:'))record._offlineVersion=version;else record.updatedAt=version;}
       }
+      if(entry.result.task&&snapshot.lookups['/api/staff-tasks']){const rows=snapshot.lookups['/api/staff-tasks'].tasks,index=rows.findIndex((t:any)=>t.id===entry.result.task.id);if(index<0)rows.push(entry.result.task);else rows[index]=entry.result.task;}
       if(entry.result.clock&&snapshot.lookups['/api/time-clock'])snapshot.lookups['/api/time-clock'].clocks[entry.result.userId]=entry.result.clock;
       if (entry.result.ticket) {
         const record = findRecord(snapshot, 'ticket', entry.result.ticket.id);

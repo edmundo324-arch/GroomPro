@@ -1,3 +1,10 @@
+import {readReferralPolicy,referralInvitation,referralShare,claimPortalReferral} from '@/src/lib/referral-policy';
+import {readPortalBranding} from '@/src/lib/portal-branding';
+import {customerReportCardKey,readCustomerReportCard,customerReportCardHtml} from '@/src/lib/customer-report-card';
+import {listPetDocuments,readPetDocument,savePetDocument} from '@/src/lib/pet-documents';
+import {joinWaitlist,readWaitlist,changeWaitlist} from '@/src/lib/waitlist';
+import {bookingDraftChoices} from '@/src/lib/portal-booking-draft';
+import {recordBookingActivity,latestBookingDraft} from '@/src/lib/unfinished-bookings';
 import {readPortalMessagePreferences,savePortalMessagePreferences} from '@/src/lib/portal-message-preferences';
 import {attendanceKey,attendanceFor,updateCustomerAttendance} from '@/src/lib/customer-attendance';
 import {calendarInvitation} from '@/src/lib/calendar-invitation';
@@ -21,9 +28,10 @@ const headers={'Cache-Control':'no-store','Referrer-Policy':'no-referrer'};
 const reply=(body:object,status=200)=>NextResponse.json(body,{status,headers});
 export async function POST(r:NextRequest){
  try{
-  const raw=await r.text();if(raw.length>260000)return reply({error:'This update is too large. Send a shorter message.'},400);
-  const b=JSON.parse(raw),tenantId=b.tenant;
+  const raw=await r.text();if(raw.length>7_010_000)return reply({error:'This update is too large. Send a shorter message.'},400);
+  const b=JSON.parse(raw),tenantId=b.tenant;if(b.action!=='uploadPetDocument'&&raw.length>260000)return reply({error:'This update is too large. Send a shorter message.'},400);
   if(!validTenant(tenantId)||await platformRestriction(tenantId))return reply({error:'This customer portal is unavailable. Contact the shop.'},404);
+  if(b.action==='branding'){await requireAgreementLocation(tenantId,b.location);const business=await db.tenant.findUniqueOrThrow({where:{id:tenantId},select:{name:true}});return reply({business:business.name,...await readPortalBranding(tenantId)});}
   if(b.action==='sendCode')return reply({token:await startPhoneVerification(tenantId,String(b.phone||''),undefined,b.location,'portal')});
   if(!isAgreementToken(b.token))return reply({error:'Sign in with your mobile number first.'},401);
   const state=await readAccess(db,tenantId,b.token);
@@ -45,10 +53,20 @@ export async function POST(r:NextRequest){
      profile.id?db.$queryRaw<any[]>`SELECT id,title,signedAt FROM SignedDocument WHERE tenantId=${tenantId} AND customerId=${profile.id} AND documentContent LIKE 'GROOMPRO_PDF_V1:%' ORDER BY signedAt DESC`:[],readAgreementConfig(tenantId)
     ]);
     const [services,packages]=await Promise.all([db.service.findMany({where:{tenantId,active:true,id:{in:policy.bookableItems.filter(k=>k.startsWith('SERVICE:')).map(k=>k.slice(8))}},select:{id:true,name:true}}),db.package.findMany({where:{tenantId,active:true,id:{in:policy.bookableItems.filter(k=>k.startsWith('PACKAGE:')).map(k=>k.slice(8))}},select:{id:true,name:true}})]);
-    const requests=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:appointments.flatMap(a=>[cancellationKey(a.id),attendanceKey(a.id)])}},select:{settingKey:true,value:true}});
-    return reply({intakeAvailable:agreementConfig.channels.includes('online')&&agreementConfig.intake.clauses.length>0&&!!agreementConfig.shopEmail,profile,revision:agreementRevision(profile,state.terms,state.quote),business:business.name,approval:policy.approval,catalog:[...services.map(s=>({...s,key:'SERVICE:'+s.id})),...packages.map(p=>({...p,key:'PACKAGE:'+p.id}))],feeCents,warning:cancellationWarning(policy,business.name,feeCents),appointments:appointments.map(a=>({...a,attendance:attendanceFor(requests.find(q=>q.settingKey===attendanceKey(a.id))?.value,a.scheduledStart),late:a.scheduledStart?cancellationTiming(a.scheduledStart,new Date(),policy.notice).late:false,cancellationRequest:requests.find(q=>q.settingKey===cancellationKey(a.id))?.value||null})),documents});
+    const requests=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:appointments.flatMap(a=>[cancellationKey(a.id),attendanceKey(a.id),customerReportCardKey(a.id)])}},select:{settingKey:true,value:true}});
+    const bookingDraft=profile.id?await latestBookingDraft(tenantId,profile.id,locationId,profile.pets.map(p=>p.id)):null;
+    const waitlist=profile.id?(await readWaitlist(tenantId,profile.id,locationId)).map(v=>({id:v.id,revision:v.revision,from:v.from,through:v.through,state:v.state})):[];
+    const referral=await readReferralPolicy(tenantId);const invitation=profile.id&&referral.policy.enabled&&referral.policy.portalInvitation?{...referralInvitation(referral.policy,business.name),code:await referralShare(tenantId,profile.id)}:null;
+    return reply({referralInvitation:invitation,waitlist,bookingDraft,intakeAvailable:agreementConfig.channels.includes('online')&&agreementConfig.intake.clauses.length>0&&!!agreementConfig.shopEmail,profile,revision:agreementRevision(profile,state.terms,state.quote),business:business.name,approval:policy.approval,catalog:[...services.map(s=>({...s,key:'SERVICE:'+s.id})),...packages.map(p=>({...p,key:'PACKAGE:'+p.id}))],feeCents,warning:cancellationWarning(policy,business.name,feeCents),appointments:appointments.map(a=>({...a,hasReportCard:requests.some(q=>q.settingKey===customerReportCardKey(a.id)),attendance:attendanceFor(requests.find(q=>q.settingKey===attendanceKey(a.id))?.value,a.scheduledStart),late:a.scheduledStart?cancellationTiming(a.scheduledStart,new Date(),policy.notice).late:false,cancellationRequest:requests.find(q=>q.settingKey===cancellationKey(a.id))?.value||null})),documents});
    }
    if(!profile.id)return reply({error:'Complete your name and contact details first.'},400);
+   if(b.action==='reportCard')return reply({html:customerReportCardHtml(await readCustomerReportCard(tenantId,String(b.ticketId||''),profile.id))});
+   if(b.action==='petDocuments')return reply({documents:await listPetDocuments(tenantId,String(b.petId||''),profile.id)});
+   if(b.action==='uploadPetDocument')return reply({document:await savePetDocument(tenantId,String(b.petId||''),b,profile.id)});
+   if(b.action==='downloadPetDocument'){const v=await readPetDocument(tenantId,String(b.documentId||''),profile.id);return new NextResponse(new Uint8Array(Buffer.from(v.data,'base64')),{headers:{...headers,'Content-Type':v.mime,'Content-Disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(v.name),'X-Content-Type-Options':'nosniff','Content-Security-Policy':"sandbox; default-src 'none'"}});}
+   if(b.action==='joinWaitlist'){if(!await isFeatureEnabled(tenantId,'ONLINE_BOOKING'))return reply({error:'Online booking is unavailable.'},403);return reply({entry:await joinWaitlist(tenantId,profile.id,locationId,b)});}
+   if(b.action==='leaveWaitlist')return reply({entry:await changeWaitlist(tenantId,profile.id,String(b.id||''),b.revision,'WITHDRAW')});
+   if(b.action==='bookingActivity'){if(!await isFeatureEnabled(tenantId,'ONLINE_BOOKING'))return reply({error:'Online booking is unavailable.'},403);const choices=b.choices===undefined?undefined:bookingDraftChoices(b.choices,profile.pets.map(p=>p.id));const recorded=await recordBookingActivity(tenantId,profile.id,locationId,String(b.attemptId||''),false,b.stage,choices,b.revision);return reply({recorded:true,...recorded});}
    if(b.action==='messagePreferences')return reply({preferences:await readPortalMessagePreferences(tenantId,profile.id)});
    if(b.action==='saveMessagePreferences')return reply({preferences:await savePortalMessagePreferences(tenantId,profile.id,b.preferences)});
    if(b.action==='attendance')return reply({attendance:await updateCustomerAttendance(tenantId,profile.id,String(b.ticketId||''),{revision:b.revision,scheduledStart:b.scheduledStart,confirm:b.confirm===true,reminders:b.reminders})});
@@ -69,11 +87,12 @@ export async function POST(r:NextRequest){
     return image?reply({photo:'data:image/jpeg;base64,'+image.toString('base64')}):reply({error:'Photo not found.'},404);
    }
    if(b.action==='slots'||b.action==='book'){
+    if(b.action==='book'&&b.referralCode)await claimPortalReferral(tenantId,profile.id,String(b.referralCode));
     if(!await isFeatureEnabled(tenantId,'ONLINE_BOOKING')||!await isFeatureEnabled(tenantId,'TICKETS'))return reply({error:'Online booking is unavailable. Contact the shop to book your appointment.'},403);
     const selections=b.selections===undefined?[{petId:String(b.petId||''),itemKey:String(b.itemKey||'')}]:b.selections;
     const selection=await portalSelections(tenantId,locationId,profile.id,selections);
     if(b.action==='slots'){
-     const date=String(b.date||''),available=await portalAvailability(tenantId,locationId,date,selection.duration,selection.serviceType,db,profile.id);
+     const date=String(b.date||''),available=await portalAvailability(tenantId,locationId,date,selection.duration,selection.serviceType,db,profile.id,selection.requiredClasses);
      const slots:Array<{start:string;resourceKey:string;name:string}>=[];
      for(let minute=0;minute<1440;minute+=selection.policy.slotIntervalMinutes){
       let start:Date;try{start=localToInstant(date+'T'+String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0'),available.zone)}catch{continue;}
@@ -82,8 +101,12 @@ export async function POST(r:NextRequest){
      }
      return reply({slots,timezone:available.zone,durationMin:selection.duration,subtotalCents:selection.lines.reduce((sum:number,line:any)=>sum+line.totalCents,0)});
     }
+    const completedChoices=b.attemptId?bookingDraftChoices({selections,date:b.date,preferredStart:b.start},profile.pets.map(p=>p.id)):undefined;
+    if(b.attemptId&&!/^[a-f0-9-]{36}$/i.test(String(b.attemptId)))return reply({error:'Refresh the booking form before continuing.'},400);
     const response=await createTicket(new NextRequest(new URL('/api/tickets',r.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:profile.id,petIds:selection.petIds,lines:selection.inputs,scheduledStart:b.start,bookingSource:'ONLINE'})}),{tenantId,locationId,customerId:profile.id,selections,resourceKey:String(b.resourceKey||''),requestId:String(b.requestId||''),durationMin:b.durationMin,subtotalCents:b.subtotalCents});
     const result=await response.json();if(!response.ok)return reply({error:result.error||'That appointment could not be booked. Choose another time.'},response.status);
+    // The appointment is already saved. A follow-up tracking failure must not tell the customer that booking failed.
+    if(b.attemptId)try{await recordBookingActivity(tenantId,profile.id,locationId,String(b.attemptId),true,'TIME_SELECTED',completedChoices,undefined,result.ticket.id)}catch{console.error('GroomPro: saved booking follow-up tracking could not be completed.');}
     return reply({appointment:{id:result.ticket.id,orderNumber:result.ticket.orderNumber,status:result.ticket.status,bookingDecision:result.ticket.bookingDecision}});
    }
    if(b.action==='cancel'){

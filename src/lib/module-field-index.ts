@@ -1,5 +1,9 @@
 // Reviewed field destinations; contains no customer data.
 export const moduleFields:{module:string;name:string;path:string;settingsPath?:string[]}[]=[
+ {module:"Schedule",name:"Task assignee filter",path:"Schedule → Staff tasks → Task assignee filter"},
+ {module:"Schedule",name:"Allow any employee to assign tasks",path:"Schedule → Staff tasks → Allow any employee to assign tasks"},
+ {module:"Reports",name:"Find inventory product",path:"Reports → Current inventory → Find inventory product"},
+ {module:"Reports",name:"Find customer in lifetime sales",path:"Reports → Recorded lifetime customer sales → Find customer in lifetime sales"},
  {module:"Reports",name:"Overdue after (weeks)",path:"Reports → Customer retention → Overdue after (weeks)"},
  {
   "module": "Customers",

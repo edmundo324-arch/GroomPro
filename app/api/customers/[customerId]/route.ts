@@ -1,3 +1,4 @@
+import {saveCustomerTags} from '@/src/lib/customer-tags';
 import {customerMessagePreferences} from '@/src/lib/customer-message-preferences';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {customerContactFeature,isFeatureEnabled} from '@/src/lib/feature-access';
@@ -44,6 +45,7 @@ async function handlePolicyPATCH(request:NextRequest,{params}:{params:Promise<{c
    if(before?.popupNotes)await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'CUSTOMER',entityId:customerId,customerId,action:'CONSOLIDATE_CUSTOMER_NOTES',summary:'Consolidated customer notes.',details:{previousNotes:before.notes,previousPopupNotes:before.popupNotes,notes:data.notes}}});
    if(b.phones!==undefined)await saveCustomerPhones(tx,tenantId,customerId,b.phones);
    await saveCustomerReferral(tx,tenantId,customerId,b);
+   await saveCustomerTags(tx,tenantId,customerId,b.tagIds);
   }
   return changed;
  });

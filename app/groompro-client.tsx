@@ -25,6 +25,9 @@ import {CustomersWorkspace} from "../src/components/customers-workspace";
 import {CustomerCreateWindow} from "../src/components/customer-create-window";
 import {CustomerProfile} from "../src/components/customer-profile";
 import {PosTicketWindow} from "../src/components/pos-ticket-window";
+import {WaitlistNotices} from '../src/components/waitlist-notices';
+import {StaffTaskNotices} from '../src/components/staff-task-notices';
+import {StaffTasks} from '../src/components/staff-tasks';
 import {TicketsWorkspace} from "../src/components/tickets-workspace";
 import {Whiteboard} from "../src/components/whiteboard";
 import {Settings} from "../src/components/settings";
@@ -97,14 +100,14 @@ export default function Home(){
  return <VisualLayoutProvider key={scope+':'+employeeScope} scope={scope+':'+employeeScope}><HelpfulHints excluded={active==="Whiteboard"}><WindowLayoutScope scope={employee?`${scope}:${employee.id}`:''}><div data-module={active} className={`gp-shell ${active==="Whiteboard"?"gp-whiteboard-shell":""}`}><IntegrationRefresh key={employee?.id||'anonymous'} scope={scope} enabled={!!employee}/><EmployeeActivity employee={employee} scope={scope} onExpired={expireEmployee} onEmployeeChange={signedIn}/><ActionMessage/><header data-business-name={business?.name||brand} className="gp-topbar"><div className="gp-brand" title={business?.name||brand}>{business?.id.startsWith("pilot_")?business.name:brand}</div>{canReturnHome&&<button type="button" className="gp-module" disabled={returningHome} onClick={()=>void returnHome()}>Back to GroomPro</button>}<OfflineIndicator scope={scope} employeeId={employee?.id}/><button type="button" className="gp-switch gp-header-employee" title={employee?employeeName(employee):undefined} onClick={()=>void requestEmployeePin(employee?'SWITCH':'SIGN_IN')}>{employee&&<span className="gp-status-dot" aria-hidden="true"/>}<span>{employee?employeeName(employee):"PIN"}</span></button><AppNavigation role={employee?.role} modules={allowed} active={active}
  onSelect={module=>{setRequestsOnly(false);setActive(module)}}
  onCalendarView={view=>{setActive('Calendar');setCalendarShortcut({view})}}
- onRequests={()=>{setRequestsOnly(true);setActive('Tickets')}}/></header><main className="gp-main">
+ onRequests={()=>{setRequestsOnly(true);setActive('Tickets')}}/></header><main className="gp-main">{employee&&active!=='Whiteboard'&&allowed.includes('Tickets')&&<WaitlistNotices key={scope+':waitlist:'+employee.id} onOpen={()=>{setRequestsOnly(true);setActive('Tickets');requestAnimationFrame(()=>document.querySelector('[data-waitlist]')?.scrollIntoView({block:'start'}))}}/>}{employee&&active!=='Whiteboard'&&allowed.includes('Schedule')&&<StaffTaskNotices key={scope+':'+employee.id} employeeId={employee.id} onOpenTasks={()=>{setActive('Schedule');requestAnimationFrame(()=>document.querySelector('[data-staff-tasks]')?.scrollIntoView({block:'start'}))}}/>}
  {modules.filter(m=>allowed.includes(m)).map(m=><ModuleView key={`${scope}:${employeeScope}:${m}`} active={active===m} name={m}>
  {(["Services","Products","Packages","VIP Memberships"] as string[]).includes(m)&&<CatalogWorkspace kind={m==="Services"?"services":m==="Products"?"products":m==="Packages"?"packages":"plans"}/>}
  {m==="Calendar"&&<CalendarWorkspace employeeRole={employee?.role} viewShortcut={calendarShortcut} onWhiteboardPrepared={date=>setWhiteboardDate(new Date(date+"T12:00:00"))} requestedDate={scheduledCalendarDate} refreshKey={calendarRevision} onSlot={(date,resource)=>{if(!navigationRef.current.key)return false;window.dispatchEvent(new CustomEvent('groompro:calendar-slot',{detail:{date,resource}}));return true}} onNewTicket={(date,employeeId)=>openTicket(undefined,date,undefined,employeeId)} onOpenTicket={id=>openTicket(id)}/>}
  {m==="Customers"&&<CustomersWorkspace onCreateTicket={newForCustomer}/>}
- {m==="Tickets"&&<TicketsWorkspace requestsOnly={requestsOnly} refreshKey={calendarRevision} date={new Date()} onOpenTicket={id=>openTicket(id)} onNewTicket={()=>openTicket()}/>}
+ {m==="Tickets"&&<TicketsWorkspace onOpenCustomer={id=>setCustomer(id)} requestsOnly={requestsOnly} refreshKey={calendarRevision} date={new Date()} onOpenTicket={id=>openTicket(id)} onNewTicket={()=>openTicket()}/>}
  {m==="Whiteboard"&&<section className="gp-whiteboard-host" style={{height:"calc(100vh - 140px)",minHeight:400,background:"var(--gp-secondary)"}}><Whiteboard date={whiteboardDate}/></section>}
- {m==="Schedule"&&<section className="gp-settings"><h1 className="gp-title">Schedule</h1><StaffAvailabilitySettings/></section>}
+ {m==="Schedule"&&<section className="gp-settings"><h1 className="gp-title">Schedule</h1><StaffAvailabilitySettings/><StaffTasks/></section>}
  {m==="Settings"&&<Settings role={employee?.role}/>}
  {(m==="Pets"||m==="Messaging"||m==="Inventory"||m==="Reports")&&<ModuleWorkspace module={m} onOpenCustomer={id=>setCustomer(id)} onNewTicket={()=>openTicket()}/>}
  </ModuleView>)} </main><ActionPin onSignedIn={signedIn}/>

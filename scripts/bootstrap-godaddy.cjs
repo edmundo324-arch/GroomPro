@@ -118,6 +118,7 @@ async function main() {
     if(!process.argv.includes("--verify-only")){const changed=await require("./upgrade-imported-services.cjs").upgradeImportedServices(db);if(changed)console.log(`GroomPro: separated imported service fields for ${changed} services; original values retained.`)}
     if (!process.argv.includes('--verify-only')) {
       await db.$transaction(registerCustomerContactFeature);
+      await db.featureModule.createMany({skipDuplicates:true,data:[{code:'SEVEN_STAGE_GROOMING',name:'Seven-stage grooming workflow',description:'Track each dog’s care stages and actual stage times separately from booked services and employee pay.'}]});
       const { addresses, phones, reenabled } = await applyDemoContacts(db);
       if (addresses || phones || reenabled) console.log(`GroomPro demo contacts: ${addresses} addresses completed, ${phones} phones added, ${reenabled} phones re-enabled.`);
     }

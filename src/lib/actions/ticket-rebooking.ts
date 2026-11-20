@@ -1,3 +1,6 @@
+import {refreshRebookingDiscounts} from '@/src/lib/rebooking-discount-store';
+import {mainRebookingLineIds} from '@/src/lib/rebooking-discount-rules';
+import {isPrepaidPurchaseLine} from '@/src/lib/prepaid-lines';
 import {queueInitialAttendanceRequest} from '@/src/lib/appointment-message-acceptance';
 import {offlineCreateId,offlineLineId} from '@/src/lib/offline-transaction';
 import {workflowSettings} from '@/src/lib/workflow-settings';
@@ -20,14 +23,6 @@ import { checkCustomerBookingRules } from "@/src/lib/booking-rules";
 const COOKIE = "groompro_session";
 const tenantFrom = (r: NextRequest) => r.headers.get("x-tenant-id") || process.env.GROOMPRO_DEV_TENANT_ID || "";
 
-function rebookingDiscount(original: Date, next: Date) {
-  const weeks = (next.getTime() - original.getTime()) / (7 * 24 * 60 * 60 * 1000);
-  if (weeks <= 2 + 1e-9) return { pct: 20, label: "Touchup Groom/Bath", weeks };
-  if (weeks <= 4 + 1e-9) return { pct: 10, label: "4-Week Advance Rebook", weeks };
-  if (weeks <= 6 + 1e-9) return { pct: 5, label: "6-Week Advance Rebook", weeks };
-  return { pct: 0, label: "", weeks };
-}
-
 export async function POST(request: NextRequest) {
   const tenantId = tenantFrom(request);
   const locationId = await requestLocation(request, tenantId);
@@ -43,7 +38,7 @@ export async function POST(request: NextRequest) {
     const groomerId = body.groomerId ? String(body.groomerId) : null;
     if (!ticketId || Number.isNaN(scheduledStart.getTime())) return NextResponse.json({ error: "Original ticket and a valid new appointment time are required." }, { status: 400 });
 
-    let source = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { pets: true, lines: { orderBy: { sortOrder: "asc" } } } });
+    let source = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { pets: true, lines: { include: {service:true}, orderBy: { sortOrder: "asc" } } } });
     if (!source) return NextResponse.json({ error: "Original ticket could not be found." }, { status: 404 });
     source=attendingPets(source);
     if (source.status === "CANCELLED") return NextResponse.json({ error: "A cancelled appointment cannot be rebooked." }, { status: 409 });
@@ -61,19 +56,20 @@ export async function POST(request: NextRequest) {
       if (!groomer) return NextResponse.json({ error: "Selected groomer could not be found." }, { status: 404 });
     }
 
-    const automatic = rebookingDiscount(new Date(source.scheduledStart || source.createdAt), scheduledStart);
-    let discountPct = automatic.pct;
-    let discountLabel = automatic.label;
+    const intervalWeeks=(+scheduledStart-+new Date(source.scheduledStart||source.createdAt))/(7*86400000);
+    let discountPct = 0;
+    let discountLabel = "Automatic return-visit discount";
     const requestedOverride = body.discountOverridePct == null ? null : Number(body.discountOverridePct);
     if (requestedOverride != null) {
       if (!Number.isFinite(requestedOverride) || requestedOverride < 0 || requestedOverride > 100) return NextResponse.json({ error: "Invalid rebooking discount." }, { status: 400 });
       if (!['PLATFORM_OWNER','DEVELOPER','ADMIN'].includes(session.user.role) && session.user.role !== "MANAGER") return NextResponse.json({ error: "Only a manager can extend or change the rebooking discount." }, { status: 403 });
       discountPct = requestedOverride;
-      discountLabel = requestedOverride === 20 && automatic.weeks <= 3 ? "Manager-Extended Touchup Groom/Bath" : "Manager Rebooking Discount";
+      discountLabel = requestedOverride === 20 && intervalWeeks <= 3 ? "Manager-Extended Touchup Groom/Bath" : "Manager Rebooking Discount";
     }
 
     let orderNumber=0;
-    const serviceLines = source.lines.filter(line => line.lineType === "SERVICE");
+    const eligibleSourceLines=mainRebookingLineIds(source);
+    const serviceLines = source.lines.filter(line => line.lineType === "SERVICE"&&!isPrepaidPurchaseLine(line));
 
     const created = await db.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
@@ -84,11 +80,11 @@ export async function POST(request: NextRequest) {
           bookingAssetId:body.bookingAssetId||null,status: "OPEN", bookingSource: "STAFF", bookingDecision: "INTERNAL", notes: source.notes,
           pets: { create: source.pets.map(p => ({ petId: p.petId, weightLbs: p.weightLbs, analSituation: null, vipAvailability: p.vipAvailability })) },
           lines: { create: serviceLines.map((line, index) => {
-            const eligible = line.role === "GROOM" || line.role === "BATH";
+            const eligible = eligibleSourceLines.has(line.id);
             const gross = line.unitPriceCents * line.quantity;
             const discountCents = eligible && discountPct > 0 ? Math.round(gross * discountPct / 100) : 0;
             const totalCents = gross - discountCents;
-            return {id:offlineLineId(index),durationMin:line.durationMin,reportCardDescription:line.reportCardDescription,packageId:line.packageId,packageGroupKey:line.packageGroupKey,packageName:line.packageName, lineType: "SERVICE", role: line.role, serviceId: line.serviceId, petId: line.petId, description: line.description, quantity: line.quantity, unitPriceCents: line.unitPriceCents, discountCents, totalCents, commissionPct: line.commissionPct, commissionCents: Math.round(totalCents * Number(line.commissionPct || 0) / 100), sortOrder: index, assignedUserId: null, assignedAt: null };
+            return {id:offlineLineId(index),sourceKey:line.sourceKey,durationMin:line.durationMin,reportCardDescription:line.reportCardDescription,packageId:line.packageId,packageGroupKey:line.packageGroupKey,packageName:line.packageName, lineType: "SERVICE", role: line.role, serviceId: line.serviceId, petId: line.petId, description: line.description, quantity: line.quantity, unitPriceCents: line.unitPriceCents, discountCents, totalCents, commissionPct: line.commissionPct, commissionCents: Math.round(totalCents * Number(line.commissionPct || 0) / 100), sortOrder: index, assignedUserId: null, assignedAt: null };
           }) },
           ...(groomerId ? { assignments: { create: [{ userId: groomerId, role: "GROOMER" },{userId:groomerId,role:"PLANNED_GROOMER"}] } } : {})
         },
@@ -97,11 +93,17 @@ export async function POST(request: NextRequest) {
       await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
       await ensureGroomingNotes(tx,ticket,session.user.id);
       await queueInitialAttendanceRequest(tx,ticket);
+      if(requestedOverride!=null){const settingKey='REBOOKING_DISCOUNT:'+ticket.id;await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value:{managerOverride:true}},update:{value:{managerOverride:true}}});}
+      const result=await refreshRebookingDiscounts(tx,tenantId,ticket.id,session.user.id);
+      if(result.percentByPet)discountPct=Math.max(0,...Object.values(result.percentByPet));
+      ticket.lines=await tx.ticketLine.findMany({where:{ticketId:ticket.id},include:{pet:true,service:true}});
+      ticket.totalCents=ticket.lines.reduce((sum,line)=>sum+line.totalCents,0)+ticket.salesTaxCents+ticket.tipCents;
+      await tx.ticket.update({where:{id:ticket.id},data:{totalCents:ticket.totalCents}});
       return ticket;
     });
 
-    await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: created.id, customerId: source.customerId, action: "REBOOK", summary: `Rebooked ticket #${source.orderNumber} as appointment #${orderNumber}.`, details: { sourceTicketId: source.id, scheduledStart: scheduledStart.toISOString(), groomerId, rebookingDiscountPct: discountPct, rebookingDiscountLabel: discountLabel, intervalWeeks: automatic.weeks } });
-    return NextResponse.json({ ticket: created, warnings: rules.conflicts, rebookingDiscount: { pct: discountPct, label: discountLabel, intervalWeeks: automatic.weeks } });
+    await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: created.id, customerId: source.customerId, action: "REBOOK", summary: `Rebooked ticket #${source.orderNumber} as appointment #${orderNumber}.`, details: { sourceTicketId: source.id, scheduledStart: scheduledStart.toISOString(), groomerId, rebookingDiscountPct: discountPct, rebookingDiscountLabel: discountLabel, intervalWeeks: intervalWeeks } });
+    return NextResponse.json({ ticket: created, warnings: rules.conflicts, rebookingDiscount: { pct: discountPct, label: discountLabel, intervalWeeks: intervalWeeks } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to rebook appointment." }, { status: 400 });
   }

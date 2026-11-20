@@ -1,3 +1,4 @@
+import {recordEmailReply} from '@/src/lib/email-replies';
 import {NextRequest,NextResponse} from 'next/server';
 import {customerEmailConfig} from '@/src/lib/customer-email';
 import {validEmailWebhook} from '@/src/lib/email-delivery';
@@ -11,6 +12,6 @@ export async function POST(request:NextRequest){
  const raw=Buffer.concat(chunks).toString('utf8');
  if(!validEmailWebhook(raw,request.headers,config.webhookSecret))return NextResponse.json({error:'Invalid signature.'},{status:403});
  let event;try{event=JSON.parse(raw)}catch{return NextResponse.json({error:'Invalid event.'},{status:400});}
- try{await recordEmailDelivery(tenantId,config.from,event,request.headers.get('svix-id')!);return NextResponse.json({received:true});}
+ try{if(event.type==='email.received')await recordEmailReply(tenantId,config,event);else await recordEmailDelivery(tenantId,config.from,event,request.headers.get('svix-id')!);return NextResponse.json({received:true});}
  catch{return NextResponse.json({error:'Email delivery update could not be recorded.'},{status:503});}
 }

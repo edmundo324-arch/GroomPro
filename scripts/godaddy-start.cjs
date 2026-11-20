@@ -1,4 +1,5 @@
 const {randomBytes}=require('node:crypto');
+const {startReportScheduler}=require('./report-scheduler.cjs');
 const {startAppointmentScheduler}=require('./appointment-scheduler.cjs');
 const { spawn } = require('node:child_process');
 const { ROOT, loadEnvironment, databaseUrl } = require('./database-config.cjs');
@@ -29,7 +30,7 @@ function main() {
   launch([require.resolve('./bootstrap-godaddy.cjs')], code => {
     if (code !== 0) { process.exitCode = code; return; }
     launch([require.resolve('next/dist/bin/next'), development ? 'dev' : 'start', '-H', '0.0.0.0', '-p', process.env.PORT || '3000'], code => { stopScheduler();process.exitCode = code; });
-    if(!development)stopScheduler=startAppointmentScheduler({port:process.env.PORT||'3000',token:process.env.GROOMPRO_SCHEDULER_TOKEN});
+    if(!development){const options={port:process.env.PORT||'3000',token:process.env.GROOMPRO_SCHEDULER_TOKEN},stopMessages=startAppointmentScheduler(options),stopReports=startReportScheduler(options);stopScheduler=()=>{stopMessages();stopReports();};}
   });
 }
 if (require.main === module) {

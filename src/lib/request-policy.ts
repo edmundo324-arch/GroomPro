@@ -16,6 +16,8 @@ export async function actionPermissions(request:NextRequest,configure=false):Pro
  if(['GET','HEAD','OPTIONS'].includes(request.method))return ['VIEW'];
  if(configure)return ['CONFIGURE'];
  const path=request.nextUrl?.pathname||'';
+ if(path==='/api/waitlist'&&request.method==='POST'){const body=await request.clone().json().catch(()=>({}));return body.revision?['EDIT']:['CREATE'];}
+  if(path==='/api/staff-tasks'){const body=await request.clone().json().catch(()=>({}));return body.action==='SAVE'&&!body.revision?['CREATE']:['EDIT'];}
  if(path==='/api/pos-operation'){
   const body=await request.clone().json().catch(()=>({}));
   if(body.kind==='REBOOK')return ['CREATE'];

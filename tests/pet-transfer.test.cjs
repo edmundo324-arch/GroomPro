@@ -3,7 +3,7 @@ require('./load-ts.cjs');
 const {transferPet}=require('../src/lib/pet-transfer.ts');
 function fixture(){
  const state={pet:{id:'dog',tenantId:'shop',customerId:'john',name:'Gizmo'},tickets:[{petId:'dog',customerId:'john',paidCents:5000}],notes:[{petId:'dog',customerId:'john',body:'Leave tail long'}],audits:[]};
- const tx={$queryRaw:async()=>[],pet:{findFirst:async({where})=>where.tenantId===state.pet.tenantId&&where.id===state.pet.id&&(!where.customerId||where.customerId===state.pet.customerId)?{...state.pet}:null,updateMany:async({where,data})=>{if(where.customerId!==state.pet.customerId)return{count:0};Object.assign(state.pet,data);return{count:1}}},customer:{findFirst:async({where})=>where.tenantId==='shop'&&['john','maria','sue'].includes(where.id)?{id:where.id,firstName:where.id,lastName:'Family'}:null},auditEntry:{create:async({data})=>state.audits.push(data)}};
+ const tx={tenantSetting:{findMany:async()=>[]},$queryRaw:async()=>[],pet:{findFirst:async({where})=>where.tenantId===state.pet.tenantId&&where.id===state.pet.id&&(!where.customerId||where.customerId===state.pet.customerId)?{...state.pet}:null,updateMany:async({where,data})=>{if(where.customerId!==state.pet.customerId)return{count:0};Object.assign(state.pet,data);return{count:1}}},customer:{findFirst:async({where})=>where.tenantId==='shop'&&['john','maria','sue'].includes(where.id)?{id:where.id,firstName:where.id,lastName:'Family'}:null},auditEntry:{create:async({data})=>state.audits.push(data)}};
  return {state,tx};
 }
 test('repeated transfers retain pet identity, all tickets, notes and the original charged customer',async()=>{

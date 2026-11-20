@@ -1,0 +1,12 @@
+"use client";
+import {useEffect,useState} from 'react';
+import {deviceFetch} from '../lib/offline-device';
+import {taskOverdue,type StaffTask} from '../lib/staff-tasks';
+import {FloatingEditorWindow} from './floating-editor-window';
+export function StaffTaskNotices({employeeId,onOpenTasks}:{employeeId:string;onOpenTasks:()=>void}){
+ const [data,setData]=useState<any>(null),[open,setOpen]=useState(false),[now,setNow]=useState(new Date());
+ useEffect(()=>{let stopped=false,inflight=false;async function refresh(){if(inflight)return;inflight=true;try{const r=await deviceFetch('/api/staff-tasks',{cache:'no-store'});if(!r.ok){if(!stopped)setData(null);return;}const d=await r.json();if(!stopped&&d.employeeId===employeeId){setData(d);setNow(new Date());}}catch{}finally{inflight=false}}
+ const changed=(event:Event)=>{if(String((event as CustomEvent).detail?.url||'').includes('/api/staff-tasks'))void refresh();};void refresh();const interval=setInterval(()=>{if(!document.hidden)void refresh()},60000);window.addEventListener('groompro:data-changed',changed);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{stopped=true;clearInterval(interval);window.removeEventListener('groompro:data-changed',changed);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh)};},[employeeId]);
+ const tasks:StaffTask[]=(data?.tasks||[]).filter((t:StaffTask)=>(data.manager||t.assigneeId===employeeId)&&taskOverdue(t,now,data.timezone));
+ return <>{tasks.length>0&&<button type="button" className="gp-btn" onClick={()=>setOpen(true)} aria-label={`${tasks.length} overdue staff ${tasks.length===1?'task':'tasks'}`}><span role="status">{tasks.length} overdue staff {tasks.length===1?'task':'tasks'}</span></button>}{open&&<FloatingEditorWindow windowKey="staff-task-notifications" title="Overdue staff tasks" onClose={()=>setOpen(false)}><p>These tasks passed their due dates and have not been marked complete. The due date uses the shop time zone recorded when the task was created.</p><ul>{tasks.map(t=><li key={t.id}><strong>{t.title}</strong> · Due {t.dueDate} · {(()=>{const e=data.employees.find((e:any)=>e.id===t.assigneeId);return e?.displayName||[e?.firstName,e?.lastName].filter(Boolean).join(' ')||'Employee'})()}</li>)}</ul>{!tasks.length&&<p>No overdue tasks remain.</p>}<button type="button" className="gp-btn" onClick={()=>{setOpen(false);onOpenTasks()}}>Open staff tasks</button></FloatingEditorWindow>}</>;
+}

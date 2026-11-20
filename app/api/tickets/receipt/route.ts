@@ -14,9 +14,10 @@ async function handle(request:NextRequest){
  const tenantId=session.tenantId,locationId=await requestLocation(request,tenantId);
  const ticket=await db.ticket.findFirst({where:{id:request.nextUrl.searchParams.get('ticketId')||'',tenantId,locationId},include:{tenant:{select:{name:true}},location:{select:{name:true,timezone:true}},customer:{select:{firstName:true,lastName:true,email:true}},lines:{include:{pet:{select:{name:true}}},orderBy:{sortOrder:'asc'}},payments:{orderBy:{paidAt:'asc'}}}});
  if(!ticket||!locationId)return NextResponse.json({error:'This ticket could not be found at the selected location.'},{status:404});
- const html=ticketReceipt(ticket,true),revision=createHash('sha256').update(html+'\n'+(ticket.customer.email||'')).digest('hex');
+ const receiptTicket={...ticket,promotionDisplay:(await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:"PROMOTION_DISPLAY:"+ticket.id}}}))?.value||[]};
+ const html=ticketReceipt(receiptTicket,true),revision=createHash('sha256').update(html+'\n'+(ticket.customer.email||'')).digest('hex');
  const reply=(body:object,status=200)=>NextResponse.json(body,{status,headers:{'Cache-Control':'no-store'}});
- if(request.method==='GET')return reply({html:ticketReceipt(ticket),email:ticket.customer.email,revision});
+ if(request.method==='GET')return reply({html:ticketReceipt(receiptTicket),email:ticket.customer.email,revision});
  const denial=await moduleDenial(request,'MESSAGING');if(denial)return denial;
  try{
   const body=await request.json();

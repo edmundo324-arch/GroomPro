@@ -1,3 +1,4 @@
+import {changeTask} from './staff-tasks';
 import {newCustomerPhones} from './new-customer-phones';
 import {normalizePhone} from './phone-normalization';
 import {editOfflineSchedule} from './offline-schedules';
@@ -140,6 +141,13 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
     item.basePriceCents=data.priceCents;item.items=data.items.map((part,index)=>{const service=catalog.services.find((s:any)=>s.id===part.serviceId);if(!service)throw Error('Every package service must be saved on this device.');return {...part,sortOrder:index,role:body.items.find((i:any)=>i.serviceId===part.serviceId)?.role||service.workflowRole||'ADD_ON'};});
    }
    replace(rows,item);return {item};
+  }
+  if(path==='/api/staff-tasks'){
+   const data=state.lookups[path];if(!data||data.employeeId!==command.employeeId)throw Error('Open Staff tasks while connected to prepare them for offline work.');
+   if(!/^[a-f0-9-]{36}$/i.test(body.id||''))throw Error('Reopen the task before saving.');
+   const previous=data.tasks.find((t:any)=>t.id===body.id);const task=changeTask(previous,body,{id:command.employeeId,manager:data.manager,canAssignOthers:data.canAssignOthers,timezone:data.timezone},now);
+   if(body.action==='SAVE'&&!data.employees.some((e:any)=>e.id===task.assigneeId&&e.active))throw Error('Choose an active employee available on this device.');
+   const index=data.tasks.findIndex((t:any)=>t.id===task.id);if(index<0)data.tasks.push(task);else data.tasks[index]=task;return {task};
   }
   if(path==='/api/time-clock'){
    const data=state.lookups[path];if(!data)throw Error('Open Time clock while connected to prepare it for offline work.');
@@ -337,9 +345,9 @@ export function offlineReadRecords(state: OfflineRecords, url: URL) {
   const { pathname: path, searchParams: params } = url;
   if(path==='/api/employee-schedules'||path==='/api/schedule-overrides'){
    const data=state.lookups['/api/offline/schedules'];if(!data)throw Error('Schedules have not been prepared on this device.');
-   if(path==='/api/employee-schedules')return {schedules:data.schedules};
+   if(path==='/api/employee-schedules')return {schedules:data.schedules,locations:data.locations||[],employeeLocations:data.employeeLocations||{}};
    const start=params.get('start')||'',end=params.get('end')||'';dateRange(start,end);
-   return {overrides:data.overrides.filter((r:any)=>r.date>=start&&r.date<=end)};
+   return {overrides:data.overrides.filter((r:any)=>r.date>=start&&r.date<=end),locations:data.locations||[],employeeLocations:data.employeeLocations||{}};
   }
   if(path==='/api/reports'){
     const saved=state.lookups[path+url.search];
@@ -350,7 +358,9 @@ export function offlineReadRecords(state: OfflineRecords, url: URL) {
   const ticketId = params.get('ticketId');
   const q = (params.get('q') || '').trim().toLowerCase();
   if (path === '/api/customers/search' || path === '/api/customers/list') {
-    const customers = state.customers.filter(customer => customer.active && (!q ||
+    const tags=params.getAll('tag'),all=params.get('tagMatch')==='ALL';
+    if(tags.length&&state.customers.some(customer=>customer.tagIds===undefined))throw Error('Customer tags have not been prepared on this device. Reconnect once to refresh them before filtering offline.');
+    const customers = state.customers.filter(customer => customer.active && (!tags.length||(all?tags.every(id=>customer.tagIds.includes(id)):tags.some(id=>customer.tagIds.includes(id)))) && (!q ||
       [customer.firstName + ' ' + customer.lastName, customer.lastName + ' ' + customer.firstName, customer.email, customer.id,
         ...customer.phones.map((phone: any) => phone.number), ...customer.pets.map((pet: any) => pet.name)]
         .some(value => String(value || '').toLowerCase().includes(q))));

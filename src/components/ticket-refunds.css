@@ -1,0 +1,11 @@
+.gp-ticket-refund{min-width:0;padding:16px;box-sizing:border-box}
+.gp-ticket-refund fieldset{display:grid;gap:12px;min-width:0;padding:12px}
+.gp-ticket-refund fieldset>label{display:block;font-weight:600}
+.gp-ticket-refund fieldset>label>input,.gp-ticket-refund fieldset>label>select,.gp-ticket-refund textarea{display:block;width:100%;box-sizing:border-box;font-weight:400}
+.gp-ticket-refund table{width:100%;min-width:520px;border-collapse:collapse}
+.gp-ticket-refund th,.gp-ticket-refund td{padding:8px;text-align:left;vertical-align:top}
+.gp-ticket-refund th{background:#edf2f6}
+.gp-ticket-refund td input[type=number]{width:100px;box-sizing:border-box}
+.gp-ticket-refund td label{display:flex;align-items:flex-start;gap:6px}
+.gp-ticket-refund td input[type=checkbox]{width:auto;flex:none}
+.gp-ticket-refund fieldset>button{justify-self:start}

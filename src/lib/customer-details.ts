@@ -1,3 +1,4 @@
+import {profileBirthday} from './profile-birthday';
 export const customerAddressFields = {
  address1:'Street address', address2:'Address line 2', city:'City', state:'State / province', postalCode:'Postal code',
 } as const;
@@ -13,5 +14,5 @@ export function customerDetails(input:Record<string,unknown>){
   if(!['popupNotes','historyNotes'].includes(key)&&value.length>191)throw Error(`${customerDetailFields[key as keyof typeof customerDetailFields]} must be 191 characters or fewer.`);
   data[key]=value||null;
  }
- return data;
+ return {...data,...profileBirthday(input)};
 }

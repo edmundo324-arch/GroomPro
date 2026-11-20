@@ -1,8 +1,9 @@
+import {isGiftCardLine} from './gift-card-line';
 export type SalesRow={id:string;name:string;amountCents:number;quantity:number;tickets:number};
 export function salesBreakdowns(closed:any[],employees:{id:string;firstName:string;lastName:string;displayName?:string|null}[],zone:string){
  const products=new Map<string,SalesRow>(),packages=new Map<string,SalesRow>(),staff=new Map<string,SalesRow>(),days=new Map<string,SalesRow>();
  const names=new Map(employees.map(e=>[e.id,e.displayName||[e.firstName,e.lastName].filter(Boolean).join(' ')]));
- let netLineSalesCents=0,excludedBalanceCents=0;
+ let netLineSalesCents=0,excludedBalanceCents=0;const pricing={grossCents:0,discountCents:0,savedDifferenceCents:0,unpricedSalesCents:0,unpricedLines:0};
  const seen=new Map<SalesRow,Set<string>>();
  function add(map:Map<string,SalesRow>,id:string,name:string,amount:number,quantity:number,ticketId:string){
   const row=map.get(id)||{id,name,amountCents:0,quantity:0,tickets:0};
@@ -12,8 +13,10 @@ export function salesBreakdowns(closed:any[],employees:{id:string;firstName:stri
  for(const ticket of closed){
   let amount=0;
   for(const line of ticket.lines||[]){
+   if(isGiftCardLine(line))continue;
    if(/^Customer Account Balance$/i.test(line.description||'')){excludedBalanceCents+=line.totalCents;continue;}
    amount+=line.totalCents;
+   if([line.unitPriceCents,line.quantity,line.discountCents].every(Number.isSafeInteger)){const gross=line.unitPriceCents*line.quantity;pricing.grossCents+=gross;pricing.discountCents+=line.discountCents;pricing.savedDifferenceCents+=line.totalCents-(gross-line.discountCents);}else{pricing.unpricedSalesCents+=line.totalCents;pricing.unpricedLines++;}
    if(line.lineType==='PRODUCT')add(products,line.productId||'description:'+line.description,line.description,line.totalCents,line.quantity,ticket.id);
    if(line.packageId||line.packageGroupKey||line.packageName)add(packages,line.packageId||'name:'+(line.packageName||line.packageGroupKey),line.packageName||'Saved package',line.totalCents,0,ticket.id);
    const id=line.assignedUserId||'unassigned';
@@ -22,5 +25,5 @@ export function salesBreakdowns(closed:any[],employees:{id:string;firstName:stri
   netLineSalesCents+=amount;
   if(ticket.closedAt){const parts=new Intl.DateTimeFormat('en-US',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(ticket.closedAt)),part=(type:string)=>parts.find(p=>p.type===type)?.value;const date=[part('year'),part('month'),part('day')].join('-');add(days,date,date,amount,0,ticket.id);}
  }
- return {netLineSalesCents,excludedBalanceCents,products:[...products.values()],packages:[...packages.values()],employees:[...staff.values()],days:[...days.values()].sort((a,b)=>a.id.localeCompare(b.id))};
+ return {netLineSalesCents,excludedBalanceCents,pricing,products:[...products.values()],packages:[...packages.values()],employees:[...staff.values()],days:[...days.values()].sort((a,b)=>a.id.localeCompare(b.id))};
 }

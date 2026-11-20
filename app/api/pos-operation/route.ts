@@ -1,10 +1,12 @@
+import {POST as prepaidAction} from '@/src/lib/actions/ticket-prepaid';
+import {POST as sellGiftCard} from '@/src/lib/actions/ticket-gift-cards';
 import {withRequestPolicy} from '@/src/lib/request-policy';
 import {createHash,randomUUID} from 'node:crypto';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {getActiveEmployeeSession} from '@/src/lib/employee-session';
 import {actionContext} from '@/src/lib/action-context';
-import {POST as createTicket} from '@/src/lib/actions/ticket-booking';
+import {POST as createTicket,createTicket as createGiftPurchaseTicket} from '@/src/lib/actions/ticket-booking';
 import {POST as checkout} from '@/src/lib/actions/ticket-checkout';
 import {POST as rebook} from '@/src/lib/actions/ticket-rebooking';
 import {POST as enroll} from '@/src/lib/actions/membership-actions';
@@ -18,8 +20,9 @@ async function handlePolicyPOST(request:NextRequest){
  const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;
  if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  let body:any;try{body=await request.json()}catch{return NextResponse.json({error:'Invalid operation.'},{status:400})}
- if(!['SAVE','PAYMENT','CLOSE','REBOOK','REDEEM','ENROLL','STATUS','NO_SHOW'].includes(body.kind)||! /^[a-zA-Z0-9-]{16,80}$/.test(body.requestKey||''))return NextResponse.json({error:'Choose a valid ticket action.'},{status:400});
+ if(!['PREPAID_PURCHASE','PREPAID_APPLY','PREPAID_REMOVE','GIFT_CARD','SAVE','PAYMENT','CLOSE','REBOOK','REDEEM','ENROLL','STATUS','NO_SHOW'].includes(body.kind)||! /^[a-zA-Z0-9-]{16,80}$/.test(body.requestKey||''))return NextResponse.json({error:'Choose a valid ticket action.'},{status:400});
  if(body.kind==='ENROLL'&&typeof body.details?.signedAgreementId!=='string')return NextResponse.json({error:'Sign the VIP agreement before enrolling this dog.'},{status:400});
+ if(body.kind==='GIFT_CARD'&&(!Number.isSafeInteger(body.details?.amountCents)||body.details.amountCents<=0||body.details.amountCents>2147483647))return NextResponse.json({error:'Enter a positive gift card amount.'},{status:400});
  const {requestKey,...intent}=body;
  const requestHash=createHash('sha256').update(JSON.stringify(intent)).digest('hex');
  const key={tenantId,requestKey};
@@ -53,13 +56,15 @@ async function handlePolicyPOST(request:NextRequest){
    if(!ticketId&&body.kind==='ENROLL'&&!body.draft?.lines?.length)return complete(await call(enroll,'/api/memberships',{...(body.details||{}),draftId:body.draft?.draftId}));
    if(!ticketId){
     if(!body.draft)return complete(NextResponse.json({error:'Ticket details are required.'},{status:400}));
-    const created=await call(createTicket,'/api/tickets',body.draft);
+    const created=await call(['GIFT_CARD','PREPAID_PURCHASE'].includes(body.kind)?(r=>createGiftPurchaseTicket(r,undefined,true)):createTicket,'/api/tickets',body.draft);
     if(!created.ok)return complete(created);
     const data=await created.json();ticketId=data.ticket.id;
     await db.posOperation.update({where:{tenantId_requestKey:key},data:{response:{savedTicketId:ticketId}}});
     if(body.kind==='SAVE')return complete(NextResponse.json(data));
    }else if(!await db.ticket.findFirst({where:{id:ticketId,tenantId}}))return complete(NextResponse.json({error:'Ticket not found.'},{status:404}));
    const details={...(body.details||{}),ticketId};
+   if(['PREPAID_PURCHASE','PREPAID_APPLY','PREPAID_REMOVE'].includes(body.kind))return complete(await call(prepaidAction,'/api/tickets/prepaid',{...details,action:body.kind.slice(8)}));
+   if(body.kind==='GIFT_CARD')return complete(await call(sellGiftCard,'/api/tickets/gift-cards',details));
    if(body.kind==='PAYMENT'||body.kind==='CLOSE')return complete(await call(checkout,'/api/tickets/checkout',{...details,action:body.kind}));
    if(body.kind==='REBOOK')return complete(await call(rebook,'/api/tickets/rebook',details));
    if(body.kind==='ENROLL')return complete(await call(enroll,'/api/memberships',details));

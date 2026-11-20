@@ -92,3 +92,9 @@
 - Stop dependent work only for an unresolved business-rule decision, a concrete blocker, a user-requested pause, or an execution limit. Continue independent approved work while awaiting answers.
 - Clearly distinguish batch completion from overall audit completion. Never claim to continue after ending a turn; report any actual interruption truthfully.
 - The user explicitly authorized publishing all agreed changes to GitHub; that authorization supersedes the older publication-command-only instruction for this audit work.
+
+## Publication cadence — user correction November 18, 2026
+- Continue the remaining approved audit work without stopping after small batches.
+- Keep unfinished work local. Do not publish small intermediate batches or ask the user to sync GoDaddy repeatedly.
+- Hold the next GitHub upload until the agreed work is complete and checked, unless the user explicitly requests an urgent release. Prior blanket publication authorization does not override this newer timing instruction.
+- Ask only for necessary unresolved business rules; continue independent approved work while answers are pending. Do not imply background work continues after a turn has ended.

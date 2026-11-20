@@ -1,0 +1,5 @@
+import {timingSafeEqual} from 'node:crypto';
+import {NextRequest,NextResponse} from 'next/server';
+import {runScheduledReports} from '@/src/lib/scheduled-report-runner';
+export const runtime='nodejs';export const dynamic='force-dynamic';
+export async function POST(request:NextRequest){const expected=process.env.GROOMPRO_SCHEDULER_TOKEN||'',actual=request.headers.get('x-groompro-scheduler')||'';if(expected.length<32||Buffer.byteLength(actual)!==Buffer.byteLength(expected)||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected)))return NextResponse.json({error:'Unauthorized.'},{status:401});try{const {cursor}=await request.json();if(cursor!=null&&(typeof cursor.tenantId!=='string'||typeof cursor.entryKey!=='string'||cursor.tenantId.length>191||cursor.entryKey.length>191))return NextResponse.json({error:'Invalid cursor.'},{status:400});return NextResponse.json(await runScheduledReports(cursor||null),{headers:{'Cache-Control':'no-store'}});}catch{return NextResponse.json({error:'Scheduled reports could not be checked.'},{status:503});}}

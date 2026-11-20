@@ -40,7 +40,7 @@ test('Settings search finds operational controls and routes each result to a rea
  const {findSettings,settingsSearchEntries,settingsBreadcrumb}=require('../src/lib/settings-search.ts');
  const read=name=>fs.readFileSync('src/components/'+name+'.tsx','utf8');
  const tabs=read('settings')+read('workflow-settings');
- const anchors=['customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings','platform-access-settings'].map(read).join('\n');
+ const anchors=['promotion-settings','device-settings','portal-settings','customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings','platform-access-settings'].map(read).join('\n');
  for(const entry of settingsSearchEntries){
   const labels=settingsBreadcrumb(entry).split(' → ').slice(1,entry.path.length+1);
   entry.path.forEach((id,index)=>assert.ok(tabs.includes("id:'"+id+"',label:'"+labels[index]+"'"),entry.title+' → '+id));

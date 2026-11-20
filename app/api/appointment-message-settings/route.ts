@@ -8,7 +8,7 @@ async function handle(r:NextRequest){
  if(!session)return reply({error:'Employee PIN is required.'},401);
  if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return reply({error:'Ask an owner or manager to change appointment message rules.'},403);
  try{
-  if(r.method==='GET'){const settings=await readAppointmentMessageSettings(session.tenantId),runtime=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:session.tenantId,settingKey:'APPOINTMENT_MESSAGE_RUNTIME'}}});return reply({...settings,runtime:runtime?.value||null});}
+  if(r.method==='GET'){const settings=await readAppointmentMessageSettings(session.tenantId),runtime=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:session.tenantId,settingKey:'APPOINTMENT_MESSAGE_RUNTIME'}}});const vaccinationRuntime=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:session.tenantId,settingKey:'VACCINATION_MESSAGE_RUNTIME'}}});const birthdayRuntime=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:session.tenantId,settingKey:'BIRTHDAY_MESSAGE_RUNTIME'}}});const prepaidRuntime=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:session.tenantId,settingKey:'PREPAID_MESSAGE_RUNTIME'}}});return reply({...settings,birthdayRuntime:birthdayRuntime?.value||null,prepaidRuntime:prepaidRuntime?.value||null,runtime:runtime?.value||null,vaccinationRuntime:vaccinationRuntime?.value||null});}
   const b=await r.json();return reply(await saveAppointmentMessageSettings(session.tenantId,session.user.id,b.revision,b.policy));
  }catch(e){return reply({error:e instanceof Error?e.message:'Could not save appointment message rules. Try again.'},400);}
 }

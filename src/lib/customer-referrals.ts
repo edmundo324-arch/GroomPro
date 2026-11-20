@@ -1,3 +1,6 @@
+import {paidGrooming} from './referral-eligibility';
+import {readReferralPolicy} from './referral-policy';
+import {randomUUID} from 'node:crypto';
 import type { Prisma } from '@prisma/client';
 import { db } from './db';
 import { addAccountEntry } from './customer-account';
@@ -6,14 +9,7 @@ export const referralCreditKey = 'CUSTOMER_REFERRAL_CREDIT_CENTS';
 export const defaultReferralCreditCents = 1000;
 const referralKey = (customerId: string) => 'CUSTOMER_REFERRAL:' + customerId;
 type Referral = { referralSource: string; referredById: string };
-const paidGrooming: Prisma.TicketWhereInput = {
-  status: 'CLOSED',
-  payments: { some: { amount: { gt: 0 } } },
-  lines: { some: { lineType: 'SERVICE', petId: { not: null }, totalCents: { gt: 0 }, OR: [
-    { role: 'GROOM' },
-    { service: { category: { in: ['GR', 'GROOM', 'GROOMING', 'FFT', 'FW', 'FULL WASH', 'FULL_WASH'] } } },
-  ] } },
-};
+
 
 function referralValue(value: unknown): Referral {
   const data = value as Partial<Referral> | null;
@@ -80,11 +76,11 @@ export async function awardFirstGroomReferral(tx: Prisma.TransactionClient, tick
   if (!current) return 0;
   const earlier = await tx.ticket.findFirst({ where: { ...paidGrooming, tenantId, customerId, id: { not: ticketId } }, select: { id: true } });
   if (earlier) return 0;
-  const amountCents = await referralCreditCents(tenantId, tx);
-  if (!amountCents) return 0;
-  await tx.tenantSetting.create({ data: { ...key, value: { ticketId, referredById, amountCents } } });
-  const entry = { tenantId, ticketId, actorUserId, amountCents, entryType: 'CREDIT' as const, referenceId: settingKey };
-  await addAccountEntry({ ...entry, customerId: referredById, reason: 'Referral credit after the new client’s first paid groom.' }, tx);
-  await addAccountEntry({ ...entry, customerId, reason: 'New-client referral credit after the first paid groom.' }, tx);
-  return amountCents;
+  const {policy}=await readReferralPolicy(tenantId,tx);if(!policy.enabled)return 0;
+  await tx.tenantSetting.create({data:{...key,value:{ticketId,referredById,rewards:{newCustomer:policy.newCustomer,referrer:policy.referrer}}}});
+  for(const [recipient,reward] of [[customerId,policy.newCustomer],[referredById,policy.referrer]] as const){
+    if(reward.kind==='CREDIT'&&reward.amountCents>0)await addAccountEntry({tenantId,ticketId,actorUserId,amountCents:reward.amountCents,entryType:'CREDIT',referenceId:settingKey,customerId:recipient,reason:'Refer-A-Friend reward after the new customer’s first paid groom.'},tx);
+    if(reward.kind==='ITEM'){const id=randomUUID();await tx.tenantSetting.create({data:{tenantId,settingKey:'REFERRAL_REWARD:'+id,value:{id,customerId:recipient,reward,earnedTicketId:ticketId,earnedAt:new Date().toISOString(),usedTicketId:null}}});}
+  }
+  return policy.newCustomer.kind==='CREDIT'?policy.newCustomer.amountCents:0;
 }

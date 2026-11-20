@@ -1,3 +1,4 @@
+import {profileBirthday} from '@/src/lib/profile-birthday';
 import {petCareDetails} from '@/src/lib/pet-care-details';
 import {offlineCreateId} from '@/src/lib/offline-transaction';
 import {withRequestPolicy} from '@/src/lib/request-policy';
@@ -32,7 +33,7 @@ async function save(r:NextRequest,editing:boolean){
  const coat:any={};for(const key of ['coatLength','coatTexture','groomingClassification'])if(b[key]!==undefined){if(b[key]!==null&&(typeof b[key]!=='string'||b[key].length>191))throw Error('Invalid '+key);coat[key]=b[key]?.trim()||null;}
  const vipAssessment=b.vipAssessment;
  if(vipAssessment!==undefined&&!['ASSESS','ELIGIBLE','DO_NOT_OFFER'].includes(vipAssessment))throw Error('Choose a valid VIP eligibility.');
- const data={...petCareDetails(b),...classification,...coat,...(b.active!==undefined?{active:b.active===true}:{}),...(b.weightLbs!==undefined?{weightLbs:b.weightLbs===''?null:b.weightLbs}:{}),...(b.veterinarian!==undefined?{veterinarian:String(b.veterinarian)||null}:{}),...(vipAssessment!==undefined?{vipEligible:vipAssessment==='ELIGIBLE'}:b.vipEligible!==undefined?{vipEligible:b.vipEligible===true}:{}),...(b.vipEligibilityNotes!==undefined?{vipEligibilityNotes:String(b.vipEligibilityNotes).trim()||null}:{}),...(b.groomingNotes!==undefined?{groomingNotes:String(b.groomingNotes).trim()||null}:{}),name,...(b.notes!==undefined?{notes:notes||null}:{}),...(preferredPackageId!==undefined?{preferredPackageId}:{})};
+ const data={...profileBirthday(b),...petCareDetails(b),...classification,...coat,...(b.active!==undefined?{active:b.active===true}:{}),...(b.weightLbs!==undefined?{weightLbs:b.weightLbs===''?null:b.weightLbs}:{}),...(b.veterinarian!==undefined?{veterinarian:String(b.veterinarian)||null}:{}),...(vipAssessment!==undefined?{vipEligible:vipAssessment==='ELIGIBLE'}:b.vipEligible!==undefined?{vipEligible:b.vipEligible===true}:{}),...(b.vipEligibilityNotes!==undefined?{vipEligibilityNotes:String(b.vipEligibilityNotes).trim()||null}:{}),...(b.groomingNotes!==undefined?{groomingNotes:String(b.groomingNotes).trim()||null}:{}),name,...(b.notes!==undefined?{notes:notes||null}:{}),...(preferredPackageId!==undefined?{preferredPackageId}:{})};
  if(editing){const id=String(b.id||'');const result=await db.$transaction(async tx=>{
   if(vipAssessment!==undefined)await tx.$executeRaw`UPDATE Pet SET careFlags=JSON_SET(COALESCE(careFlags,'{}'),'$.vipDoNotOffer',${vipAssessment==='DO_NOT_OFFER'?1:0}) WHERE id=${id} AND tenantId=${tenantId} AND customerId=${customerId}`;
   return tx.pet.updateMany({where:{id,tenantId,customerId},data});

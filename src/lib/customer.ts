@@ -1,3 +1,4 @@
+import {readCustomerTags,taggedCustomerIds} from './customer-tags';
 import {combinedCustomerNotes} from './customer-notes';
 import {popupPetMemberships} from './popup-pet-memberships';
 import {customerStates} from './appointment-customer-state';
@@ -13,7 +14,8 @@ export function normalizeText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
-export async function searchCustomers(tenantId: string, query: string, limit: number | "all" = 25, includeReferrals = false) {
+export async function searchCustomers(tenantId: string, query: string, limit: number | "all" = 25, includeReferrals = false,tagFilter?:{tagIds:string[];match:string}) {
+  const selected=tagFilter?.tagIds.length?await taggedCustomerIds(tenantId,tagFilter.tagIds,tagFilter.match):undefined;
   const text = normalizeText(query);
   const phone = normalizePhone(query);
 
@@ -21,6 +23,7 @@ export async function searchCustomers(tenantId: string, query: string, limit: nu
     where: {
       tenantId,
       active: true,
+      ...(selected?{id:{in:selected}}:{}),
       ...(text ? { OR: [
         { id: { equals: text } },
         { importSourceId: { contains: text } },
@@ -80,5 +83,5 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
     :Promise.resolve([]);
   const [referrals,memberships,visits]=await Promise.all([customerReferrals(tenantId,[customerId]),popupPetMemberships(db,tenantId,{customerId,pets:customer.pets.map(pet=>({pet}))}),olderVisits]);
   const lastServiceVisit=petId&&visits.length?latestSinglePetServiceVisit(petId,visits):undefined;
-  return {...customer,notes:combinedCustomerNotes(customer),pets:memberships.pets.map((entry:any)=>entry.pet),...referrals.get(customerId),tickets:await customerStates(tenantId,customer.tickets.map(attendingPets)),lastServiceVisit};
+  return {...customer,tagIds:await readCustomerTags(tenantId,customerId),notes:combinedCustomerNotes(customer),pets:memberships.pets.map((entry:any)=>entry.pet),...referrals.get(customerId),tickets:await customerStates(tenantId,customer.tickets.map(attendingPets)),lastServiceVisit};
 }

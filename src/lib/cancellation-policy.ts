@@ -1,3 +1,4 @@
+import {vaccinationPolicy,type VaccinationPolicy,defaultVaccinationPolicy} from './vaccination-policy';
 // Shared by portal requests and staff review. The amount uses the existing NO_SHOW_FEE_CENTS setting.
 export type CancellationNotice={amount:number;unit:'HOURS'|'DAYS'};
 export const defaultCancellationNotice:CancellationNotice={amount:30,unit:'HOURS'};
@@ -16,8 +17,8 @@ export function cancellationTiming(start:Date,requestedAt:Date,notice:Cancellati
 }
 
 export const defaultCancellationWarning='{business} requires {notice} notice to cancel. This appointment is within that window, so a Reserved Appointment Fee of {fee} will apply. You can request a waiver for the shop to review. Your appointment stays booked until the shop responds.';
-export type PortalPolicy={approval:'REVIEW'|'AUTOMATIC';notice:CancellationNotice;warning:string;bookableItems:string[];advanceDays:number;minimumLeadHours:number;slotIntervalMinutes:number};
-export const defaultPortalPolicy:PortalPolicy={approval:'REVIEW',notice:defaultCancellationNotice,warning:defaultCancellationWarning,bookableItems:[],advanceDays:30,minimumLeadHours:0,slotIntervalMinutes:30};
+export type PortalPolicy={vaccinations:VaccinationPolicy;approval:'REVIEW'|'AUTOMATIC';notice:CancellationNotice;warning:string;bookableItems:string[];advanceDays:number;minimumLeadHours:number;slotIntervalMinutes:number;unfinishedBookingMinutes:number};
+export const defaultPortalPolicy:PortalPolicy={vaccinations:defaultVaccinationPolicy,approval:'REVIEW',notice:defaultCancellationNotice,warning:defaultCancellationWarning,bookableItems:[],advanceDays:30,minimumLeadHours:0,slotIntervalMinutes:30,unfinishedBookingMinutes:30};
 export function portalPolicy(value:unknown):PortalPolicy{
  const input=value as PortalPolicy;
  if(!input||!['REVIEW','AUTOMATIC'].includes(input.approval))throw Error('Choose whether the shop reviews online bookings.');
@@ -30,7 +31,8 @@ export function portalPolicy(value:unknown):PortalPolicy{
  const minimumLeadHours=input.minimumLeadHours??0,slotIntervalMinutes=input.slotIntervalMinutes??30;
  if(typeof minimumLeadHours!=='number'||!Number.isFinite(minimumLeadHours)||minimumLeadHours<0||minimumLeadHours>17520)throw Error('Enter booking notice from 0 to 17,520 hours.');
  if(!Number.isInteger(slotIntervalMinutes)||slotIntervalMinutes<5||slotIntervalMinutes>240)throw Error('Choose 5 to 240 minutes between online start times.');
- return {approval:input.approval,notice:cancellationNotice(input.notice),warning:input.warning.trim(),bookableItems:[...new Set(bookableItems)],advanceDays,minimumLeadHours,slotIntervalMinutes};
+ const unfinishedBookingMinutes=input.unfinishedBookingMinutes??30;if(!Number.isInteger(unfinishedBookingMinutes)||unfinishedBookingMinutes<1||unfinishedBookingMinutes>10080)throw Error('Choose 1 to 10,080 minutes before an unfinished booking needs follow-up.');
+ return {vaccinations:vaccinationPolicy(input.vaccinations),approval:input.approval,notice:cancellationNotice(input.notice),warning:input.warning.trim(),bookableItems:[...new Set(bookableItems)],advanceDays,minimumLeadHours,slotIntervalMinutes,unfinishedBookingMinutes};
 }
 export function cancellationWarning(policy:PortalPolicy,business:string,feeCents:number){
  const values:Record<string,string>={business,notice:`${policy.notice.amount} ${policy.notice.unit==='DAYS'?(policy.notice.amount===1?'day':'days'):(policy.notice.amount===1?'hour':'hours')}`,fee:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(feeCents/100)};

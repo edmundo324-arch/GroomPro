@@ -1,7 +1,20 @@
+import {birthdayPolicy,defaultBirthdayPolicy,type BirthdayPolicy} from './birthday-messages';
+import {prepaidReminderPolicy,defaultPrepaidReminderPolicy,type PrepaidReminderPolicy} from './prepaid-reminders';
+import {vaccinationReminderPolicy,defaultVaccinationReminderPolicy,type VaccinationReminderPolicy} from './vaccination-reminders';
 import {localToInstant,zonedParts} from './operating-hours';
 export type MessageTime={daysBefore:number;time:string};
-export type AppointmentMessagePolicy={publicOrigin:string;enabled:boolean;promptOnReschedule:boolean;channels:Array<'SMS'|'EMAIL'>;confirmationTimes:MessageTime[];confirmationText:string;feeReminder:string;reminderText:string};
+export type AppointmentMessagePolicy={reportCardMode:'AUTO'|'ASK';reportCardText:string;birthdays:BirthdayPolicy;prepaid:PrepaidReminderPolicy;reviewEnabled:boolean;reviewText:string;reviewLink:string;vaccinations:VaccinationReminderPolicy;pickupEnabled:boolean;changeEnabled:boolean;rebookingEnabled:boolean;pickupText:string;changeText:string;cancellationText:string;rebookingText:string;publicOrigin:string;enabled:boolean;promptOnReschedule:boolean;channels:Array<'SMS'|'EMAIL'>;confirmationTimes:MessageTime[];confirmationText:string;feeReminder:string;reminderText:string};
 export const defaultAppointmentMessagePolicy:AppointmentMessagePolicy={
+ reportCardMode:'AUTO',reportCardText:'{business}: Your grooming report card is ready. Sign in to view it and its photos: {portalLink}',
+ reviewEnabled:true,reviewLink:'',reviewText:'{business}: Thank you for visiting us. We would appreciate your feedback about your visit: {reviewLink}',
+ birthdays:defaultBirthdayPolicy,
+ prepaid:defaultPrepaidReminderPolicy,
+ vaccinations:defaultVaccinationReminderPolicy,
+ pickupEnabled:true,changeEnabled:true,rebookingEnabled:true,
+ pickupText:'{business}: Grooming is complete for {pets}. You can pick up now.',
+ changeText:'{business}: The appointment for {pets} has moved to {appointmentDate} at {appointmentTime}. Review your appointment here: {portalLink}',
+ cancellationText:'{business}: The appointment for {pets} on {appointmentDate} at {appointmentTime} has been cancelled. View your appointments here: {portalLink}',
+ rebookingText:'{business}: It is time to plan the next grooming visit for {pets}. Choose an appointment here: {portalLink}',
  publicOrigin:'',enabled:true,promptOnReschedule:true,channels:['SMS'],
  confirmationTimes:[7,5,3,2,0].map(daysBefore=>({daysBefore,time:daysBefore===0?'07:00':'09:00'})),
  confirmationText:'{business}: Please confirm the appointment for {pets} on {appointmentDate} at {appointmentTime}. {portalLink}',
@@ -15,12 +28,15 @@ export function messageTimes(value:unknown):MessageTime[]{
   const key=v.daysBefore+':'+v.time;if(seen.has(key))throw Error('That reminder time is already listed. Choose a different time.');seen.add(key);return {daysBefore:v.daysBefore,time:v.time};
  });
 }
-const variables=['business','customer','firstName','pets','appointmentDate','appointmentTime','location','portalLink','notice','fee'];
+const variables=['business','customer','firstName','pets','appointmentDate','appointmentTime','location','portalLink','notice','fee','reviewLink'];
 export function appointmentMessagePolicy(value:unknown):AppointmentMessagePolicy{
  const v=value as AppointmentMessagePolicy;
  if(!v||typeof v.enabled!=='boolean'||typeof v.promptOnReschedule!=='boolean'||!Array.isArray(v.channels)||!v.channels.length||v.channels.some(c=>!['SMS','EMAIL'].includes(c)))throw Error('Choose SMS, email, or both for appointment messages.');
- const texts:Record<string,string>={};for(const key of ['confirmationText','feeReminder','reminderText'] as const){const text=v[key];if(typeof text!=='string'||!text.trim()||text.length>1200)throw Error('Keep each message section between 1 and 1,200 characters.');if((text.match(/\{[^{}]*\}/g)||[]).some(t=>!variables.includes(t.slice(1,-1))))throw Error('Use the listed automatic details in appointment messages.');texts[key]=text.trim();}
- return {publicOrigin:messagePublicOrigin(v.publicOrigin||''),enabled:v.enabled,promptOnReschedule:v.promptOnReschedule,channels:[...new Set(v.channels)],confirmationTimes:messageTimes(v.confirmationTimes),confirmationText:texts.confirmationText,feeReminder:texts.feeReminder,reminderText:texts.reminderText};
+ const texts:Record<string,string>={};for(const key of ['reportCardText','reviewText','confirmationText','feeReminder','reminderText','pickupText','changeText','cancellationText','rebookingText'] as const){const text=v[key]??defaultAppointmentMessagePolicy[key];if(typeof text!=='string'||!text.trim()||text.length>1200)throw Error('Keep each message section between 1 and 1,200 characters.');if((text.match(/\{[^{}]*\}/g)||[]).some(t=>!variables.includes(t.slice(1,-1))))throw Error('Use the listed automatic details in appointment messages.');texts[key]=text.trim();}
+ for(const key of ['reviewEnabled','pickupEnabled','changeEnabled','rebookingEnabled'] as const)if(v[key]!==undefined&&typeof v[key]!=='boolean')throw Error('Choose whether to send each type of message.');
+ if(v.reportCardMode!==undefined&&!['AUTO','ASK'].includes(v.reportCardMode))throw Error('Choose automatic report cards or ask staff at closing.');
+ const reviewLink=String(v.reviewLink||'').trim();if(reviewLink){let url:URL;try{url=new URL(reviewLink)}catch{throw Error('Enter the complete secure review-page link.')}if(url.protocol!=='https:'||url.username||url.password||reviewLink.length>2000)throw Error('Use a secure https review-page link without sign-in details.');}
+ return {reportCardMode:v.reportCardMode??'AUTO',reportCardText:texts.reportCardText,birthdays:birthdayPolicy(v.birthdays),prepaid:prepaidReminderPolicy(v.prepaid),reviewEnabled:v.reviewEnabled??true,reviewText:texts.reviewText,reviewLink,vaccinations:vaccinationReminderPolicy(v.vaccinations),pickupEnabled:v.pickupEnabled??true,changeEnabled:v.changeEnabled??true,rebookingEnabled:v.rebookingEnabled??true,pickupText:texts.pickupText,changeText:texts.changeText,cancellationText:texts.cancellationText,rebookingText:texts.rebookingText,publicOrigin:messagePublicOrigin(v.publicOrigin||''),enabled:v.enabled,promptOnReschedule:v.promptOnReschedule,channels:[...new Set(v.channels)],confirmationTimes:messageTimes(v.confirmationTimes),confirmationText:texts.confirmationText,feeReminder:texts.feeReminder,reminderText:texts.reminderText};
 }
 // Preserve the shop's wall-clock choice across daylight-saving changes.
 // The caller decides eligibility and records any invalid local clock time for staff review.

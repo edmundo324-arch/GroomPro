@@ -16,3 +16,5 @@ test('short stock completes with zero stock and durable shortage warning',async(
 test('unlinked, invalid, and missing products warn without changing unrelated stock',async()=>{
  const f=fixture(),warnings=await f.run([line(null),line('a',-1),line('missing')]);assert.equal(warnings.length,3);assert.equal(f.products.a.quantity,3);assert.equal(f.audits.length,1);
 });
+
+test('checkout snapshots unit cost before future product cost edits',async()=>{const f=fixture();f.products.a.costCents=275;await f.run([line('a',2)]);f.products.a.costCents=999;assert.equal(f.audits[0].details.unitCostCents,275);assert.equal(f.audits[0].details.costCents,550);assert.equal(f.audits[0].details.productName,'Shampoo');});

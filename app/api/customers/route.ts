@@ -1,3 +1,4 @@
+import {saveCustomerTags,readCustomerTags} from '@/src/lib/customer-tags';
 import {customerMessagePreferences} from '@/src/lib/customer-message-preferences';
 import {newCustomerPhones} from '@/src/lib/new-customer-phones';
 import {offlineCreateId} from '@/src/lib/offline-transaction';
@@ -21,7 +22,7 @@ async function handlePolicyPOST(request: NextRequest) {
   const session = sessionId ? await getActiveEmployeeSession(tenantId, sessionId) : null;
   if (!session) return NextResponse.json({ error: "Employee PIN is required before creating a customer." }, { status: 401 });
 
-  let body: { phones?:any[];firstName?: string; lastName?: string; email?: string; phone?: string; notes?: string };
+  let body: { tagIds?:unknown;phones?:any[];firstName?: string; lastName?: string; email?: string; phone?: string; notes?: string };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
 
   const firstName = normalizeText(String(body.firstName || ""));
@@ -43,8 +44,9 @@ async function handlePolicyPOST(request: NextRequest) {
     const created = await tx.customer.create({ data: { ...customerDetails(body),...customerMessagePreferences(body),id:offlineCreateId(),tenantId, firstName, lastName, email, notes: body.notes?.trim() || null } });
     await saveCustomerPhones(tx,tenantId,created.id,phones);
     await saveCustomerReferral(tx, tenantId, created.id, body);
+    await saveCustomerTags(tx,tenantId,created.id,body.tagIds);
     const record=await tx.customer.findUniqueOrThrow({ where: { id: created.id }, include: { phones: true, pets: true } });
-    return {...record,...(await customerReferrals(tenantId,[created.id],tx)).get(created.id)};
+    return {...record,tagIds:await readCustomerTags(tenantId,created.id,tx),...(await customerReferrals(tenantId,[created.id],tx)).get(created.id)};
   });
 
   await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "CUSTOMER", entityId: customer!.id, customerId: customer!.id, action: "CREATE", summary: `Created customer ${firstName} ${lastName}.` });

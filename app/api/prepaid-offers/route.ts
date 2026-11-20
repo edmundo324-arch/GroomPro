@@ -1,0 +1,12 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {db} from '@/src/lib/db';
+import {platformSession} from '@/src/lib/platform-access';
+import {withRequestPolicy} from '@/src/lib/request-policy';
+import {prepaidOffer,prepaidOffersKey,type PrepaidOffer} from '@/src/lib/prepaid-offers';
+async function handle(r:NextRequest){const session=await platformSession(r),reply=(v:object,status=200)=>NextResponse.json(v,{status,headers:{'Cache-Control':'no-store'}});if(!session)return reply({error:'Enter your employee PIN.'},401);const tenantId=session.tenantId,where={tenantId_settingKey:{tenantId,settingKey:prepaidOffersKey}};
+ if(r.method==='GET'){const row=await db.tenantSetting.findUnique({where});return reply((row?.value as any)||{revision:0,offers:[]});}
+ if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return reply({error:'Ask an owner or manager to change prepaid package offers.'},403);
+ try{const b=await r.json(),offer=prepaidOffer(b.offer);if(!Number.isSafeInteger(b.revision)||b.revision<0)throw Error('Reopen prepaid packages to review the saved offers.');const [kind,id]=offer.itemKey.split(':');const result=await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;const current=(await tx.tenantSetting.findUnique({where}))?.value as any||{revision:0,offers:[]};if(current.revision!==b.revision)throw Error('Another person changed prepaid packages. Your edits are still here; reopen the list to review the saved version.');const item=kind==='SERVICE'?await tx.service.findFirst({where:{tenantId,id}}):await tx.package.findFirst({where:{tenantId,id}});if(!item)throw Error('The covered service or grooming package is no longer available for this business.');const offers=(current.offers as PrepaidOffer[]).filter(o=>o.id!==offer.id);offers.push(offer);const value={revision:current.revision+1,offers};await tx.tenantSetting.upsert({where,create:{tenantId,settingKey:prepaidOffersKey,value},update:{value}});await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'TENANT',entityId:tenantId,action:'SAVE_PREPAID_OFFER',summary:'Saved prepaid package '+offer.name+'.',details:{offer,revision:value.revision}}});return value});return reply(result);
+ }catch(e){return reply({error:(e as Error).message},400);}}
+export const GET=withRequestPolicy(handle,{feature:'TICKETS'});
+export const PUT=withRequestPolicy(handle,{feature:'TICKETS'});

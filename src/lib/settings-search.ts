@@ -19,6 +19,7 @@ export const preparedImportLabels = {
 };
 
 const sections: Record<string, [label: string, description: string, keywords: string]> = {
+ 'workflow/care-instructions':['Seven-stage care','Edit your shop’s care practices and customer explanations for each stage.','seven step stages acclimation prep chillax splash drying hairdo instructions'],
  'workflow/helpful-hints':['Helpful hints','Show or hide floating field explanations.','help hints question marks popup tooltip explanations highlight color colour'],
   'visual-layouts': ['Visual module settings', 'Preview and customize how GroomPro screens are arranged and labeled.', 'layout labels colors preview customize module layouts'],
   workflow: ['Calendar & workflow', 'Find appointment appearance, booking rules, and ticket layout.', 'calendar appointment workflow employee appearance customization my appearance personalization'],
@@ -55,7 +56,9 @@ const businessOnly = new Set(['ticket-layout', 'profiles', 'booking', 'calendar-
 const importPath = ['data', 'imports'];
 const ticketPath = ['workflow', 'ticket-layout'];
 export const settingsSearchEntries: SettingsSearchEntry[] = [
- {path:['communications'],title:'Automatic appointment messages',description:'Choose confirmation schedules, message channels and fee-reminder wording.',keywords:'automatic confirmation request reminders attendance days morning sms email cancellation fee',access:'manager'},
+ {path:['rewards'],title:'Discounts & promotions',description:'Create percent or dollar offers and choose eligible customers and items.',keywords:'discount coupon promotion military VIP percent dollar best largest offer',access:'manager',anchor:'promotion-settings',steps:['Discounts & promotions']},
+
+ {path:['communications'],title:'Automatic appointment messages',description:'Choose confirmation schedules, message channels and fee-reminder wording.',keywords:'automatic confirmation request reminders attendance days morning sms email cancellation fee vaccination vaccine expiration eight weeks reminder wording review request feedback closing review link birthday birthdays leap year prepaid reminders',access:'manager'},
  {path:['communications'],title:'Message templates',description:'Save reusable SMS and email wording for Messaging.',keywords:'message templates sms email saved wording automatic details',access:'manager'},
  {path:['categories'],title:'Grooming quick picks',description:'Manage reusable grooming instructions.',keywords:'quick picks grooming body ears tail face tbf special notes',access:'manager'},
  {path:['data','imports'],title:'Export business records',description:'Download readable linked records for another provider.',keywords:'export download data portable migrate leave',access:'admin'},
@@ -122,7 +125,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   {
     path: ['rewards'], title: 'Customer portal & cancellation notice',
     description: 'Choose online booking approval, available services, and the cancellation notice customers receive.',
-    keywords: 'online booking automatic review available portal customer link cancellation cancel notice hours days warning minimum lead time interval spacing start times',
+    keywords: 'online booking automatic review available portal customer link cancellation cancel notice hours days warning minimum lead time interval spacing start times website embed widget iframe booking link branding logo button color welcome message online booking classes bulk enable self-service full-wash bath grooming brush out unfinished abandoned vaccination vaccine rabies expiry expiration required records',
     access: 'manager', anchor: 'customer-portal', steps: ['Customer Account & Secret Rewards', 'Customer portal & cancellation notice'],
   },
   {
@@ -132,10 +135,10 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
     access: 'manager', anchor: 'reward-points-rate', steps: ['Customer Account & Secret Rewards', 'Reward Points per $1 Spent'],
   },
   {
-    path: ['rewards'], title: 'Customer referral credit',
-    description: 'Set the credit for the referring customer and the new customer.',
-    keywords: 'referrals new customer first groom refer a friend referral reward',
-    anchor: 'customer-referral-credit', steps: ['Customer referral credit'],
+    path: ['rewards'], title: 'Refer-A-Friend',
+    description: 'Choose separate rewards for each customer and the portal invitation wording.',
+    keywords: 'referrals new customer first groom refer a friend referral reward give get free product service addon portal invitation',
+    anchor: 'customer-referral-credit', steps: ['Refer-A-Friend'],
   },
   {
     path: ['administration', 'access'], title: 'Product name',
@@ -171,7 +174,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   },
   ...Object.entries(sections).map(([key, [title, description, keywords]]): SettingsSearchEntry => {
     const path = key.split('/');
-    const access = key === 'data/123pet' ? 'platform' : key === 'data/imports' ? 'manager' : businessOnly.has(path[1]) && path[0] === 'workflow' ? 'admin' : undefined;
+    const access = key === 'workflow/care-instructions' ? 'manager' : key === 'data/123pet' ? 'platform' : key === 'data/imports' ? 'manager' : businessOnly.has(path[1]) && path[0] === 'workflow' ? 'admin' : undefined;
     return { path, title, description, keywords, access };
   }),
 ];

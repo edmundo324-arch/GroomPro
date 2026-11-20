@@ -1,3 +1,5 @@
+import {refreshRebookingDiscounts} from '@/src/lib/rebooking-discount-store';
+import {vaccinationConcerns} from '@/src/lib/vaccination-policy';
 import {queueInitialAttendanceRequest} from '@/src/lib/appointment-message-acceptance';
 import {recordAttendanceMove,attendanceDecisionDetails} from '@/src/lib/attendance-move';
 import {onlineStartAllowed} from '@/src/lib/online-booking-time';
@@ -35,7 +37,7 @@ type PetDetailInput = { petId: string; weightLbs?: number | null; analSituation?
 
 export async function POST(request: NextRequest) {return createTicket(request);}
 export type PortalBookingContext={tenantId:string;locationId:string;customerId:string;selections:{petId:string;itemKey:string}[];resourceKey:string;requestId:string;durationMin:number;subtotalCents:number};
-export async function createTicket(request:NextRequest,portal?:PortalBookingContext) {
+export async function createTicket(request:NextRequest,portal?:PortalBookingContext,giftCardOnly=false) {
   const tenantId = portal?.tenantId||tenantFrom(request);
   const locationId = portal?.locationId||await requestLocation(request, tenantId);
   if (!tenantId || !locationId) return NextResponse.json({ error: "Tenant and location context are required." }, { status: 401 });
@@ -53,7 +55,7 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
   if (scheduledStart&&Number.isNaN(scheduledStart.getTime())) return NextResponse.json({ error: "Invalid appointment time." }, { status: 400 });
   const petIds = [...new Set([...(body.petIds || []), ...(body.petId ? [body.petId] : []), ...(body.petDetails || []).map(p => p.petId)])];
   const lineInputs = body.lines?.length ? body.lines : (body.serviceId ? [{ type: "SERVICE" as const, id: body.serviceId, petId: body.petId }] : (body.serviceIds || []).map(id => ({ type: "SERVICE" as const, id, petId: body.petId })));
-  if ((!petIds.length && lineInputs.some(l=>l.type!=="PRODUCT")) || !lineInputs.length) return NextResponse.json({ error: "At least one pet and one service or product are required." }, { status: 400 });
+  if ((!petIds.length && lineInputs.some(l=>l.type!=="PRODUCT")) || (!lineInputs.length&&(!giftCardOnly||!!portal))) return NextResponse.json({ error: "At least one pet and one service or product are required." }, { status: 400 });
   const customer = await db.customer.findFirst({ where: { id: body.customerId, tenantId, active: true } });
   const pets = await db.pet.findMany({ where: { id: { in: petIds }, tenantId, customerId: body.customerId, active: true } });
   if (!customer || pets.length !== petIds.length) return NextResponse.json({ error: "Customer or pet could not be found." }, { status: 404 });
@@ -88,7 +90,8 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
      if(selection.duration!==portal.durationMin||selection.lines.reduce((sum:number,line:any)=>sum+line.totalCents,0)!==portal.subtotalCents||selection.duration!==durationMin||JSON.stringify(selection.lines)!==JSON.stringify(resolved.lines))throw portalBookingError('The service details changed. Find available times again to review the current price and duration.');
      const location=await tx.location.findFirstOrThrow({where:{tenantId,id:locationId}});
      if(!onlineStartAllowed(scheduledStart,location.timezone,selection.policy))throw portalBookingError('This time no longer meets the shop’s online booking notice or start-time rules. Find available times again.');
-     const available=await portalAvailability(tenantId,locationId,zonedParts(scheduledStart,location.timezone).date,durationMin,selection.serviceType,tx,portal.customerId);
+     if(selection.policy.vaccinations?.mode==='BLOCK'){const vaccines=await tx.vaccination.findMany({where:{tenantId,petId:{in:selection.petIds}}});const dogs=await tx.pet.findMany({where:{tenantId,id:{in:selection.petIds},customerId:portal.customerId},select:{id:true,name:true}});const concerns=vaccinationConcerns(dogs,vaccines,zonedParts(scheduledStart,location.timezone).date,selection.policy.vaccinations);if(concerns.length)throw portalBookingError('The shop needs current vaccination records before online booking: '+concerns.map(c=>c.petName+' — '+c.vaccineName).join(', ')+'. Contact the shop to update the records.');}
+     const available=await portalAvailability(tenantId,locationId,zonedParts(scheduledStart,location.timezone).date,durationMin,selection.serviceType,tx,portal.customerId,selection.requiredClasses);
      const resource=available.available(scheduledStart,portal.customerId).find((resource:any)=>resource.kind+':'+resource.id===portal.resourceKey);
      if(!resource)throw portalBookingError('That time is no longer available. Choose another time.');
      if(resource.kind==='employee')body.groomerId=resource.id;else body.bookingAssetId=resource.id;
@@ -113,6 +116,10 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
     if(scheduledStart)await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session?.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
     if(draft)await tx.posDraft.update({where:{id:draft.id},data:{promotedAt:new Date()}});
     await queueInitialAttendanceRequest(tx,created);
+    await refreshRebookingDiscounts(tx,tenantId,created.id,session?.user.id||null);
+    created.lines=await tx.ticketLine.findMany({where:{ticketId:created.id},include:{assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}},pet:true}});
+    created.totalCents=created.lines.reduce((sum,line)=>sum+line.totalCents,0)+created.salesTaxCents+created.tipCents;
+    await tx.ticket.update({where:{id:created.id},data:{totalCents:created.totalCents}});
     return created;
   });
   if(orderNumber)await writeAudit({ tenantId, actorUserId: session?.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? (ticket.status==="CONFIRMED"?"Confirmed online appointment":"Received online request") : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.`, details: { scheduledStart: scheduledStart?.toISOString()||null, petCount: petIds.length, lineCount: lines.length, arrivalPriority: body.arrivalPriority ?? null } });

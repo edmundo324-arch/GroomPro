@@ -1,7 +1,8 @@
+import {refreshRebookingDiscounts} from './rebooking-discount-store';
 import {attendanceFor,attendanceKey} from './customer-attendance';
 import {readAppointmentMessageSettings} from './appointment-message-store';
 export function attendanceDecisionDetails(error:unknown){return (error as any)?.attendanceDecision?{attendanceDecision:(error as any).attendanceDecision}:{};}
-export async function recordAttendanceMove(tx:any,ticket:any,newStart:Date,request:{headers:Headers},userId:string){
+async function recordAttendanceDecision(tx:any,ticket:any,newStart:Date,request:{headers:Headers},userId:string){
  const oldStart=ticket.scheduledStart?.toISOString()||'',nextStart=newStart.toISOString();if(oldStart===nextStart)return;
  const tenantId=ticket.tenantId,settingKey=attendanceKey(ticket.id),where={tenantId_settingKey:{tenantId,settingKey}},row=await tx.tenantSetting.findUnique({where});
  if(!row)return;
@@ -16,3 +17,5 @@ export async function recordAttendanceMove(tx:any,ticket:any,newStart:Date,reque
  await tx.tenantSetting.upsert({where,create:{tenantId,settingKey,value},update:{value}});
  await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:userId,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:'ATTENDANCE_AFTER_MOVE',summary:send?'Employee requested a new attendance confirmation after moving the appointment.':current.confirmedAt?'Appointment moved without requesting another attendance confirmation.':'Updated reminder dates after moving the appointment.',details:{previousStart:oldStart,newStart:nextStart,previousConfirmedAt:current.confirmedAt,requestNewConfirmation:send}}});
 }
+
+export async function recordAttendanceMove(tx:any,ticket:any,newStart:Date,request:{headers:Headers},userId:string){await recordAttendanceDecision(tx,ticket,newStart,request,userId);await refreshRebookingDiscounts(tx,ticket.tenantId,ticket.id,userId,newStart);}

@@ -1,38 +1,12 @@
 "use client";
-import { useEffect, useState } from 'react';
-import { employeeFetch } from '../lib/employee-fetch';
-
-export function ReferralRewardSettings() {
-  const [amount, setAmount] = useState('');
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    employeeFetch('/api/referral-settings', { signal: controller.signal }).then(async response => {
-      const result = await response.json();
-      if (!response.ok) throw Error(result.error);
-      if (!controller.signal.aborted) setAmount((result.amountCents / 100).toFixed(2));
-    }).catch(() => { if (!controller.signal.aborted) setMessage('Referral credit settings could not load.'); });
-    return () => controller.abort();
-  }, []);
-  async function save() {
-    setBusy(true);
-    setMessage('');
-    try {
-      const response = await employeeFetch('/api/referral-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountCents: Math.round(Number(amount) * 100) }) });
-      const result = await response.json();
-      if (!response.ok) throw Error(result.error);
-      setAmount((result.amountCents / 100).toFixed(2));
-      setMessage('Referral credit saved.');
-    } catch (error) { setMessage((error as Error).message); }
-    finally { setBusy(false); }
-  }
-  return <form className="gp-settings-card" onSubmit={event => { event.preventDefault(); void save(); }}>
-    <h3 data-settings-target="customer-referral-credit" tabIndex={-1}>Customer referral credit</h3>
-    <p>At checkout for the new customer’s first paid groom, each customer receives this account credit once. The factory amount is $10.00 each. Use $0.00 to turn off the credit.</p>
-    <label>Credit per customer ($)<input type="number" min="0" max="1000" step="0.01" required value={amount} onChange={event => setAmount(event.target.value)}/></label>
-    <button type="submit" className="gp-btn primary" disabled={busy}>Save referral credit</button>
-    {message && <p role="status">{message}</p>}
-  </form>;
+import {useEffect,useState} from 'react';
+import {employeeFetch} from '../lib/employee-fetch';
+import {HelpPopup} from './help-popup';
+import type {ReferralPolicy,ReferralReward} from '../lib/referral-policy';
+export function ReferralRewardSettings(){
+ const [policy,setPolicy]=useState<ReferralPolicy>({enabled:true,portalInvitation:true,newCustomer:{kind:'CREDIT',amountCents:1000,itemKey:'',name:''},referrer:{kind:'CREDIT',amountCents:1000,itemKey:'',name:''},message:''}),[revision,setRevision]=useState<number|null>(null),[catalog,setCatalog]=useState<any[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+ useEffect(()=>{let active=true;Promise.all([employeeFetch('/api/referral-settings'),employeeFetch('/api/catalog')]).then(async responses=>{const [saved,items]=await Promise.all(responses.map(r=>r.json()));if(saved.error)throw Error(saved.error);if(!active)return;setPolicy(saved.policy);setRevision(saved.revision);setCatalog(['services','products'].flatMap(k=>(items[k]||[]).map((v:any)=>({key:(k==='services'?'SERVICE:':'PRODUCT:')+v.id,name:v.name}))));}).catch(e=>{if(active)setMessage(e.message)});return()=>{active=false}},[]);
+ async function save(){if(revision===null||busy)return;setBusy(true);try{const r=await employeeFetch('/api/referral-settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision,policy})}),d=await r.json();if(!r.ok)throw Error(d.error);setPolicy(d.policy);setRevision(d.revision);setMessage('Refer-A-Friend settings saved. Previously earned rewards stay unchanged.');}catch(e){setMessage((e as Error).message)}finally{setBusy(false)}}
+ function reward(key:'newCustomer'|'referrer',label:string){const v=policy[key],change=(patch:Partial<ReferralReward>)=>setPolicy(p=>({...p,[key]:{...p[key],...patch}}));return <fieldset><legend>{label}<HelpPopup label={label}>Choose what this person earns after the new customer’s first paid grooming visit. Credit goes to their account. A free item becomes a reward staff can apply to that item on a later ticket.</HelpPopup></legend><label>Reward type<select aria-label={label+' type'} value={v.kind} onChange={e=>change({kind:e.target.value as ReferralReward['kind']})}><option value="CREDIT">Account credit</option><option value="ITEM">Free product, service or add-on</option></select></label>{v.kind==='CREDIT'?<label>Credit ($)<input aria-label={label+' dollars'} type="number" min="0" max="1000" step="0.01" value={v.amountCents/100} onChange={e=>change({amountCents:Math.round(Number(e.target.value)*100)})}/></label>:<label>Free item<select aria-label={label+' item'} value={v.itemKey} onChange={e=>change({itemKey:e.target.value,name:catalog.find(i=>i.key===e.target.value)?.name||''})}><option value="">Choose item</option>{catalog.map(i=><option key={i.key} value={i.key}>{i.name}</option>)}</select></label>}</fieldset>}
+ return <form className="gp-settings-card gp-referral-settings" onSubmit={e=>{e.preventDefault();void save()}}><h3 data-settings-target="customer-referral-credit" tabIndex={-1}>Refer-A-Friend</h3><p>Factory offer: Give $10! Get $10! Each qualifying referral earns both rewards once, after the new customer’s first paid groom.</p><fieldset disabled={revision===null||busy}><label><input type="checkbox" checked={policy.enabled} onChange={e=>setPolicy(p=>({...p,enabled:e.target.checked}))}/>Enable referral rewards<HelpPopup label="Enable referral rewards">Turn this off to stop earning new rewards. Credits and free items already earned remain available.</HelpPopup></label>{reward('newCustomer','New customer reward')}{reward('referrer','Referring customer reward')}<label><input type="checkbox" checked={policy.portalInvitation} onChange={e=>setPolicy(p=>({...p,portalInvitation:e.target.checked}))}/>Show invitation when customers book<HelpPopup label="Portal referral invitation">Ask customers for help welcoming new families each time they book. Customers choose whether to share their referral link; GroomPro does not message their friends.</HelpPopup></label><label>Portal invitation<HelpPopup label="Referral invitation wording">Use {'{business}'}, {'{newReward}'} and {'{referrerReward}'} to include this business’s name and current rewards. Explain that rewards follow the new customer’s first paid grooming visit.</HelpPopup><textarea aria-label="Referral invitation wording" maxLength={2000} value={policy.message} onChange={e=>setPolicy(p=>({...p,message:e.target.value}))}/></label><button type="submit" className="gp-btn primary">Save referral settings</button></fieldset>{message&&<p role="status">{message}</p>}<style>{`.gp-referral-settings fieldset{display:grid;gap:12px;padding:14px;min-width:0}.gp-referral-settings label{display:block;font-weight:600}.gp-referral-settings select,.gp-referral-settings input[type=number]{display:block;margin-top:6px;max-width:100%;padding:7px;font-weight:400}.gp-referral-settings textarea{display:block;width:100%;min-height:100px;box-sizing:border-box;padding:8px;margin-top:6px;font-weight:400}.gp-referral-settings button[type=submit]{justify-self:start}`}</style></form>;
 }

@@ -27,7 +27,7 @@ test('portable export scopes child-only tables through their tenant-owned parent
 });
 
 test('portable export retains new operational records without exporting device or portal credentials',async()=>{
- const included=['TIME_CLOCK:user','TICKET_TIPS:ticket','CUSTOMER_PORTAL_POLICY','EMPLOYEE_AVAILABLE_ONLINE:user','PORTAL_CANCELLATION:ticket','PORTAL_CHANGE:ticket'];
+ const included=['CUSTOMER_PORTAL_BRANDING','CUSTOMER_TAG_CATALOG','CUSTOMER_TAGS:customer','GROOMING_CARE_INSTRUCTIONS','GROOMING_PROGRESS:ticket:pet','REPORT_SCHEDULE:weekly','REPORT_DELIVERY:copy','GIFT_CARD:card','GIFT_CARD_CODE:lookup','PET_DOCUMENT:record','PET_DOCUMENT_FILE:record','TIME_CLOCK:user','TICKET_TIPS:ticket','CUSTOMER_PORTAL_POLICY','EMPLOYEE_AVAILABLE_ONLINE:user','PORTAL_CANCELLATION:ticket','PORTAL_CHANGE:ticket'];
  const excluded=['DEVICE_AUTHORIZATION:device','CUSTOMER_PORTAL_TOKEN:secret','IMPORT_VAULT_KEY','CUSTOMER_PORTAL_POLICY_SECRET'];
  const records=[...included,...excluded].map(settingKey=>({settingKey,value:{revision:2,amountCents:123,customerId:'customer',token:'private'}}));
  const tx={tenant:{findMany:async()=>[{id:'tenant'}]},tenantSetting:{findMany:async({where})=>{assert.equal(where.tenantId,'tenant');return records}},importRecord:{findMany:async()=>[]},$queryRaw:async()=>[]};

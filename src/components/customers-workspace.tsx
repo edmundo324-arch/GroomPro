@@ -1,4 +1,5 @@
 "use client";
+import {CustomerTagFilters} from './customer-tag-filters';
 import {CustomerIdentification,identificationFields} from "./customer-identification";
 import {ProfileDisplayPreferences,ProfileDisplayTable,profileScalar} from './profile-display-table';
 import {customerColumns,customerDefaultColumns,type ProfileColumn} from '../lib/profile-display-fields';
@@ -21,6 +22,7 @@ export function CustomersWorkspace({onCreateTicket}:{onCreateTicket:(customerId:
  const {visible,revision}=useModuleRefresh(['/api/customers','/api/pets']);
  const[displayFields,setDisplayFields]=useState(customerDefaultColumns),[displayOptions,setDisplayOptions]=useState(customerColumns);
  const[query,setQuery]=useState("");const[results,setResults]=useState<CustomerResult[]>([]);const[selectedId,setSelectedId]=useState<string|null>(null);const[showCreate,setShowCreate]=useState(false);const[searching,setSearching]=useState(false);
+ const [tagFilter,setTagFilter]=useState<{tagIds:string[];match:string}>({tagIds:[],match:'ANY'});
  const [limit,setLimit]=useState("50");
  const [listError,setListError]=useState("");
  const searchQuery=query.trim().length>=2 ? query.trim() : "";
@@ -32,7 +34,7 @@ export function CustomersWorkspace({onCreateTicket}:{onCreateTicket:(customerId:
   setListError("");
   const timer=window.setTimeout(async()=>{
    try{
-    const params=new URLSearchParams({q:searchQuery,limit});
+    const params=new URLSearchParams({q:searchQuery,limit});for(const id of tagFilter.tagIds)params.append('tag',id);params.set('tagMatch',tagFilter.match);
     const response=await employeeFetch(`/api/customers/search?${params}`,{signal:controller.signal});
     const data=await response.json();
     if(!response.ok)throw Error(data.error||"Customers could not load.");
@@ -47,5 +49,5 @@ export function CustomersWorkspace({onCreateTicket}:{onCreateTicket:(customerId:
    }
   },searchQuery?200:0);
   return()=>{clearTimeout(timer);controller.abort()};
- },[searchQuery,limit,selectedId,showCreate,visible,revision]);
- return <><section className="gp-calendar gp-customers-workspace"><div className="gp-calendar-head" style={{padding:24}}><div><div className="gp-customer-intake-heading"><h1 className="gp-title">Customers</h1><CustomerAgreementTools/></div><p className="gp-subtitle">Find a client by phone, name, email, or pet name.</p></div><ProfileDisplayPreferences endpoint="/api/customer-display" title="Customer display fields" fields={displayFields} options={displayOptions} onChange={(fields,options)=>{setDisplayFields(fields);setDisplayOptions(options)}}/><label>Customers to display{" "}<select value={limit} onChange={e=>setLimit(e.target.value)}>{["50","100","200","all"].map(size=><option key={size} value={size}>{size==="all"?"All":size}</option>)}</select></label><div className="gp-actions"><button className="gp-btn primary" onClick={()=>setShowCreate(true)}>+ New Customer</button></div></div><div style={{padding:"0 24px 24px"}}><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Phone, customer name, email, or pet" className="gp-search-input"/>{listError&&<div className="gp-search-empty" role="alert">{listError}</div>}<ProfileDisplayTable label={searchQuery?"Matching customers":"Customers"} rows={results} fields={displayFields} options={displayOptions} busy={searching} name={customer=>customer.firstName+" "+customer.lastName} render={customerCell} onOpen={customer=>setSelectedId(customer.id)}/>{!searching&&!results.length&&!listError&&<div className="gp-search-empty">{searchQuery?"No matching customers found.":"No customers to display."}</div>}</div></section>{selectedId&&<><CustomerProfile customerId={selectedId} onClose={()=>setSelectedId(null)} onNewAppointment={id=>{setSelectedId(null);onCreateTicket(id)}} onCreateTicket={id=>{setSelectedId(null);onCreateTicket(id)}}/></>}{showCreate&&<CustomerCreateWindow onClose={()=>setShowCreate(false)}/>}</>}
+ },[searchQuery,limit,selectedId,showCreate,visible,revision,tagFilter]);
+ return <><section className="gp-calendar gp-customers-workspace"><div className="gp-calendar-head" style={{padding:24}}><div><div className="gp-customer-intake-heading"><h1 className="gp-title">Customers</h1><CustomerAgreementTools/></div><p className="gp-subtitle">Find a client by phone, name, email, or pet name.</p></div><ProfileDisplayPreferences endpoint="/api/customer-display" title="Customer display fields" fields={displayFields} options={displayOptions} onChange={(fields,options)=>{setDisplayFields(fields);setDisplayOptions(options)}}/><label>Customers to display{" "}<select value={limit} onChange={e=>setLimit(e.target.value)}>{["50","100","200","all"].map(size=><option key={size} value={size}>{size==="all"?"All":size}</option>)}</select></label><div className="gp-actions"><button className="gp-btn primary" onClick={()=>setShowCreate(true)}>+ New Customer</button></div></div><div style={{padding:"0 24px 24px"}}><CustomerTagFilters onChange={setTagFilter}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Phone, customer name, email, or pet" className="gp-search-input"/>{listError&&<div className="gp-search-empty" role="alert">{listError}</div>}<ProfileDisplayTable label={searchQuery?"Matching customers":"Customers"} rows={results} fields={displayFields} options={displayOptions} busy={searching} name={customer=>customer.firstName+" "+customer.lastName} render={customerCell} onOpen={customer=>setSelectedId(customer.id)}/>{!searching&&!results.length&&!listError&&<div className="gp-search-empty">{searchQuery?"No matching customers found.":"No customers to display."}</div>}</div></section>{selectedId&&<><CustomerProfile customerId={selectedId} onClose={()=>setSelectedId(null)} onNewAppointment={id=>{setSelectedId(null);onCreateTicket(id)}} onCreateTicket={id=>{setSelectedId(null);onCreateTicket(id)}}/></>}{showCreate&&<CustomerCreateWindow onClose={()=>setShowCreate(false)}/>}</>}
