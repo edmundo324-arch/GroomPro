@@ -1,3 +1,4 @@
+import {requestLocation} from '@/src/lib/request-location';
 import {recordStaffAttendance} from '@/src/lib/customer-attendance';
 import {workflowSettings} from '@/src/lib/workflow-settings';
 import { NextRequest, NextResponse } from "next/server";
@@ -21,9 +22,11 @@ async function updateStatus(request: NextRequest) {
     const status = String(body.status || "") as Status;
     if (!ticketId || (!ALLOWED.includes(status)&&!["UNDO_CHECK_IN","UNDO_READY"].includes(body.action))) return NextResponse.json({ error: "Ticket and valid status are required." }, { status: 400 });
 
+    const noticeLocation=body.expectedPickupAt?await requestLocation(request,tenantId):undefined;
+    if(body.expectedPickupAt&&!noticeLocation)return NextResponse.json({error:"Choose the assigned shop before undoing completion."},{status:400});
     const ticket = await db.ticket.findFirst({
-      where: { id: ticketId, tenantId },
-      select: { id: true, tenantId: true, locationId: true, customerId: true, status: true, orderNumber: true, scheduledStart: true, checkedInAt: true, arrivalPriority: true, pickupAt: true, pickupCompletedAt: true, closedAt: true }
+      where: { id: ticketId, tenantId,...(noticeLocation?{locationId:noticeLocation}:{}) },
+      select: { id: true, tenantId: true, locationId: true, customerId: true, status: true, displayStatus:true, orderNumber: true, scheduledStart: true, checkedInAt: true, arrivalPriority: true, pickupAt: true, pickupCompletedAt: true, closedAt: true }
     });
     if (!ticket) return NextResponse.json({ error: "Ticket could not be found." }, { status: 404 });
     if(await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'TICKET_VOID:'+ticket.id}}}))return NextResponse.json({error:'This ticket was voided. Its history is retained and its status cannot be changed.'},{status:409});
@@ -32,8 +35,15 @@ async function updateStatus(request: NextRequest) {
 
     if(['UNDO_CHECK_IN','UNDO_READY'].includes(body.action)){
       if(['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status))return NextResponse.json({error:'This visit cannot be changed.'},{status:409});
-      const data=body.action==='UNDO_CHECK_IN'?{status:'CONFIRMED' as const,checkedInAt:null,arrivalPriority:null,pickupAt:null}:{status:ticket.checkedInAt?'CHECKED_IN' as const:'CONFIRMED' as const,pickupAt:null};
-      const updated=await db.ticket.update({where:{id:ticket.id,status:ticket.status},data});await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:body.action,summary:body.action==='UNDO_CHECK_IN'?'Reversed check-in.':'Reversed ready for pickup.'});return NextResponse.json({ticket:updated});
+      let restoreDisplayStatus:string|null=null;
+      let restoreStatus:Status=ticket.checkedInAt?'CHECKED_IN':'CONFIRMED';
+      if(body.action==='UNDO_READY'&&body.expectedPickupAt){
+       if(ticket.status!=='READY'||!ticket.pickupAt||+ticket.pickupAt!==Date.parse(body.expectedPickupAt))return NextResponse.json({error:'This completion has already changed. Refresh the notice before undoing it.'},{status:409});
+       const event=await db.auditEntry.findFirst({where:{tenantId,entityType:'TICKET',entityId:ticket.id,action:'STATUS_CHANGE',occurredAt:{gte:ticket.pickupAt}},orderBy:{occurredAt:'desc'}});
+       const prior=(event?.details as any)?.previousStatus;if(['OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS'].includes(prior)){restoreStatus=prior;restoreDisplayStatus=(event?.details as any)?.previousDisplayStatus||null;}
+      }
+      const data=body.action==='UNDO_CHECK_IN'?{status:'CONFIRMED' as const,checkedInAt:null,arrivalPriority:null,pickupAt:null}:{status:restoreStatus,displayStatus:restoreDisplayStatus,pickupAt:null};
+      const updated=await db.ticket.update({where:{id:ticket.id,status:ticket.status,...(body.expectedPickupAt?{pickupAt:ticket.pickupAt}:{})},data});await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:body.action,summary:body.action==='UNDO_CHECK_IN'?'Reversed check-in.':'Reversed ready for pickup.'});return NextResponse.json({ticket:updated});
     }
     if(status==="CLOSED")return NextResponse.json({error:"Use Check Out / Close so payment and earnings are finalized together."},{status:409});
     const now = new Date();
@@ -64,7 +74,8 @@ async function updateStatus(request: NextRequest) {
     } else {
       const data: { status: Status; checkedInAt?: Date | null; pickupAt?: Date | null; pickupCompletedAt?: Date | null; closedAt?: Date | null } = { status };
       if (status === "CHECKED_IN" && !ticket.checkedInAt) data.checkedInAt = now;
-      if (status === "READY" && !ticket.pickupAt) data.pickupAt = now;
+      if (status === "READY" && ticket.status!=="READY") data.pickupAt = now;
+      if(ticket.status==="READY"&&status!=="READY")data.pickupAt=null;
 
       updated = await db.ticket.update({ where: { id: ticket.id, status: ticket.status }, data });
     }
@@ -77,7 +88,7 @@ async function updateStatus(request: NextRequest) {
       customerId: ticket.customerId,
       action: "STATUS_CHANGE",
       summary: `Changed ticket #${ticket.orderNumber} from ${ticket.status} to ${status}.`,
-      details: { previousStatus: ticket.status, newStatus: status, arrivalPriority: assignedArrivalPriority, autoAssignedArrivalPriority: status === "CHECKED_IN" && !ticket.checkedInAt }
+      details: { previousStatus: ticket.status, previousDisplayStatus:ticket.displayStatus, newStatus: status, arrivalPriority: assignedArrivalPriority, autoAssignedArrivalPriority: status === "CHECKED_IN" && !ticket.checkedInAt }
     });
     return NextResponse.json({ ticket: updated, arrivalPriority: assignedArrivalPriority });
   } catch (error) {
@@ -85,5 +96,5 @@ async function updateStatus(request: NextRequest) {
   }
 }
 
-export async function PATCH(request:NextRequest){const tenantId=tenantFrom(request);const body=await request.clone().json().catch(()=>null);if(!body)return NextResponse.json({error:'Invalid status request.'},{status:400});const settings=await workflowSettings(tenantId),custom=settings.customStatuses.includes(body.status);const payload=custom?{...body,status:settings.customStatusStages[body.status]||'OPEN',recordAttendance:false}:{...body,recordAttendance:body.status==='CONFIRMED'&&!body.action};const response=await updateStatus(new NextRequest(request.url,{method:'PATCH',headers:request.headers,body:JSON.stringify(payload)}));if(response.ok){const data=await response.json();await db.ticket.updateMany({where:{id:body.ticketId,tenantId,status:data.ticket?.status},data:{displayStatus:custom?body.status:null}});return NextResponse.json({...data,...(data.ticket?{ticket:{...data.ticket,displayStatus:custom?body.status:null}}:{})},{status:response.status})}return response}
+export async function PATCH(request:NextRequest){const tenantId=tenantFrom(request);const body=await request.clone().json().catch(()=>null);if(!body)return NextResponse.json({error:'Invalid status request.'},{status:400});const settings=await workflowSettings(tenantId),custom=settings.customStatuses.includes(body.status);const payload=custom?{...body,status:settings.customStatusStages[body.status]||'OPEN',recordAttendance:false}:{...body,recordAttendance:body.status==='CONFIRMED'&&!body.action};const response=await updateStatus(new NextRequest(request.url,{method:'PATCH',headers:request.headers,body:JSON.stringify(payload)}));if(response.ok){const data=await response.json();await db.ticket.updateMany({where:{id:body.ticketId,tenantId,status:data.ticket?.status},data:{displayStatus:body.action==='UNDO_READY'?data.ticket?.displayStatus||null:custom?body.status:null}});return NextResponse.json({...data,...(data.ticket?{ticket:{...data.ticket,displayStatus:body.action==='UNDO_READY'?data.ticket?.displayStatus||null:custom?body.status:null}}:{})},{status:response.status})}return response}
 

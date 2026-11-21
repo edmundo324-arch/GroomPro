@@ -1,3 +1,4 @@
+import {pickupDelayElapsed} from './appointment-lifecycle-messages';
 import {offerConversationPaused,standardRebookingRule} from './customer-conversations';
 import {ruleMessageAttempt} from './custom-rule-retry';
 import {runAppointmentDetailsReplies} from './appointment-details-reply-runner';
@@ -50,7 +51,7 @@ export async function runAppointmentMessages(cursor:MessageCursor|null=null,targ
    if(!current.activeSince||!current.policy.publicOrigin){last=entry.id;continue;}
    const plans=[...planAppointmentMessages(ticket,state,current.policy,new Date(current.activeSince),new Date(),cancellation?.state==='PENDING'),...await lifecyclePlans(db,ticket,current.policy,new Date(current.lifecycleActiveSince||current.activeSince),new Date(),new Date(current.reviewActiveSince||Date.now()),new Date(current.reportCardActiveSince||Date.now()))];
    if(customMessages)for(const extra of await customLifecyclePlans(db,ticket,current.policy))if(!plans.some(p=>p.kind===extra.kind))plans.push(extra);
-   for(const plan of plans){if(target&&(plan.kind!=='CONFIRMATION'||+plan.at!==+new Date(target.requestAt)))continue;const messageDate=ticket.scheduledStart||ticket.closedAt!;
+   for(const plan of plans){if(plan.kind==='PICKUP'&&!pickupDelayElapsed(ticket,current.policy))continue;if(target&&(plan.kind!=='CONFIRMATION'||+plan.at!==+new Date(target.requestAt)))continue;const messageDate=ticket.scheduledStart||ticket.closedAt!;
     const override=customMessages?await ticketCustomRule(db,ticket,plan.kind):null;if(override&&!override.ready)continue;
     const portal=new URL('/portal',current.policy.publicOrigin);portal.searchParams.set('tenant',tenantId);portal.searchParams.set('location',ticket.locationId);
     const cancellationPolicy=await readPortalPolicy(tenantId),fee=await getTenantNumberSetting(tenantId,'NO_SHOW_FEE_CENTS',4500),zone=ticket.location.timezone;
@@ -66,6 +67,7 @@ export async function runAppointmentMessages(cursor:MessageCursor|null=null,targ
      // A preceding provider call may take time: recheck cancellation, confirmation and policy before the next send.
      const fresh=await db.ticket.findFirst({where:{id:ticket.id,tenantId},select:{id:true,tenantId:true,customerId:true,scheduledStart:true,status:true,bookingDecision:true,pickupAt:true,pickupCompletedAt:true,closedAt:true}}),latest=await readAppointmentMessageSettings(tenantId),latestRows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[attendanceKey(ticket.id),'PORTAL_CANCELLATION:'+ticket.id]}}});
      if(!fresh||(!fresh.scheduledStart&&!fresh.closedAt)||fresh.customerId!==ticket.customerId||+(fresh.scheduledStart||fresh.closedAt!)!==+messageDate||latest.revision!==current.revision||await platformRestriction(tenantId)||!await isFeatureEnabled(tenantId,'MESSAGING'))continue;
+     if(plan.kind==='PICKUP'&&(!pickupDelayElapsed(fresh,latest.policy)||+new Date(fresh.pickupAt!)!==+new Date(ticket.pickupAt!)))continue;
      const liveState=latestRows.find(r=>r.settingKey===attendanceKey(ticket.id))?.value as any,liveCancel=latestRows.find(r=>r.settingKey==='PORTAL_CANCELLATION:'+ticket.id)?.value as any;
      const freshPlans=lifecycle?await lifecyclePlans(db,{...ticket,...fresh},latest.policy,new Date(latest.lifecycleActiveSince||latest.activeSince),new Date(),new Date(latest.reviewActiveSince||Date.now()),new Date(latest.reportCardActiveSince||Date.now())):planAppointmentMessages({...ticket,...fresh},liveState,latest.policy,new Date(latest.activeSince),new Date(),liveCancel?.state==='PENDING');
      const freshOverride=customMessages?await ticketCustomRule(db,{...ticket,...fresh},plan.kind):null;
@@ -78,6 +80,7 @@ export async function runAppointmentMessages(cursor:MessageCursor|null=null,targ
      }
      let result;
      if(channel==='SMS'){
+      if(plan.kind==='PICKUP'&&await db.communication.findFirst({where:{tenantId,ticketId:ticket.id,channel:'SMS',subject:'Ready for pickup',id:{not:{startsWith:'appt_'}},sentAt:{gte:fresh.pickupAt!}}}))continue;
       if(ticket.customer.appointmentSms===false||ticket.customer.invalidSmsNumber)continue;
       if(!configFor(tenantId)||!await isFeatureEnabled(tenantId,customerContactFeature)){problem='Texting setup or texting subscription needs attention.';continue;}
       const phone=ticket.customer.phones[0];if(!phone){problem='Some appointments have no customer number with texting enabled. Review their profiles.';continue;}

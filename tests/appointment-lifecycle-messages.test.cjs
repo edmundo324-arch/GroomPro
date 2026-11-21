@@ -12,3 +12,17 @@ test('rebooking candidate query selects latest grooming, excludes future booking
 test('review requests require a saved link and a newly closed ticket after review activation',async()=>{const f=fixture(),policy={...defaultAppointmentMessagePolicy,rebookingEnabled:false,reviewLink:'https://reviews.example/shop'};f.ticket.closedAt=new Date('2026-11-18T17:00:00Z');assert.equal((await lifecyclePlans(f.client,f.ticket,policy,activation,now,activation))[0].kind,'REVIEW');assert.deepEqual(await lifecyclePlans(f.client,f.ticket,policy,activation,now,now),[]);assert.deepEqual(await lifecyclePlans(f.client,f.ticket,{...policy,reviewLink:''},activation,now,activation),[]);assert.deepEqual(await lifecyclePlans(f.client,f.ticket,{...policy,reviewEnabled:false},activation,now,activation),[]);f.ticket.status='OPEN';assert.deepEqual(await lifecyclePlans(f.client,f.ticket,policy,activation,now,activation),[]);});
 
 test('report cards auto-send only when saved and newly closed; ask-staff mode does not enqueue',async()=>{const {lifecyclePlans}=require('../src/lib/appointment-lifecycle-messages.ts'),{defaultAppointmentMessagePolicy:p}=require('../src/lib/appointment-message-policy.ts');let saved=null;const db={tenantSetting:{findUnique:async()=>saved?{value:saved}:null}};const ticket={id:'ticket',tenantId:'tenant',status:'CLOSED',closedAt:new Date('2030-01-02T10:00Z')},policy={...p,rebookingEnabled:false,reviewEnabled:false},now=new Date('2030-01-02T11:00Z'),since=new Date('2030-01-01');assert.deepEqual(await lifecyclePlans(db,ticket,policy,since,now,now,since),[]);saved={revision:1};assert.equal((await lifecyclePlans(db,ticket,policy,since,now,now,since))[0].kind,'REPORT_CARD');assert.deepEqual(await lifecyclePlans(db,ticket,{...policy,reportCardMode:'ASK'},since,now,now,since),[]);assert.deepEqual(await lifecyclePlans(db,ticket,policy,since,now,now,now),[]);});
+
+test('pickup delay defaults to five minutes and respects tenant timing without changing event identity',async()=>{
+ const {pickupDelayElapsed}=require('../src/lib/appointment-lifecycle-messages.ts');
+ const ticket={tenantId:'t',id:'ticket',status:'READY',pickupAt:new Date('2030-01-01T10:00Z')};
+ const policy={...defaultAppointmentMessagePolicy},client={communication:{findFirst:async()=>null}},since=new Date('2029-12-31');
+ assert.equal(pickupDelayElapsed(ticket,policy,new Date('2030-01-01T10:04:59Z')),false);
+ const plans=await lifecyclePlans(client,ticket,policy,since,new Date('2030-01-01T10:05Z'));
+ assert.equal(plans.length,1);assert.equal(+plans[0].at,+ticket.pickupAt);
+ assert.equal(pickupDelayElapsed(ticket,{pickupDelayMinutes:10},new Date('2030-01-01T10:05Z')),false);
+ assert.equal(pickupDelayElapsed(ticket,{pickupDelayMinutes:0},ticket.pickupAt),true);
+ assert.equal(pickupDelayElapsed({...ticket,status:'CHECKED_IN'},policy,new Date('2030-01-01T11:00Z')),false);
+ const {appointmentMessagePolicy}=require('../src/lib/appointment-message-policy.ts');const old={...policy};delete old.pickupDelayMinutes;assert.equal(appointmentMessagePolicy(old).pickupDelayMinutes,5);
+ for(const value of [-1,1.5,1441,'five'])assert.throws(()=>appointmentMessagePolicy({...policy,pickupDelayMinutes:value}),/delay/);
+});

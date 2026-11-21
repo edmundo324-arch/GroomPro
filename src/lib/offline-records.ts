@@ -249,11 +249,13 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
     return { ticket: rebooked };
   }
   if (path === '/api/tickets/status' || body.kind === 'STATUS') {
+    const priorStatus=ticket.status;
     if (details.status) ticket.status = details.status;
+    if(priorStatus==='READY'&&details.status&&details.status!=='READY'&&details.status!=='READY_FOR_PICKUP')ticket.pickupAt=null;
     if (details.action === 'UNDO_CHECK_IN') Object.assign(ticket, { status: 'CONFIRMED', checkedInAt: null, arrivalPriority: null, pickupAt: null });
     if (details.action === 'UNDO_READY') Object.assign(ticket, { status: ticket.checkedInAt ? 'CHECKED_IN' : 'CONFIRMED', pickupAt: null });
     if (details.status === 'CHECKED_IN') ticket.checkedInAt ||= now;
-    if (details.status === 'READY'||details.status === 'READY_FOR_PICKUP') ticket.pickupAt ||= now;
+    if (details.status === 'READY'||details.status === 'READY_FOR_PICKUP') ticket.pickupAt = priorStatus==='READY'?ticket.pickupAt||now:now;
     if (!ticket.pickupAt) Object.assign(ticket, {pickupCalledAt:null,pickupTextedAt:null,readyContacted:false});
     if (details.status === 'OPEN' || details.checkedIn === false) Object.assign(ticket, { checkedInAt: null, arrivalPriority: null });
   } else if (path === '/api/tickets/visit-history') {

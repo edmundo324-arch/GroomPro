@@ -475,3 +475,9 @@
 .gp-pos-body .gp-flat-item-workspace::after{content:"";flex:1 0 0;background:repeating-linear-gradient(to bottom,#f5f8fc 0 2.2rem,#e5edf6 2.2rem 2.25rem,#fcfdff 2.25rem 4.45rem,#e5edf6 4.45rem 4.5rem)}
 .gp-pos-body .gp-pos-blank-item-row>td{background:#f5f8fc;border-bottom-color:#e5edf6}
 .gp-pos-body .gp-pos-blank-item-row:nth-child(even)>td{background:#fcfdff}
+/* Arrival stays beside the check-in stamp while retaining its existing editor. */
+.gp-pos-visit-stamps .gp-pos-arrival{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.gp-pos-arrival input{color:inherit;background:transparent;border:0;border-bottom:1px solid currentColor;padding:0;text-align:center}
+
+.gp-pos-visit-stamps>.gp-pos-stamp-action{display:inline-flex;align-items:center;gap:2px;padding:2px;border:0;background:transparent;color:inherit;font:inherit}
+@media(max-width:599px),(orientation:landscape) and (max-height:499px){.gp-pos-phone .gp-pos-visit-stamps{display:flex;flex-basis:100%;justify-content:flex-start}}

@@ -8,7 +8,7 @@ export const businessId = (id: string | undefined | null) => Boolean(id?.startsW
 export function mayOpenBusinessWithoutPin(path: string, method: string) {
   if (path === '/api/employee/session') return ['GET','POST','DELETE'].includes(method);
   if (path === '/api/setup/context') return ['GET','POST'].includes(method);
-  return method === 'GET' && ['/api/ui-context','/api/platform-brand'].includes(path);
+  return method === 'GET' && ['/api/ui-context','/api/platform-brand','/api/pickup-notices'].includes(path);
 }
 
 export const contextCookieOptions = () => ({

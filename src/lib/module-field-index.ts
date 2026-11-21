@@ -1,5 +1,6 @@
 // Reviewed field destinations; contains no customer data.
-export const moduleFields:{module:string;name:string;path:string;settingsPath?:string[]}[]=[
+export const moduleFields:{module:string;name:string;path:string;settingsPath?:string[];aliases?:string[]}[]=[
+ {module:"Messaging",name:"Message Templates",path:"Messaging → Message Templates",aliases:["Choose a Template","Insert Saved Message","Saved Messages","Create Email Template","Edit Email Template","Create Text Template","Edit Text Template","SMS Templates"]},
  {module:"Schedule",name:"Task assignee filter",path:"Schedule → Staff tasks → Task assignee filter"},
  {module:"Schedule",name:"Allow any employee to assign tasks",path:"Schedule → Staff tasks → Allow any employee to assign tasks"},
  {module:"Reports",name:"Find inventory product",path:"Reports → Current inventory → Find inventory product"},

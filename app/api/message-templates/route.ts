@@ -1,3 +1,4 @@
+import {libraryWithReminderTemplates} from '@/src/lib/reminder-templates';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
 import {platformSession} from '@/src/lib/platform-access';
@@ -11,7 +12,7 @@ async function handle(r:NextRequest){
   const input=r.method==='POST'?await r.json():Object.fromEntries(r.nextUrl.searchParams);
   const tenantId=session.tenantId;
   const saved=await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'BUSINESS_LIBRARY:message-templates'}}});
-  const templates=((saved?.value as any)?.rows||[]).filter((row:any)=>row.active!==false&&row.channel===input.channel);
+  const templates=libraryWithReminderTemplates(saved?.value).rows.filter((row:any)=>row.active!==false&&row.channel===input.channel);
   if(!input.customerId)return reply({templates,appointments:[]});
   const customer=await db.customer.findFirst({where:{tenantId,id:String(input.customerId)},include:{pets:{where:{active:true}},tenant:{select:{name:true}}}});
   if(!customer)return reply({error:'This customer is unavailable at this shop. Choose another customer.'},404);

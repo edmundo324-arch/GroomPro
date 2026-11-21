@@ -1,13 +1,16 @@
 import {type AppointmentMessagePolicy} from './appointment-message-policy';
 import {customerRetention,retentionSettingKey,retentionWeeks} from './report-retention';
 export type LifecyclePlan={kind:'PICKUP'|'CHANGED'|'CANCELLED'|'REBOOKING'|'REVIEW'|'REPORT_CARD';at:Date};
+export function pickupDelayElapsed(ticket:any,policy:Pick<AppointmentMessagePolicy,'pickupDelayMinutes'>,now=new Date()){
+ return ticket.status==='READY'&&!!ticket.pickupAt&&!ticket.pickupCompletedAt&&+new Date(ticket.pickupAt)+(policy.pickupDelayMinutes??5)*60000<=+now;
+}
 const qualifying={lineType:'SERVICE',petId:{not:null},role:{in:['GROOM','BATH','PREP','DRY']}};
 export async function lifecyclePlans(client:any,ticket:any,policy:AppointmentMessagePolicy,activeSince:Date,now=new Date(),reviewSince:Date=now,reportCardSince:Date=now):Promise<LifecyclePlan[]>{
  if(!policy.enabled||!Number.isFinite(+activeSince))return [];
  const plans:LifecyclePlan[]=[];
  if(policy.reportCardMode==='AUTO'&&ticket.status==='CLOSED'&&ticket.closedAt&&+new Date(ticket.closedAt)>=+reportCardSince){const card=await client.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:ticket.tenantId,settingKey:'CUSTOMER_REPORT_CARD:'+ticket.id}}});if((card?.value as any)?.revision)plans.push({kind:'REPORT_CARD',at:new Date(ticket.closedAt)});}
  if(policy.reviewEnabled&&policy.reviewLink&&ticket.status==='CLOSED'&&ticket.closedAt&&+new Date(ticket.closedAt)>=+reviewSince)plans.push({kind:'REVIEW',at:new Date(ticket.closedAt)});
- if(policy.pickupEnabled&&ticket.status==='READY'&&ticket.pickupAt&&!ticket.pickupCompletedAt&&+new Date(ticket.pickupAt)>=+activeSince){
+ if(policy.pickupEnabled&&pickupDelayElapsed(ticket,policy,now)&&+new Date(ticket.pickupAt)>=+activeSince){
   const sent=await client.communication.findFirst({where:{tenantId:ticket.tenantId,ticketId:ticket.id,subject:'Ready for pickup',id:{not:{startsWith:'appt_'}},sentAt:{gte:new Date(ticket.pickupAt)}}});
   if(!sent)plans.push({kind:'PICKUP',at:new Date(ticket.pickupAt)});
  }

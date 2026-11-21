@@ -19,8 +19,8 @@ export function PosCustomerTitle({name,onEdit,onReplace,disabled=false}:{
  </div>;
 }
 
-export function PosVisitStamps({checkedIn,completed,called,texted,timezone,contactNeeded=false}:{
- checkedIn?:string|null;completed?:string|null;called?:string|null;texted?:string|null;timezone:string;contactNeeded?:boolean
+export function PosVisitStamps({arrival,onCompleted,onCalled,onTexted,checkedIn,completed,called,texted,timezone,contactNeeded=false}:{
+ arrival?:React.ReactNode;onCompleted?:()=>void;onCalled?:()=>void;onTexted?:()=>void;checkedIn?:string|null;completed?:string|null;called?:string|null;texted?:string|null;timezone:string;contactNeeded?:boolean
 }){
  const format=(value:string)=>new Date(value).toLocaleTimeString(undefined,{timeZone:timezone,hour:'numeric',minute:'2-digit'});
  const stamps=[
@@ -30,10 +30,10 @@ export function PosVisitStamps({checkedIn,completed,called,texted,timezone,conta
   ['Texted',texted,'M3 5h18v12H9l-6 4V5Zm4 5h10m-10 3h6'],
  ] as const;
  return <div className="gp-pos-visit-stamps" aria-label="Visit times">
-  {stamps.map(([label,at,path])=><span key={label} title={at?label+' '+format(at):label} aria-label={label}>
-   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path||''}/></svg>
-   {at&&<time dateTime={at}>{format(at)}</time>}
-  </span>)}
+  {arrival}
+  {stamps.map(([label,at,path])=>{const content=<><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path||''}/></svg>{at&&<time dateTime={at}>{format(at)}</time>}</>;
+   return label==='Called'||label==='Completed'||label==='Texted'?<button key={label} type="button" className="gp-btn gp-pos-stamp-action" disabled={label==='Called'?!onCalled:label==='Texted'?!onTexted:!onCompleted} title={at?label+' '+format(at):label==='Called'?'Record Pickup Call':label==='Texted'?'Open Pickup Text':'Mark Ready for Pickup'} aria-label={label} onClick={label==='Called'?onCalled:label==='Texted'?onTexted:onCompleted}>{content}</button>:<span key={label} title={at?label+' '+format(at):label} aria-label={label}>{content}</span>;
+  })}
   {contactNeeded&&<strong className="gp-pos-contact-needed" role="status"><span aria-hidden="true">!</span> Call and text</strong>}
  </div>;
 }
