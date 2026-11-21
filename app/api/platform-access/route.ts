@@ -1,3 +1,4 @@
+import {copySampleBusiness} from '@/src/lib/sample-business-copy';
 import {NextRequest,NextResponse} from 'next/server';
 import {requestAuthorization} from '@/src/lib/request-authorization';
 import {platformSession,isPlatformAdmin} from '@/src/lib/platform-access';
@@ -36,10 +37,12 @@ async function handle(r:NextRequest){
     if(!home)throw Error('Platform Owner or Developer access is required.');
     if(await tx.tenant.findFirst({where:{name:input.name},select:{id:true}}))throw Error('A business with that name already exists.');
     const created=await tx.tenant.create({data:{id:input.id,name:input.name,locations:{create:{name:input.location,timezone:input.timezone}}},select:{id:true,name:true,locations:{select:{id:true}}}});
-    await saveBusinessOwner(tx,created.id,created.locations[0].id,owner);
+    const ownerId=await saveBusinessOwner(tx,created.id,created.locations[0].id,owner);
+    if(b.sampleSourceId&&b.shareMessageConnection===true)await tx.tenantSetting.create({data:{tenantId:created.id,settingKey:'PLATFORM_TEST_MESSAGE_CONNECTION',value:{sourceTenantId:home.tenantId}}});
+    if(b.sampleSourceId)await copySampleBusiness(tx,String(b.sampleSourceId),created.id,created.locations[0].id,ownerId,owner.email);
     await tx.auditEntry.create({data:{tenantId:created.id,actorType:'EMPLOYEE',actorUserId:home.id,entityType:'TENANT',entityId:created.id,action:'PLATFORM_BUSINESS_CREATE',summary:'Created a separate business workspace.'}});
     return {id:created.id,name:created.name};
-   });
+   },{timeout:120000});
    return NextResponse.json({tenant},{status:201});
   }
   if(b.action==='SET_OWNER_EMAIL'){

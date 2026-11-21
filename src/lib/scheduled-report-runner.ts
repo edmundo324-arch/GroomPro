@@ -20,7 +20,7 @@ export async function runScheduledReports(cursor:{tenantId:string;entryKey:strin
  const actor=await db.user.findFirst({where:{tenantId,id:saved.actor,active:true}});if(!actor||!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(actor.role))continue;
  const permissions=await db.rolePermission.findMany({where:{tenantId,role:actor.role,permissionCode:{in:['VIEW','CONFIGURE']}}});if(!['PLATFORM_OWNER','DEVELOPER'].includes(actor.role)&&permissions.some(p=>p.enabled===false))continue;
  const location=await db.location.findFirst({where:{tenantId,id:policy.locationId}});if(!location)continue;
- const config=customerEmailConfig(tenantId);if(!config)continue;
+ const config=(await customerEmailConfig(tenantId));if(!config)continue;
  const progressKey='REPORT_PROGRESS:'+saved.id+':'+saved.revision,progress=(await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:progressKey}}}))?.value as any;
  const until=saved.effectiveTo?new Date(Math.min(+now,+new Date(saved.effectiveTo)-1)):now;
  for(const period of dueReportPeriods(policy,until,location.timezone,saved.effectiveFrom||saved.enabledAt,progress?.revision===saved.revision?progress.through:undefined)){

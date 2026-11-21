@@ -25,16 +25,18 @@ export async function GET(r:NextRequest){
  const enabled=saved?.enabled!==false;
  if(!enabled||!locations.some(l=>l.id===locationId))return reply({enabled,locationId,locations,notices:[]});
  const settings=await readAppointmentMessageSettings(c.tenantId),policy=settings.policy;
- const texting=smsConfigured(c.tenantId)&&await isFeatureEnabled(c.tenantId,customerContactFeature);
+ const texting=(await smsConfigured(c.tenantId))&&await isFeatureEnabled(c.tenantId,customerContactFeature);
  const tickets=await db.ticket.findMany({where:{tenantId:c.tenantId,locationId,status:'READY',pickupAt:{not:null},pickupCompletedAt:null},select:{id:true,orderNumber:true,pickupAt:true,pets:{select:{pet:{select:{name:true}}}},customer:{select:{active:true,appointmentSms:true,invalidSmsNumber:true,phones:{where:{smsEnabled:true},select:{id:true}}}}},orderBy:{pickupAt:'desc'},take:100});
  const notices=await Promise.all(tickets.map(async t=>{
   const sent=await db.communication.findFirst({where:{tenantId:c.tenantId,ticketId:t.id,subject:'Ready for pickup',channel:'SMS',createdAt:{gte:t.pickupAt!}},orderBy:{createdAt:'desc'},select:{deliveryStatus:true,sentAt:true}});
   const scheduledFor=new Date(+t.pickupAt!+policy.pickupDelayMinutes*60000).toISOString();
   const eligible=policy.enabled&&policy.pickupEnabled&&policy.channels.includes('SMS')&&!!settings.activeSince&&!!policy.publicOrigin&&texting&&t.customer.active&&t.customer.appointmentSms!==false&&!t.customer.invalidSmsNumber&&t.customer.phones.length>0;
-  const state=sent?.sentAt?'Sent':sent?'Text request '+sent.deliveryStatus.toLowerCase().replaceAll('_',' '):eligible?'Pickup text is queued; earliest send time: '+new Date(scheduledFor).toLocaleTimeString('en-US',{timeZone:locations.find(l=>l.id===locationId)?.timezone||'UTC',hour:'numeric',minute:'2-digit'}):'Review texting settings or the customer’s contact details before expecting an automatic pickup text.';
-  return {ticketId:t.id,number:t.orderNumber,pets:t.pets.map(p=>p.pet.name).join(', '),readyAt:t.pickupAt,scheduledFor,state,sent:!!sent};
+  const cancellation=(await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:c.tenantId,settingKey:'PICKUP_TEXT_CANCELLED:'+t.id}}}))?.value as any;
+  const cancelled=cancellation?.readyAt===t.pickupAt?.toISOString();
+  const state=sent?.sentAt?'Sent':sent?'Text request '+sent.deliveryStatus.toLowerCase().replaceAll('_',' '):cancelled?'Queued pickup text cancelled':eligible?'Pickup text is queued; earliest send time: '+new Date(scheduledFor).toLocaleTimeString('en-US',{timeZone:locations.find(l=>l.id===locationId)?.timezone||'UTC',hour:'numeric',minute:'2-digit'}):'Review texting settings or the customer’s contact details before expecting an automatic pickup text.';
+  return {ticketId:t.id,number:t.orderNumber,pets:t.pets.map(p=>p.pet.name).join(', '),readyAt:t.pickupAt,scheduledFor,state,cancelled,sent:!!sent};
  }));
- return reply({enabled,locationId,locations,notices});
+ return reply({enabled,locationId,locations,notices,snoozeMinutes:policy.pickupNoticeSnoozeMinutes??5});
 }
 export const PUT=withRequestPolicy(async(r:NextRequest)=>{
  const c=await context(r);if(!c?.session)return reply({error:'Employee PIN is required.'},401);

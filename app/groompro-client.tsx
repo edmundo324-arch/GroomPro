@@ -1,4 +1,5 @@
 "use client";
+import {TestingGuide} from "../src/components/testing-guide";
 import {PickupNotices} from "../src/components/pickup-notices";
 import {VisualLayoutProvider} from '../src/components/visual-layout-studio';
 import '../src/components/visual-layout-studio.css';
@@ -37,6 +38,7 @@ import {WORKSPACE_MODULES as modules} from '../src/lib/module-catalog';
 type Module=typeof modules[number];
 type Employee={id:string;firstName:string;lastName:string;role:string;active:boolean};
 export default function Home(){
+ const[guideOpen,setGuideOpen]=useState(false),[guideVisited,setGuideVisited]=useState(false);
  const[findCustomer,setFindCustomer]=useState<any>(null);
  useEffect(()=>{const find=(event:Event)=>{const detail=(event as CustomEvent).detail;setFindCustomer({...detail,request:Date.now()});};window.addEventListener('groompro:find-customer-field',find);return()=>window.removeEventListener('groompro:find-customer-field',find)},[]);
  const[brand,setBrand]=useState('GroomPro Suite');
@@ -50,7 +52,7 @@ export default function Home(){
  useEffect(()=>{document.title=brand},[brand]);
 
  const [scope,setScope]=useState(''),[employeeScope,setEmployeeScope]=useState('anonymous');const scopeRef=useRef(''),employeeScopeRef=useRef('anonymous');
- useEffect(()=>setFindCustomer(null),[scope,employeeScope]);
+ useEffect(()=>{setFindCustomer(null);setGuideOpen(false);setGuideVisited(false)},[scope,employeeScope]);
  const[calendarShortcut,setCalendarShortcut]=useState<{view:'Day'|'Week'|'Map'}>();
  const[requestsOnly,setRequestsOnly]=useState(false);
  const[posPanel,setPosPanel]=useState("Items");
@@ -82,7 +84,7 @@ export default function Home(){
  useEffect(()=>{let cancelled=false;const check=async()=>{try{const r=await fetch('/api/ui-context',{cache:'no-store'});if(!r.ok)return;const d=await r.json(),key=`${d.tenantId}:${d.locationId}`;if(cancelled)return;if(scopeRef.current&&scopeRef.current!==key){clearEmployeeReads();setOpenTickets([]);setPosTicket(null);setCustomer(null);setCreateCustomer(false);setScheduledCalendarDate(undefined);setWhiteboardDate(new Date());window.dispatchEvent(new Event("groompro:clear-messages"));setActive('Calendar')}scopeRef.current=key;setScope(key)}catch{}};void check();window.addEventListener('focus',check);window.addEventListener('groompro:context-changed',check);return()=>{cancelled=true;window.removeEventListener('focus',check);window.removeEventListener('groompro:context-changed',check)}},[employee?.id]);
  navigationRef.current={key:posTicket?.key,active};
  useEffect(()=>{const refresh=()=>fetch('/api/features').then(r=>r.json()).then(d=>setFeatures(d.features||[]));window.addEventListener('groompro:features-changed',refresh);return()=>window.removeEventListener('groompro:features-changed',refresh)},[]);
- useEffect(()=>{const handler=(event:Event)=>{const name=(event as CustomEvent).detail?.module;if(modules.includes(name)&&name!=='Settings')setActive(name);else if(name==='Customer Profile'||name==='Pet Profile')setActive('Customers');else if(name==='Employee'||name==='Booking asset'||name?.endsWith('shift'))setActive('Schedule');else if(name==='POS Ticket')setActive('Calendar');else {const target=({'Service editor':'Services','Product editor':'Products','Package editor':'Packages','VIP editor':'VIP Memberships'} as any)[name];if(target)setActive(target)}};window.addEventListener('groompro:visual-navigate',handler);return()=>window.removeEventListener('groompro:visual-navigate',handler)},[]);
+ useEffect(()=>{const handler=(event:Event)=>{const name=(event as CustomEvent).detail?.module;if(name==='Testing Guide'){setGuideVisited(true);setGuideOpen(true)}else if(modules.includes(name)&&name!=='Settings')setActive(name);else if(name==='Customer Profile'||name==='Pet Profile')setActive('Customers');else if(name==='Employee'||name==='Booking asset'||name?.endsWith('shift'))setActive('Schedule');else if(name==='POS Ticket')setActive('Calendar');else {const target=({'Service editor':'Services','Product editor':'Products','Package editor':'Packages','VIP editor':'VIP Memberships'} as any)[name];if(target)setActive(target)}};window.addEventListener('groompro:visual-navigate',handler);return()=>window.removeEventListener('groompro:visual-navigate',handler)},[]);
  const [returningHome,setReturningHome]=useState(false);
  const inTenantBusiness=businessId(business?.id);
  const canReturnHome=inTenantBusiness&&(!employee||(isPlatformRole(employee.role)&&employee.id.startsWith(platformUserPrefix)));
@@ -99,11 +101,12 @@ export default function Home(){
  const allowed=visibleModules(modules,features);
  if(!contextReady)return <main style={{padding:32}}><h1>GroomPro Suite</h1><p>{contextError||"Opening your business…"}</p>{contextError&&<a href="/setup">Open setup</a>}</main>;
  return <VisualLayoutProvider key={scope+':'+employeeScope} scope={scope+':'+employeeScope}><HelpfulHints excluded={active==="Whiteboard"}><WindowLayoutScope scope={employee&&scope?`${scope}:${employee.id}`:''}><div data-module={active} className={`gp-shell ${active==="Whiteboard"?"gp-whiteboard-shell":""}`}><IntegrationRefresh key={employee?.id||'anonymous'} scope={scope} enabled={!!employee}/><EmployeeActivity employee={employee} scope={scope} onExpired={expireEmployee} onEmployeeChange={signedIn}/><ActionMessage/><PickupNotices scope={scope}/><header data-business-name={business?.name||brand} className="gp-topbar"><div className="gp-brand" title={business?.name||brand}>{business?.id.startsWith("pilot_")?business.name:brand}</div>{canReturnHome&&<button type="button" className="gp-module" disabled={returningHome} onClick={()=>void returnHome()}>Back to GroomPro</button>}<OfflineIndicator scope={scope} employeeId={employee?.id}/><button type="button" className="gp-switch gp-header-employee" title={employee?employeeName(employee):undefined} onClick={()=>void requestEmployeePin(employee?'SWITCH':'SIGN_IN')}>{employee&&<span className="gp-status-dot" aria-hidden="true"/>}<span>{employee?employeeName(employee):"PIN"}</span></button><AppNavigation role={employee?.role} modules={allowed} active={active}
- onSelect={module=>{setRequestsOnly(false);setActive(module)}}
+ onSelect={module=>{if(module==='Testing Guide'){setGuideVisited(true);setGuideOpen(true);return}setRequestsOnly(false);setActive(module)}}
  onCalendarView={view=>{setActive('Calendar');setCalendarShortcut({view})}}
  onRequests={()=>{setRequestsOnly(true);setActive('Tickets')}}/></header><main className="gp-main">{employee&&active!=='Whiteboard'&&allowed.includes('Tickets')&&<WaitlistNotices key={scope+':waitlist:'+employee.id} onOpen={()=>{setRequestsOnly(true);setActive('Tickets');requestAnimationFrame(()=>document.querySelector('[data-waitlist]')?.scrollIntoView({block:'start'}))}}/>}{employee&&active!=='Whiteboard'&&allowed.includes('Schedule')&&<StaffTaskNotices key={scope+':'+employee.id} employeeId={employee.id} onOpenTasks={()=>{setActive('Schedule');requestAnimationFrame(()=>document.querySelector('[data-staff-tasks]')?.scrollIntoView({block:'start'}))}}/>}
  {modules.filter(m=>allowed.includes(m)).map(m=><ModuleView key={`${scope}:${employeeScope}:${m}`} active={active===m} name={m}>
  {(["Services","Products","Packages","VIP Memberships"] as string[]).includes(m)&&<CatalogWorkspace kind={m==="Services"?"services":m==="Products"?"products":m==="Packages"?"packages":"plans"}/>}
+
  {m==="Calendar"&&<CalendarWorkspace activeTicketId={openTickets.find(t=>t.key===posTicket?.key)?.ticketId} employeeRole={employee?.role} viewShortcut={calendarShortcut} onWhiteboardPrepared={date=>setWhiteboardDate(new Date(date+"T12:00:00"))} requestedDate={scheduledCalendarDate} refreshKey={calendarRevision} onSlot={(date,resource)=>{if(!navigationRef.current.key)return false;window.dispatchEvent(new CustomEvent('groompro:calendar-slot',{detail:{date,resource}}));return true}} onNewTicket={(date,employeeId)=>openTicket(undefined,date,undefined,employeeId)} onOpenTicket={id=>openTicket(id)}/>}
  {m==="Customers"&&<CustomersWorkspace onCreateTicket={newForCustomer}/>}
  {m==="Tickets"&&<TicketsWorkspace onOpenCustomer={id=>setCustomer(id)} requestsOnly={requestsOnly} refreshKey={calendarRevision} date={new Date()} onOpenTicket={id=>openTicket(id)} onNewTicket={()=>openTicket()}/>}
@@ -111,7 +114,7 @@ export default function Home(){
  {m==="Schedule"&&<section className="gp-settings"><h1 className="gp-title">Schedule</h1><StaffAvailabilitySettings/><StaffTasks/></section>}
  {m==="Settings"&&<Settings role={employee?.role}/>}
  {(m==="Pets"||m==="Messaging"||m==="Inventory"||m==="Reports")&&<ModuleWorkspace module={m} onOpenCustomer={id=>setCustomer(id)} onNewTicket={()=>openTicket()}/>}
- </ModuleView>)} </main><ActionPin onSignedIn={signedIn}/>
+ </ModuleView>)} </main>{guideVisited&&<div hidden={!guideOpen} style={guideOpen?{display:"contents"}:{display:"none"}}><TestingGuide onClose={()=>setGuideOpen(false)}/></div>}<ActionPin onSignedIn={signedIn}/>
  {openTickets.map(editor=><div key={editor.key} hidden={posTicket?.key!==editor.key} style={posTicket?.key===editor.key?{display:'contents'}:{display:'none'}}><PosTicketWindow preferredPanel={posPanel} onPanelChange={setPosPanel} active={posTicket?.key===editor.key} ticketId={editor.ticketId} date={editor.date} initialEmployeeId={editor.employeeId} initialCustomerId={editor.customerId} onClose={()=>{setPosTicket(current=>current?.key===editor.key?null:current)}} onScheduled={date=>{if(navigationRef.current.key===editor.key&&navigationRef.current.active!=="Calendar"){setActive("Calendar")}}} onSaved={id=>{window.dispatchEvent(new CustomEvent('groompro:ticket-changed',{detail:{ticketId:id}}));setOpenTickets(all=>all.map(t=>t.key===editor.key?{...t,ticketId:id}:t));setCalendarRevision(v=>v+1)}}/></div>)} {createCustomer&&<CustomerCreateWindow onClose={()=>setCreateCustomer(false)}/>}{customer&&<CustomerProfile customerId={customer} onClose={()=>setCustomer(null)} onNewAppointment={newForCustomer} onCreateTicket={newForCustomer}/>}
  {findCustomer&&<CustomerProfile key={findCustomer.request} customerId={findCustomer.customerId} initialDestination={findCustomer.entry} onClose={()=>setFindCustomer(null)}/>}
  </div></WindowLayoutScope></HelpfulHints></VisualLayoutProvider>;

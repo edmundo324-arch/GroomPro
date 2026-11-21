@@ -46,7 +46,7 @@ export async function runCustomerConversations(client:any,tenant:{id:string;name
    if(!resuming&&newer){await update({state:'REVIEW',lastError:'A newer shop message exists. Review the conversation before an AI reply.'});continue;}
    const phone=customer.phones?.find((p:any)=>p.smsEnabled&&normalizePhone(p.number)===normalizePhone(state.fromAddress||''));
    if(state.channel==='SMS'&&(!phone||customer.appointmentSms===false||customer.invalidSmsNumber)||state.channel==='EMAIL'&&(!customer.email||customer.appointmentEmail===false||customer.invalidEmail||customer.email.toLowerCase()!==String(state.fromAddress).toLowerCase())){await update({state:'REVIEW',lastError:'Contact details or communication preferences changed.'});continue;}
-   if(state.channel==='SMS'&&(!configFor(tenantId)||!await isFeatureEnabled(tenantId,customerContactFeature))||state.channel==='EMAIL'&&!customerEmailConfig(tenantId))continue;
+   if(state.channel==='SMS'&&(!(await configFor(tenantId))||!await isFeatureEnabled(tenantId,customerContactFeature))||state.channel==='EMAIL'&&!(await customerEmailConfig(tenantId)))continue;
    let proposal=state.proposal?.attemptId===attemptId?state.proposal:null;
    if(!proposal){
     const decision=await interpret({mode:resuming?'RESUME':'REPLY',business:tenant.name,customerFirstName:customer.firstName,petNames:customer.pets.map((p:any)=>p.name),shop:location.name,timezone:location.timezone,localToday:now.toLocaleDateString('en-CA',{timeZone:location.timezone}),offer:{text:root.body,sentAt:root.createdAt,ruleName:rule.name},previousPause:state.pauseReason||null,currentMessage:incoming.body,history});

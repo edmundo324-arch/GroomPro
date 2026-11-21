@@ -1,3 +1,4 @@
+import {messageProviderConnection} from "./message-provider-connection";
 import {checkDevicePassword,devicePolicyKey,deviceEmailVerifiedKey} from './device-password';
 import {createHash,randomBytes,randomInt} from 'node:crypto';
 import {db} from './db';
@@ -31,7 +32,7 @@ export async function sendDeviceCode(input:unknown){
  // A response never identifies businesses before ownership is verified.
  if(!businesses.length)return token;
  const tenantId=businesses[0].id;
- let config:any;try{const configs=JSON.parse(process.env.GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON||'{}');config=businesses.map(b=>configs[b.id]).find(c=>typeof c?.apiKey==='string'&&typeof c?.from==='string');}catch{}
+ let config:any;try{const configs=await Promise.all(businesses.map(b=>messageProviderConnection('GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON',b.id)));config=configs.find(c=>typeof c?.apiKey==='string'&&typeof c?.from==='string');}catch{}
  if(!config)throw fail('Email verification is not ready for this business. Ask the Platform Owner to configure email delivery; Platform Owner sign-in remains available.');
  const code=String(randomInt(100000,1000000)),now=Date.now();
  await db.$transaction(async tx=>{

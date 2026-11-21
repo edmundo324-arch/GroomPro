@@ -36,3 +36,17 @@ test('customer creation uses current groups after acquiring the configuration lo
  let access;const tx={$queryRaw:async()=>[],tenantSetting:{findUnique:async()=>({value:{groups:[{id:'new',name:'New',locationIds:['a','z']}]}}),upsert:async()=>{}},customer:{create:async args=>{access=args.data.locationAccess.create;return{id:'new'}}}};
  await scopedClient({...tx,$transaction:async fn=>fn(tx)}).customer.create({data:{tenantId:'t'}});assert.deepEqual(access.map(r=>r.locationId),['a','z']);
 }));
+
+test('a scoped transaction does not invent a nested transaction method during PIN assignment',async()=>{
+ const tx={user:{update:async()=>({id:'worker'})}};let transactions=0;
+ const client=scopedClient({$transaction:async work=>{transactions++;return work(tx)}});
+ await client.$transaction(async scoped=>{assert.equal(scoped.$transaction,undefined);assert.deepEqual(await scoped.user.update({}),{id:'worker'});});assert.equal(transactions,1);
+});
+
+test('employee PIN reset inside the shared transaction saves credentials and revokes old sessions',async()=>{
+ const ts=require('typescript'),fs=require('fs'),api={},pin=require('../src/lib/pin.ts');let locked=false,saved,revoked=false;
+ const tx={$queryRaw:async()=>{locked=true},user:{findMany:async()=>[],update:async q=>{saved=q.data;return{id:'employee'}}},tenantSetting:{deleteMany:async()=>{}},employeeSession:{updateMany:async()=>{revoked=true}}};
+ const deps={'./db':{},'./pin':pin,'./pin-vault':{pinVaultConfigured:()=>false,pinVaultKey:id=>'PIN:'+id}};
+ new Function('require','exports',ts.transpileModule(fs.readFileSync('src/lib/employee-pin-assignment.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(k=>deps[k],api);
+ await api.saveWithPin('tenant','945123','employee',{},scopedClient(tx));assert.equal(locked,true);assert.equal(revoked,true);assert.equal(await pin.verifyPin('945123',saved.pinHash),true);assert.equal(saved.pinPrefixHashes.length,3);
+});

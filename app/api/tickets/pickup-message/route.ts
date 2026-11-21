@@ -29,6 +29,16 @@ async function handle(r:NextRequest){
  return reply({body:renderAppointmentMessage(policy.pickupText,values),mode:policy.pickupTextAction,readyAt:ticket.pickupAt,phones:ticket.customer.phones.map(p=>({id:p.id,number:p.number})),pets:values.pets});
  }
  if(Date.parse(b.readyAt)!==+ticket.pickupAt)return reply({error:'This completion changed while the message was open. Close this message and review the appointment.'},409);
+ if(b.action==='CANCEL')return await db.$transaction(async tx=>{
+ await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;
+ const fresh=await tx.ticket.findFirst({where:{id:ticket.id,tenantId,locationId}});
+ if(fresh?.status!=='READY'||fresh.pickupCompletedAt||fresh.pickupAt?.toISOString()!==ticket.pickupAt!.toISOString())return reply({error:'This completion changed. Review the appointment before cancelling its pickup text.'},409);
+ if(await tx.communication.findFirst({where:{tenantId,ticketId:ticket.id,channel:'SMS',createdAt:{gte:ticket.pickupAt!}}}))return reply({error:'A text request already exists for this completion. It may already be with the texting service and cannot be recalled here.'},409);
+ const settingKey='PICKUP_TEXT_CANCELLED:'+ticket.id,value={readyAt:ticket.pickupAt!.toISOString(),cancelledAt:new Date().toISOString(),employeeId:session.user.id};
+ await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value},update:{value}});
+ await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:'PICKUP_TEXT_CANCELLED',summary:'Cancelled the pending pickup text; appointment remains Ready.',details:value}});
+ return reply({message:'Queued pickup text cancelled. The appointment is still Ready for Pickup.'});
+ });
  if(!['SEND','RECORD'].includes(b.action)||b.action==='RECORD'&&policy.pickupTextAction==='COMPOSE'||b.action==='SEND'&&policy.pickupTextAction==='RECORD')return reply({error:'This action is not enabled in the tenant’s Texted Icon Action setting.'},400);
  const phone=ticket.customer.phones.find(p=>p.id===b.phoneId);if(!phone||phone.number!==b.phoneNumber)throw Error('Review the customer’s texting number before continuing.');
  const id=appointmentMessageId(tenantId,ticket.id,ticket.scheduledStart||ticket.closedAt||ticket.pickupAt,'PICKUP',ticket.pickupAt,'SMS');

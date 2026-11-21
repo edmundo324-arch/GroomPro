@@ -32,7 +32,7 @@ export function PosVisitStamps({arrival,onCompleted,onCalled,onTexted,checkedIn,
  return <div className="gp-pos-visit-stamps" aria-label="Visit times">
   {arrival}
   {stamps.map(([label,at,path])=>{const content=<><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path||''}/></svg>{at&&<time dateTime={at}>{format(at)}</time>}</>;
-   return label==='Called'||label==='Completed'||label==='Texted'?<button key={label} type="button" className="gp-btn gp-pos-stamp-action" disabled={label==='Called'?!onCalled:label==='Texted'?!onTexted:!onCompleted} title={at?label+' '+format(at):label==='Called'?'Record Pickup Call':label==='Texted'?'Open Pickup Text':'Mark Ready for Pickup'} aria-label={label} onClick={label==='Called'?onCalled:label==='Texted'?onTexted:onCompleted}>{content}</button>:<span key={label} title={at?label+' '+format(at):label} aria-label={label}>{content}</span>;
+   return label==='Called'||label==='Completed'||label==='Texted'?<button key={label} type="button" className="gp-btn gp-pos-stamp-action" disabled={label==='Called'?!onCalled:label==='Texted'?!onTexted:!onCompleted} title={at?label+' '+format(at):label==='Called'?'Call Customer or Record Call':label==='Texted'?'Open Pickup Text':'Mark Ready for Pickup'} aria-label={label} onClick={label==='Called'?onCalled:label==='Texted'?onTexted:onCompleted}>{content}</button>:<span key={label} title={at?label+' '+format(at):label} aria-label={label}>{content}</span>;
   })}
   {contactNeeded&&<strong className="gp-pos-contact-needed" role="status"><span aria-hidden="true">!</span> Call and text</strong>}
  </div>;

@@ -1,3 +1,4 @@
+import {sharedSmsRecipients} from '@/src/lib/message-provider-connection';
 import {queueOfferConversation} from '@/src/lib/customer-conversations';
 import {queueAppointmentDetailsReply} from '@/src/lib/appointment-details-replies';
 import {recordAttendanceReply} from '@/src/lib/attendance-replies';
@@ -9,8 +10,8 @@ import {configFor,smsCallbackUrl} from '@/src/lib/sms';
 import {normalizePhone} from '@/src/lib/customer';
 import {validTwilioSignature,deliveryCanAdvance} from '@/src/lib/twilio-signature';
 export async function POST(r:NextRequest){
- const tenantId=r.nextUrl.searchParams.get('tenantId')||'',communicationId=r.nextUrl.searchParams.get('communicationId')||'';
- const config=configFor(tenantId),canonical=config&&smsCallbackUrl(config,tenantId,communicationId);
+ let tenantId=r.nextUrl.searchParams.get('tenantId')||'',communicationId=r.nextUrl.searchParams.get('communicationId')||'';
+ const config=(await configFor(tenantId)),canonical=config&&smsCallbackUrl(config,tenantId,communicationId);
  if(!config||!canonical)return NextResponse.json({error:'Webhook unavailable.'},{status:404});
  const parameters=new URLSearchParams(await r.text());
  if(!validTwilioSignature(canonical,parameters,config.authToken,r.headers.get('x-twilio-signature')||'')||parameters.get('AccountSid')!==config.accountSid)return NextResponse.json({error:'Invalid signature.'},{status:403});
@@ -24,9 +25,12 @@ export async function POST(r:NextRequest){
   });
  }else{
   if(parameters.get('To')!==config.from)return NextResponse.json({error:'Recipient mismatch.'},{status:403});
-  const preference=inboundSmsPreference(parameters);
+  const preference=inboundSmsPreference(parameters),recipients=await sharedSmsRecipients(tenantId,normalizePhone(parameters.get('From')||''));
+  if(preference===null&&recipients.length!==1)return NextResponse.json({error:'This shared test number cannot identify one business for the reply. Use a different test customer phone in each business.'},{status:409});
+  for(const recipient of recipients){
+  tenantId=recipient;
   if (preference===null&&!await isFeatureEnabled(tenantId, customerContactFeature)) {
-   return new NextResponse('<Response/>',{status:200,headers:{'Content-Type':'text/xml'}});
+   continue;
   }
   const from=parameters.get('From')||'',body=parameters.get('Body')||'';
   await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;if(await tx.communication.findFirst({where:{tenantId,externalId:sid}}))return;
@@ -38,6 +42,7 @@ export async function POST(r:NextRequest){
    const incoming=await tx.communication.create({data:{tenantId,customerId:phone.customerId,channel:'SMS',direction:'INBOUND',body,fromAddress:from,toAddress:config.from,externalId:sid,deliveryStatus:'RECEIVED',receivedAt:new Date()}});
    if(preference===null&&!await recordAttendanceReply(tx,tenantId,incoming)&&!await queueAppointmentDetailsReply(tx,tenantId,incoming))await queueOfferConversation(tx,tenantId,incoming);
   });
+  }
  }
  return new NextResponse('<Response/>',{status:200,headers:{'Content-Type':'text/xml'}});
 }

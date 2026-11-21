@@ -1,3 +1,4 @@
+import {messageProviderConnection} from "./message-provider-connection";
 import {randomUUID} from 'node:crypto';
 import {db} from './db';
 import {agreementTitle,verifiedSignature,type Signature} from './customer-agreement-model';
@@ -8,15 +9,15 @@ const signedPdfPrefix='GROOMPRO_PDF_V1:';
 export function parseAgreementPdf(value:string){
  return value.startsWith(signedPdfPrefix)?value.slice(signedPdfPrefix.length):null;
 }
-function emailConfig(tenantId:string){
+async function emailConfig(tenantId:string){
  try{
-  const config=JSON.parse(process.env.GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON||'{}')[tenantId];
+  const config=await messageProviderConnection('GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON',tenantId);
   if(typeof config?.apiKey==='string'&&typeof config?.from==='string')return config as {apiKey:string;from:string};
  }catch{}
  return null;
 }
 async function emailAgreement(tenantId:string,id:string,filename:string,pdf:string,to:string,shopEmail:string){
- const config=emailConfig(tenantId);
+ const config=await emailConfig(tenantId);
  if(!config)return false;
  // Send separately so the customer never sees another recipient's address.
  const results=await Promise.all([...new Set([to,shopEmail])].map(async (recipient,index)=>{

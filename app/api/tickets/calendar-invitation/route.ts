@@ -1,3 +1,4 @@
+import {messageProviderConnection} from "@/src/lib/message-provider-connection";
 import {NextRequest,NextResponse} from 'next/server';
 import {createHash} from 'node:crypto';
 import {db} from '@/src/lib/db';
@@ -11,7 +12,7 @@ async function invitation(r:NextRequest){
  const business=ticket.tenant.name,address=[ticket.location.address1,ticket.location.address2,ticket.location.city,ticket.location.state,ticket.location.postalCode].filter(Boolean).join(', '),ics=calendarInvitation({...ticket,scheduledStart:ticket.scheduledStart},business,address);
  if(r.method==='GET')return new NextResponse(ics,{headers:{'Content-Type':'text/calendar; charset=utf-8','Content-Disposition':'attachment; filename="appointment.ics"','Cache-Control':'no-store'}});
  if(!ticket.customer.email||!ticket.customer.appointmentEmail||ticket.customer.invalidEmail)throw Error('Review this customer’s email address and appointment-email preference before sending.');
- let config:any;try{config=JSON.parse(process.env.GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON||'{}')[s.tenantId]}catch{}
+ let config:any;try{config=await messageProviderConnection('GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON',s.tenantId)}catch{}
  if(!config?.apiKey||!config?.from)throw Error('Email delivery is not configured for this business. Download the calendar invitation instead.');
  const hash=createHash('sha256').update(ticket.id+'|'+ticket.updatedAt.toISOString()+'|'+ticket.customer.email).digest('hex');
  const attempt=await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${s.tenantId} FOR UPDATE`;const existing=await tx.communication.findFirst({where:{tenantId:s.tenantId,externalId:'calendar:'+hash}});if(existing)return {communication:existing,created:false};return {created:true,communication:await tx.communication.create({data:{tenantId:s.tenantId,customerId:ticket.customerId,ticketId:ticket.id,channel:'EMAIL',direction:'OUTBOUND',toAddress:ticket.customer.email,subject:'Your grooming appointment',body:'Your appointment at '+business+' is attached as a calendar invitation.',externalId:'calendar:'+hash,deliveryStatus:'PENDING'}})}});

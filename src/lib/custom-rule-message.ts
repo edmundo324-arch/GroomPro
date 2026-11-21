@@ -24,8 +24,8 @@ export async function sendCustomRuleMessage(tenantId:string,rule:{id:string;revi
   const phone=customer.phones?.[0];
   if(channel==='SMS'&&(customer.appointmentSms===false||customer.invalidSmsNumber||!phone))continue;
   if(channel==='EMAIL'&&(customer.appointmentEmail===false||customer.invalidEmail||!customer.email))continue;
-  if(channel==='SMS'&&(!configFor(tenantId)||!await isFeatureEnabled(tenantId,customerContactFeature)))throw Error('Finish customer texting setup before this rule can send texts.');
-  if(channel==='EMAIL'&&!customerEmailConfig(tenantId))throw Error('Finish customer email setup before this rule can send email.');
+  if(channel==='SMS'&&(!(await configFor(tenantId))||!await isFeatureEnabled(tenantId,customerContactFeature)))throw Error('Finish customer texting setup before this rule can send texts.');
+  if(channel==='EMAIL'&&!(await customerEmailConfig(tenantId)))throw Error('Finish customer email setup before this rule can send email.');
   if(channel==='SMS'&&body.length>1600)throw Error('Shorten this rule’s text message to 1,600 characters or fewer.');
   if(action.marketing&&await offerConversationPaused(client,tenantId,customerId,rule.id))continue;
   if(!await claimRuleMessage(client,tenantId,rule,eventId))continue;

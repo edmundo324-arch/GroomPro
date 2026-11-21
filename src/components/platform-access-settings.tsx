@@ -26,7 +26,7 @@ function BusinessOwnerFields({owner,onChange}:{owner:OwnerForm;onChange:(owner:O
 }
 
 export function PlatformAccessSettings(){
- const [business,setBusiness]=useState({name:'',location:'Main Location',timezone:'America/Chicago'});
+ const [business,setBusiness]=useState({name:'',location:'Main Location',timezone:'America/Chicago',sampleSourceId:'',shareMessageConnection:true});
  const [owner,setOwner]=useState<OwnerForm>(blankOwner),[existingOwner,setExistingOwner]=useState<OwnerForm>(blankOwner);
  const [result,setResult]=useState<{tenantId:string;data:AccessData}|null>(null),[tenantId,setTenant]=useState('');
  const [ownerEmail,setOwnerEmail]=useState('');
@@ -102,7 +102,7 @@ export function PlatformAccessSettings(){
      <label>Location name<input required maxLength={100} value={business.location} onChange={e=>setBusiness({...business,location:e.target.value})}/></label>
      <label>Time zone<input required value={business.timezone} onChange={e=>setBusiness({...business,timezone:e.target.value})}/></label>
     </fieldset>
-    <BusinessOwnerFields owner={owner} onChange={setOwner}/>
+    <label>Start With Sample Records From<select value={business.sampleSourceId} onChange={e=>setBusiness({...business,sampleSourceId:e.target.value})}><option value="">Empty Business</option>{data?.tenants.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>{business.sampleSourceId&&<p>Copies customers, dogs, appointments, history, catalog, employees and business settings. Set fresh employee PINs before testing. Automatic message preferences stay on as configured. Your GroomPro Owner/Developer access remains available through Open Business. Use your own phone and email for message tests.</p>}<label><input type="checkbox" checked={business.shareMessageConnection} onChange={e=>setBusiness({...business,shareMessageConnection:e.target.checked})}/>Use GroomPro’s Text and Email Connection for This Sample Business</label><p>A business-specific sending number and email connection will take priority when configured.</p><BusinessOwnerFields owner={owner} onChange={setOwner}/>
     <button type="submit" className="gp-btn primary" disabled={busy||!business.name.trim()||!business.location.trim()||!business.timezone.trim()||!validOwner(owner)}>Create business</button>
     {message('create')}
    </form>

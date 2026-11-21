@@ -1,11 +1,13 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
+import {requestEmployeePin} from '../lib/employee-fetch';
 import {useFittingTabs} from './fitting-tabs';
 import {NavigationTools} from './navigation-tools';
 import {usePreferenceScope} from './floating-editor-window';
 import {RecoverWindows} from './window-recovery';
 
 const moduleIcons:Record<string,string>={
+ 'Testing Guide':'M5 3h14v18H5zM8 8l1 1 2-2m2 1h3M8 13l1 1 2-2m2 1h3M8 18h8',
  Tickets:'M5 3h14v18l-3-2-4 2-4-2-3 2V3zM8 8h8m-8 4h8m-8 4h5',
  Customers:'M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m16 0v-2a4 4 0 0 0-3-4m-3-7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zm2-4a4 4 0 0 1 0 8',
  Pets:'M8 4c2 0 3 4 1 5-2 1-3-5-1-5zm8 0c2 0 1 6-1 5-2-1-1-5 1-5zM4 9c2 0 3 4 1 5-2 0-3-5-1-5zm16 0c2 0 1 5-1 5-2-1-1-5 1-5zM7 18c0-3 4-6 5-6s5 3 5 6c0 3-4 2-5 2s-5 1-5-2z',
@@ -31,10 +33,10 @@ export function AppNavigation<T extends string>({modules,active,onSelect,onCalen
 }){
  const [open,setOpen]=useState(false);
  const scope=usePreferenceScope(),[order,setOrder]=useState<string[]>([]);
- useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem('groompro:menu-order:'+scope)||'[]');setOrder(Array.isArray(saved)?saved.filter(v=>typeof v==='string'):[])}catch{setOrder([])}},[scope]);
- function reorder(next:string[]){
-  if(!scope){window.dispatchEvent(new CustomEvent('groompro:save-error',{detail:{message:'Sign in before saving your menu order. If you are already signed in, refresh and try again.'}}));return;}
-  try{localStorage.setItem('groompro:menu-order:'+scope,JSON.stringify(next));setOrder(next)}catch{window.dispatchEvent(new CustomEvent('groompro:save-error',{detail:{message:'Your browser could not save the menu order. Allow site storage and try again.'}}))}
+
+ useEffect(()=>{const read=()=>{try{const saved=JSON.parse(localStorage.getItem('groompro:menu-order:'+scope)||'[]');setOrder(Array.isArray(saved)?saved.filter(v=>typeof v==='string'):[])}catch{setOrder([])}};read();window.addEventListener('groompro:menu-order-changed',read);return()=>window.removeEventListener('groompro:menu-order-changed',read)},[scope]);
+ async function reorder(next:string[]){
+  try{let targetScope=scope;if(!targetScope){if(!await requestEmployeePin())return;const [context,session]=await Promise.all([fetch('/api/ui-context',{cache:'no-store'}).then(r=>r.ok?r.json():null),fetch('/api/employee/session',{cache:'no-store'}).then(r=>r.ok?r.json():null)]);if(!context?.tenantId||!session?.employee?.id)throw Error('Sign-in could not be completed. Your menu order was not changed.');targetScope=context.tenantId+':'+(context.locationId||'')+':'+session.employee.id;}localStorage.setItem('groompro:menu-order:'+targetScope,JSON.stringify(next));window.dispatchEvent(new Event('groompro:menu-order-changed'));}catch(e){window.dispatchEvent(new CustomEvent('groompro:save-error',{detail:{message:e instanceof Error?e.message:'Your browser could not save the menu order. Allow site storage and try again.'}}))}
  };
  const root=useRef<HTMLDivElement>(null),more=useRef<HTMLButtonElement>(null);
  const calendarShortcuts=Boolean(onCalendarView&&modules.some(value=>value==='Calendar'));

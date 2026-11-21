@@ -1,10 +1,11 @@
+import {messageProviderConnection} from './message-provider-connection';
 import {prepareEmailReply,receivingDomain} from './email-replies';
 import {emailDeliveryMessage} from './email-delivery';
 import {db} from './db';
 
-export function customerEmailConfig(tenantId:string):{apiKey:string;from:string;webhookSecret?:string;receivingDomain?:string}|null{
+export async function customerEmailConfig(tenantId:string):Promise<{apiKey:string;from:string;webhookSecret?:string;receivingDomain?:string}|null>{
  try{
-  const value=JSON.parse(process.env.GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON||'{}')[tenantId];
+  const value=await messageProviderConnection('GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON',tenantId);
   return typeof value?.apiKey==='string'&&value.apiKey.trim()&&typeof value?.from==='string'&&value.from.trim()?{apiKey:value.apiKey,from:value.from,receivingDomain:receivingDomain(value.receivingDomain)||undefined,webhookSecret:typeof value.webhookSecret==='string'?value.webhookSecret:undefined}:null;
  }catch{return null;}
 }
@@ -18,7 +19,7 @@ export async function sendCustomerEmail({tenantId,customerId,body,document,appoi
  if(document&&deliveryEmail!==document.expectedEmail)throw Error('The customer’s email address changed. Reopen the receipt action to review it.');
  if(document?.ticketId&&!await db.ticket.findFirst({where:{id:document.ticketId,tenantId,customerId}}))throw Error('This appointment no longer belongs to the selected customer. Refresh it before sending.');
  const tenant=await db.tenant.findUniqueOrThrow({where:{id:tenantId},select:{name:true}});
- const config=customerEmailConfig(tenantId),subject=document?.subject||`A message from ${tenant.name}`;
+ const config=await customerEmailConfig(tenantId),subject=document?.subject||`A message from ${tenant.name}`;
  let communication;
  try{communication=await db.communication.create({data:{...(document?{id:document.id,ticketId:document.ticketId||null}:{}),tenantId,customerId:customer.id,channel:'EMAIL',direction:'OUTBOUND',body:text,subject,toAddress:deliveryEmail,fromAddress:config?.from||null,deliveryStatus:config?'SENDING':'NOT_CONFIGURED'}});}catch(error){
   if(!document||(error as {code?:string}).code!=='P2002')throw error;

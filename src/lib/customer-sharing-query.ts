@@ -43,7 +43,7 @@ export async function checkSharingReferences(client:any,data:any){
 export function scopedClient(client:any):any{
  return new Proxy(client,{get(owner,key){
   if((key==='$queryRaw'||key==='$queryRawUnsafe')&&sharingScope.getStore())return async(...args:any[])=>{const result=await owner[key](...args);if(!Array.isArray(result))return result;const allowed:Record<string,Set<string>>={};for(const [field,model] of [['customerId','Customer'],['petId','Pet'],['ticketId','Ticket']]){const ids=[...new Set(result.map((row:any)=>row[field]).filter(Boolean))];if(ids.length){const delegate=model[0].toLowerCase()+model.slice(1);allowed[field]=new Set((await owner[delegate].findMany({where:{id:{in:ids},...sharingWhere(model)},select:{id:true}})).map((row:any)=>row.id));}}return result.filter((row:any)=>Object.entries(allowed).every(([field,ids])=>!row[field]||ids.has(row[field])));};
-  if(key==='$transaction')return (work:any,options:any)=>typeof work==='function'?owner.$transaction((tx:any)=>work(scopedClient(tx)),options):owner.$transaction(work,options);
+  if(key==='$transaction')return typeof owner.$transaction==='function'?(work:any,options:any)=>typeof work==='function'?owner.$transaction((tx:any)=>work(scopedClient(tx)),options):owner.$transaction(work,options):undefined;
   const value=Reflect.get(owner,key,owner),model=[...models.keys()].find(name=>name[0].toLowerCase()+name.slice(1)===key);
   if(!model||!sharingScope.getStore())return typeof value==='function'?value.bind(owner):value;
   return new Proxy(value,{get(delegate,method){const fn=delegate[method];if(typeof fn!=='function')return fn;

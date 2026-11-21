@@ -46,7 +46,7 @@ export async function runAppointmentMessages(cursor:MessageCursor|null=null,targ
    // Reload at dispatch rather than trusting a previously scheduled time or recipient.
    const ticket=await db.ticket.findFirst({where:{id:entry.id,tenantId},include:{location:true,customer:{include:{phones:{where:{smsEnabled:true},orderBy:{isPrimary:'desc'}}}},pets:{include:{pet:true}}}});
    if(!ticket||(!ticket.scheduledStart&&!ticket.closedAt)||!ticket.customer.active){last=entry.id;continue;}
-   const current=await readAppointmentMessageSettings(tenantId),rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[attendanceKey(ticket.id),'PORTAL_CANCELLATION:'+ticket.id]}}});
+   const current=await readAppointmentMessageSettings(tenantId),rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[attendanceKey(ticket.id),'PORTAL_CANCELLATION:'+ticket.id,'PICKUP_TEXT_CANCELLED:'+ticket.id]}}});
    const state=rows.find(row=>row.settingKey===attendanceKey(ticket.id))?.value as any,cancellation=rows.find(row=>row.settingKey==='PORTAL_CANCELLATION:'+ticket.id)?.value as any;
    if(!current.activeSince||!current.policy.publicOrigin){last=entry.id;continue;}
    const plans=[...planAppointmentMessages(ticket,state,current.policy,new Date(current.activeSince),new Date(),cancellation?.state==='PENDING'),...await lifecyclePlans(db,ticket,current.policy,new Date(current.lifecycleActiveSince||current.activeSince),new Date(),new Date(current.reviewActiveSince||Date.now()),new Date(current.reportCardActiveSince||Date.now()))];
@@ -65,7 +65,7 @@ export async function runAppointmentMessages(cursor:MessageCursor|null=null,targ
      const baseId=appointmentMessageId(tenantId,ticket.id,messageDate,plan.kind,plan.at,channel),id=override?await ruleMessageAttempt(db,tenantId,baseId,ticket.customerId,override.rule):baseId;if(!id)continue;
      if(await db.communication.findFirst({where:{id,tenantId,customerId:ticket.customerId,ticketId:ticket.id}}))continue;
      // A preceding provider call may take time: recheck cancellation, confirmation and policy before the next send.
-     const fresh=await db.ticket.findFirst({where:{id:ticket.id,tenantId},select:{id:true,tenantId:true,customerId:true,scheduledStart:true,status:true,bookingDecision:true,pickupAt:true,pickupCompletedAt:true,closedAt:true}}),latest=await readAppointmentMessageSettings(tenantId),latestRows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[attendanceKey(ticket.id),'PORTAL_CANCELLATION:'+ticket.id]}}});
+     const fresh=await db.ticket.findFirst({where:{id:ticket.id,tenantId},select:{id:true,tenantId:true,customerId:true,scheduledStart:true,status:true,bookingDecision:true,pickupAt:true,pickupCompletedAt:true,closedAt:true}}),latest=await readAppointmentMessageSettings(tenantId),latestRows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:[attendanceKey(ticket.id),'PORTAL_CANCELLATION:'+ticket.id,'PICKUP_TEXT_CANCELLED:'+ticket.id]}}});
      if(!fresh||(!fresh.scheduledStart&&!fresh.closedAt)||fresh.customerId!==ticket.customerId||+(fresh.scheduledStart||fresh.closedAt!)!==+messageDate||latest.revision!==current.revision||await platformRestriction(tenantId)||!await isFeatureEnabled(tenantId,'MESSAGING'))continue;
      if(plan.kind==='PICKUP'&&(!pickupDelayElapsed(fresh,latest.policy)||+new Date(fresh.pickupAt!)!==+new Date(ticket.pickupAt!)))continue;
      const liveState=latestRows.find(r=>r.settingKey===attendanceKey(ticket.id))?.value as any,liveCancel=latestRows.find(r=>r.settingKey==='PORTAL_CANCELLATION:'+ticket.id)?.value as any;
@@ -80,19 +80,20 @@ export async function runAppointmentMessages(cursor:MessageCursor|null=null,targ
      }
      let result;
      if(channel==='SMS'){
+      if(plan.kind==='PICKUP'&&(latestRows.find(r=>r.settingKey==='PICKUP_TEXT_CANCELLED:'+ticket.id)?.value as any)?.readyAt===fresh.pickupAt?.toISOString())continue;
       if(plan.kind==='PICKUP'&&await db.communication.findFirst({where:{tenantId,ticketId:ticket.id,channel:'SMS',subject:'Ready for pickup',id:{not:{startsWith:'appt_'}},sentAt:{gte:fresh.pickupAt!}}}))continue;
       if(ticket.customer.appointmentSms===false||ticket.customer.invalidSmsNumber)continue;
-      if(!configFor(tenantId)||!await isFeatureEnabled(tenantId,customerContactFeature)){problem='Texting setup or texting subscription needs attention.';continue;}
+      if(!(await configFor(tenantId))||!await isFeatureEnabled(tenantId,customerContactFeature)){problem='Texting setup or texting subscription needs attention.';continue;}
       const phone=ticket.customer.phones[0];if(!phone){problem='Some appointments have no customer number with texting enabled. Review their profiles.';continue;}
       const digits=normalizePhone(phone.number),to=phone.number.trim().startsWith('+')?'+'+phone.number.replace(/\D/g,''):digits.length===10?'+1'+digits:'+'+digits;
       if((plan.kind==='REBOOKING'||override?.action.marketing)&&!(await reserveMarketingMessage(db,tenantId,ticket.customerId,appointmentMessageId(tenantId,ticket.id,messageDate,plan.kind,plan.at,'MARKETING'))).allowed)continue;
       if(override&&!await claimRuleMessage(db,tenantId,override.rule,override.eventId))continue;
       if(override)await rememberRuleDelivery(db,tenantId,override.rule,override.eventId,id,ticket.customerId,channel);
       else if(plan.kind==='REBOOKING')await rememberRuleDelivery(db,tenantId,{id:standardRebookingRule,revision:current.revision},ticket.id,id,ticket.customerId,channel);
-      result=await sendCustomerSms({tenantId,customerId:ticket.customerId,ticketId:ticket.id,phoneId:phone.id,subject,body,operation:{id,expectedPhone:to}});
+      result=await sendCustomerSms({tenantId,customerId:ticket.customerId,ticketId:ticket.id,phoneId:phone.id,subject,body,operation:{id,expectedPhone:to,...(plan.kind==='PICKUP'?{pickupReadyAt:fresh.pickupAt!.toISOString()}:{})}});
      }else{
       if(ticket.customer.appointmentEmail===false||ticket.customer.invalidEmail)continue;
-      if(!customerEmailConfig(tenantId)||!ticket.customer.email){problem='Email setup or a customer email address needs attention.';continue;}
+      if(!(await customerEmailConfig(tenantId))||!ticket.customer.email){problem='Email setup or a customer email address needs attention.';continue;}
       if((plan.kind==='REBOOKING'||override?.action.marketing)&&!(await reserveMarketingMessage(db,tenantId,ticket.customerId,appointmentMessageId(tenantId,ticket.id,messageDate,plan.kind,plan.at,'MARKETING'))).allowed)continue;
       if(override&&!await claimRuleMessage(db,tenantId,override.rule,override.eventId))continue;
       if(override)await rememberRuleDelivery(db,tenantId,override.rule,override.eventId,id,ticket.customerId,channel);

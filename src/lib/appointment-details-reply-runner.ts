@@ -27,11 +27,11 @@ export async function runAppointmentDetailsReplies(client:any,tenant:{id:string;
   if(saved.channel==='SMS'){
    const phone=customer.phones.find((p:any)=>p.smsEnabled&&normalizePhone(p.number)===normalizePhone(saved.fromAddress||''));
    if(!phone||customer.appointmentSms===false||customer.invalidSmsNumber){await finish('Appointment-details text skipped because contact preferences changed.');continue;}
-   if(!configFor(tenantId)||!await isFeatureEnabled(tenantId,customerContactFeature))continue;
+   if(!(await configFor(tenantId))||!await isFeatureEnabled(tenantId,customerContactFeature))continue;
    result=await sendCustomerSms({tenantId,customerId:customer.id,phoneId:phone.id,ticketId:ticket.id,body,subject:'Appointment details',operation:{id,expectedPhone:saved.fromAddress}});
   }else{
    if(customer.appointmentEmail===false||customer.invalidEmail||!customer.email||customer.email.toLowerCase()!==String(saved.fromAddress).toLowerCase()){await finish('Appointment-details email skipped because the customer’s address or preferences changed.');continue;}
-   if(!customerEmailConfig(tenantId))continue;
+   if(!(await customerEmailConfig(tenantId)))continue;
    result=await sendCustomerEmail({tenantId,customerId:customer.id,body,appointmentMessage:true,document:{id,ticketId:ticket.id,subject:'Appointment details',expectedEmail:customer.email,html:'<p>'+escapeHtml(body).replace(/\n/g,'<br>')+'</p>'}});
   }
   await finish('Appointment details reply recorded: '+result.communication.deliveryStatus);

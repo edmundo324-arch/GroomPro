@@ -120,7 +120,7 @@ export async function startPhoneVerification(tenantId:string,input:string,entry?
  const config=await readAgreementConfig(tenantId);
  const channel=entry?.channel||'online';
  if(purpose!=='portal'&&(!config.channels.includes(channel)||!(entry?.terms||config.intake).clauses.length||!(entry?.shopEmail||config.shopEmail)))throw agreementError('Online intake is unavailable. Ask the shop for an intake link.');
- const sms=configFor(tenantId);
+ const sms=(await configFor(tenantId));
  if(!sms)throw agreementError('Text verification is unavailable. Ask the shop for an intake link.');
  const pin=String(randomInt(100000,1000000)),token=newToken(),now=Date.now();
  await db.$transaction(async tx=>{

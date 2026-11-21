@@ -1,3 +1,4 @@
+import {messageProviderConnection} from './message-provider-connection';
 import {deliveryMessage} from './human-communication';
 import {db} from './db';
 import {normalizePhone} from './customer';
@@ -6,10 +7,10 @@ export class TextingPlanError extends Error {
  constructor(){super('This subscription does not include customer texting. Ask the business owner to review the plan.')}
 }
 export type SmsConfig={accountSid:string;authToken:string;from:string;webhookUrl?:string};
-export function configFor(tenantId:string):SmsConfig|null{try{const all=JSON.parse(process.env.GROOMPRO_SMS_TENANTS_JSON||'{}');const c=all[tenantId];return c&&/^AC[0-9a-f]{32}$/i.test(c.accountSid)&&c.authToken&&/^\+[1-9]\d{7,14}$/.test(c.from)?c:null}catch{return null}}
+export async function configFor(tenantId:string):Promise<SmsConfig|null>{try{const c=await messageProviderConnection('GROOMPRO_SMS_TENANTS_JSON',tenantId);return c&&/^AC[0-9a-f]{32}$/i.test(c.accountSid)&&c.authToken&&/^\+[1-9]\d{7,14}$/.test(c.from)?c:null}catch{return null}}
 export function smsCallbackUrl(config:SmsConfig,tenantId:string,communicationId=''){try{if(!config.webhookUrl)return null;const url=new URL(config.webhookUrl);if(url.protocol!=='https:'||url.search||url.hash||url.username||url.password)return null;url.searchParams.set('tenantId',tenantId);if(communicationId)url.searchParams.set('communicationId',communicationId);return url.toString()}catch{return null}}
-export const smsConfigured=(tenantId:string)=>!!configFor(tenantId);
-export async function sendCustomerSms({tenantId,customerId,ticketId,phoneId,body,subject,operation}:{tenantId:string;customerId:string;ticketId?:string;phoneId?:string;body:string;subject?:string;operation?:{id:string;expectedPhone:string}}){
+export const smsConfigured=async(tenantId:string)=>!!(await configFor(tenantId));
+export async function sendCustomerSms({tenantId,customerId,ticketId,phoneId,body,subject,operation}:{tenantId:string;customerId:string;ticketId?:string;phoneId?:string;body:string;subject?:string;operation?:{id:string;expectedPhone:string;pickupReadyAt?:string}}){
  if (!await isFeatureEnabled(tenantId, customerContactFeature)) throw new TextingPlanError();
  if(!body.trim()||body.length>1600)throw Error('Enter a text message of up to 1,600 characters before sending.');
  const customer=await db.customer.findFirst({where:{id:customerId,tenantId,active:true},include:{phones:{where:{smsEnabled:true},orderBy:{isPrimary:'desc'}}}});if(!customer)throw Error('Customer not found.');
@@ -19,7 +20,13 @@ export async function sendCustomerSms({tenantId,customerId,ticketId,phoneId,body
  if(!/^\+[1-9]\d{7,14}$/.test(to))throw Error('Check the phone number, including its country code, before sending.');
  if(ticketId&&!await db.ticket.findFirst({where:{id:ticketId,tenantId,customerId}}))throw Error('Ticket does not belong to this customer.');
  if(operation&&to!==operation.expectedPhone)throw Error('The customer’s texting number changed. Review the appointment message before sending.');
- const config=configFor(tenantId);let communication;try{communication=await db.communication.create({data:{...(operation?{id:operation.id}:{}),tenantId,customerId,ticketId:ticketId||null,channel:'SMS',direction:'OUTBOUND',toAddress:to,fromAddress:config?.from||null,subject:subject||null,body,deliveryStatus:config?'SENDING':'NOT_CONFIGURED'}});}catch(error){
+ const config=await configFor(tenantId);const create=(client:any)=>client.communication.create({data:{...(operation?{id:operation.id}:{}),tenantId,customerId,ticketId:ticketId||null,channel:'SMS',direction:'OUTBOUND',toAddress:to,fromAddress:config?.from||null,subject:subject||null,body,deliveryStatus:config?'SENDING':'NOT_CONFIGURED'}});
+ let communication;try{communication=operation?.pickupReadyAt?await db.$transaction(async tx=>{
+  await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticketId} AND tenantId=${tenantId} FOR UPDATE`;
+  const current=await tx.ticket.findFirst({where:{id:ticketId,tenantId,customerId}}),cancel=(await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'PICKUP_TEXT_CANCELLED:'+ticketId}}}))?.value as any;
+  if(current?.status!=='READY'||current.pickupCompletedAt||current.pickupAt?.toISOString()!==operation.pickupReadyAt||cancel?.readyAt===operation.pickupReadyAt)throw Error('This pickup text was cancelled or the completion changed. No text was sent.');
+  return create(tx);
+ }):await create(db);}catch(error){
   if(!operation||(error as {code?:string}).code!=='P2002')throw error;
   const existing=await db.communication.findFirst({where:{id:operation.id,tenantId,customerId,ticketId:ticketId||null,channel:'SMS',direction:'OUTBOUND'}});
   if(!existing)throw Error('This text request could not be matched. Review Communication History before sending again.');
