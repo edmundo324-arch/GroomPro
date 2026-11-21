@@ -16,7 +16,7 @@ async function tenantFrom(request: NextRequest) {
 async function handlePolicyGET(request: NextRequest) {const denial=await moduleDenial(request,'INVENTORY');if(denial)return denial;
   const tenantId = await tenantFrom(request);
   if (!tenantId) return NextResponse.json({ error: "Business setup is not complete yet." }, { status: 503 });
-  const products = await db.product.findMany({ where: { tenantId, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, sku: true, priceCents: true, quantity: true } });
+  const products = await db.product.findMany({ where: { tenantId, active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, description: true, sku: true, priceCents: true, quantity: true } });
   return NextResponse.json({ products });
 }
 
