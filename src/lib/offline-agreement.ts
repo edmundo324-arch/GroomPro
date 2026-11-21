@@ -1,8 +1,9 @@
+import type {PublicHintSettings} from './public-hint-settings';
 import {deviceRead,deviceUpdate} from './offline-device-store';
 import {customerFields,dogFields,type AgreementKind,type AgreementProfile,type Quote,type Signature,type Terms} from './customer-agreement-model';
 
-export type AgreementView={profile:AgreementProfile;kind:AgreementKind;quote:Quote[];terms:Terms;tablet?:boolean;revision:string;business:string};
-export type IntakeStation={terms:Terms;business:string;verifyExisting?:boolean;profiles?:{phones:string[];profile:AgreementProfile;revision:string}[];verificationPhones?:string[]};
+export type AgreementView={hints?:PublicHintSettings;profile:AgreementProfile;kind:AgreementKind;quote:Quote[];terms:Terms;tablet?:boolean;revision:string;business:string};
+export type IntakeStation={hints?:PublicHintSettings;terms:Terms;business:string;verifyExisting?:boolean;profiles?:{phones:string[];profile:AgreementProfile;revision:string}[];verificationPhones?:string[]};
 export type TabletDraft={
  id:string;token:string;phone:string;expectedCustomerId?:string;view:AgreementView;serverRevision:string;
  edits:Record<string,unknown>[];submission?:{signature:Signature;selectedPets:string[]};documentId?:string;issue?:string;

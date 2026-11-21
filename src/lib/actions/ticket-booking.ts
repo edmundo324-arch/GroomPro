@@ -48,6 +48,11 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if(body.bookingSource==='ONLINE'&&request.headers.get('x-groompro-scheduling-overrides'))return NextResponse.json({error:'Online booking cannot override scheduling restrictions.'},{status:403});
   if(portal&&(body.customerId!==portal.customerId||body.bookingSource!=='ONLINE'))return NextResponse.json({error:'Sign in to the correct customer profile.'},{status:403});
+  // A retry of an already saved portal request must return that booking before
+  // availability checks see the booking itself as a conflict. Recheck under the
+  // tenant lock below as well, for simultaneous retries.
+  const requestedPortalId=portal&&/^[0-9a-f-]{36}$/i.test(portal.requestId)?'portal_'+createHash('sha256').update(tenantId+':'+portal.customerId+':'+portal.requestId).digest('hex').slice(0,40):undefined;
+  if(requestedPortalId){const existing=await db.ticket.findFirst({where:{id:requestedPortalId,tenantId,customerId:portal!.customerId}});if(existing)return NextResponse.json({ticket:existing,warnings:[]});}
   if (!body.customerId) return NextResponse.json({ error: "Customer is required." }, { status: 400 });
   if([body.tipCents,body.salesTaxCents].some(v=>v!==undefined&&(!Number.isInteger(v)||v<0||v>2147483647)))return NextResponse.json({error:"Invalid tax or tip."},{status:400});
   if (body.arrivalPriority !== undefined && (!Number.isInteger(body.arrivalPriority) || body.arrivalPriority < 1)) return NextResponse.json({ error: "Arrival priority must be a positive whole number." }, { status: 400 });
@@ -71,7 +76,7 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
   if(source === "ONLINE" && !scheduledStart) return NextResponse.json({error:"Online appointments require a scheduled date and time."},{status:400});
   if(source==='ONLINE'&&scheduledStart){const blocked=await onlineBlockError(tenantId,locationId,scheduledStart,durationMin,body.onlineCategory);if(blocked)return NextResponse.json({error:blocked},{status:409});}
   const rules = scheduledStart?await checkCustomerBookingRules(tenantId, customer.id, scheduledStart, durationMin,petIds):{hardOverlap:false,conflicts:[]};
-  if (source === "ONLINE" && rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at this time. Online booking cannot double-book a customer.", conflicts: rules.conflicts }, { status: 409 });
+  if (source === "ONLINE" && !portal && rules.hardOverlap) return NextResponse.json({ error: "This customer already has an appointment at this time. Online booking cannot double-book a customer.", conflicts: rules.conflicts }, { status: 409 });
   const customerWarnings = rules.conflicts;
   const nearby=customerWarnings.length?'Appointment spacing warning: '+customerWarnings.map(c=>c.message).join('\n'):'';
   if(source==='STAFF'&&nearby&&!await approvedScheduling(request,nearby))return NextResponse.json(schedulingWarning(nearby),{status:409});
@@ -79,8 +84,13 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
   let orderNumber=0;
   const lines=resolved.lines.map((line,index)=>({...line,id:offlineLineId(index)}));
   const detailMap = new Map((body.petDetails || []).map(p => [p.petId, p]));
-  const ticket = await db.$transaction(async tx => {
+  let ticket;try{ticket = await db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
+    if(source==='STAFF'&&scheduledStart){
+      const current=await checkCustomerBookingRules(tenantId,customer.id,scheduledStart,durationMin,petIds,undefined,tx);
+      const warning=current.conflicts.length?'Appointment spacing warning: '+current.conflicts.map(c=>c.message).join('\n'):'';
+      if(warning&&!await approvedScheduling(request,warning))throw schedulingException(warning);
+    }
     let portalId:string|undefined,autoConfirm=false;
     if(portal){
      if(!/^[0-9a-f-]{36}$/i.test(portal.requestId)||!scheduledStart)throw portalBookingError('Choose an appointment time and try again.');
@@ -103,7 +113,7 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
     if(body.draftId&&!draft)throw Error('Draft not found.');
     if(draft?.promotedAt){const existing=await tx.ticket.findFirst({where:{id:draft.id,tenantId}});if(existing)return existing;}
     orderNumber=draft?.orderNumber||await nextTicketNumber(tx,tenantId);
-    const created = await tx.ticket.create({ data: { ...(draft?{id:draft.id,createdAt:draft.createdAt}:{id:portalId||offlineCreateId()}),tenantId, locationId, customerId: customer.id, tipCents:body.tipCents||0,salesTaxCents:body.salesTaxCents||0,orderNumber, scheduledStart, durationMin, bookingAssetId:body.bookingAssetId||null, timingMode:mode, arrivalPriority: body.arrivalPriority ?? null, status: autoConfirm?"CONFIRMED":"OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? (autoConfirm?"ACCEPTED":"REQUESTED") : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: [{ userId: body.groomerId, role: "GROOMER" },{userId:body.groomerId,role:"PLANNED_GROOMER"}] } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}}, pet: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } } });
+    const created = await tx.ticket.create({ data: { ...(draft?{id:draft.id,createdAt:draft.createdAt}:{id:portalId||offlineCreateId()}),tenantId, locationId, customerId: customer.id, tipCents:body.tipCents||0,salesTaxCents:body.salesTaxCents||0,orderNumber, scheduledStart, durationMin, bookingAssetId:body.bookingAssetId||null, timingMode:mode, arrivalPriority: body.arrivalPriority ?? null, status: "OPEN", bookingSource: source, onlineCategory: body.onlineCategory || null, bookingDecision: source === "ONLINE" ? (autoConfirm?"ACCEPTED":"REQUESTED") : "INTERNAL", requestedAt: source === "ONLINE" ? new Date() : null, notes: body.notes?.trim() || null, pets: { create: petIds.map(petId => { const d = detailMap.get(petId); return { petId, weightLbs: d?.weightLbs == null ? undefined : d.weightLbs, analSituation: d?.analSituation || null, vipAvailability: d?.vipAvailability || null }; }) }, lines: { create: lines }, ...(body.groomerId ? { assignments: { create: [{ userId: body.groomerId, role: "GROOMER" },{userId:body.groomerId,role:"PLANNED_GROOMER"}] } } : {}) }, include: { customer: true, pets: { include: { pet: true } }, lines: { include: { assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}}, pet: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } } });
     if(body.lineStartPositions?.length){if(!Array.isArray(body.lineStartPositions)||body.lineStartPositions.length>2000)throw Error('Invalid service start times.');const starts:Record<string,string>={};for(const item of body.lineStartPositions){const line=created.lines.find(l=>l.sortOrder===item.sortOrder),start=new Date(item.start);if(!line||!Number.isFinite(+start))throw Error('Invalid service start time.');starts[line.id]=start.toISOString();}const times=lineSchedule({...created,lineStarts:starts}),bounds=scheduleBounds(created,times),error=await appointmentHoursError(tenantId,locationId,new Date(bounds.scheduledStart),bounds.durationMin);if(error)throw Error(error);await writeLineStarts(tx,tenantId,created.id,times,created);Object.assign(created,await tx.ticket.update({where:{id:created.id},data:bounds}));}
     if(body.petServiceTypes){
      const configured=(await workflowSettings(tenantId,tx)).customServiceTypes;
@@ -121,8 +131,8 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
     created.totalCents=created.lines.reduce((sum,line)=>sum+line.totalCents,0)+created.salesTaxCents+created.tipCents;
     await tx.ticket.update({where:{id:created.id},data:{totalCents:created.totalCents}});
     return created;
-  });
-  if(orderNumber)await writeAudit({ tenantId, actorUserId: session?.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? (ticket.status==="CONFIRMED"?"Confirmed online appointment":"Received online request") : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.`, details: { scheduledStart: scheduledStart?.toISOString()||null, petCount: petIds.length, lineCount: lines.length, arrivalPriority: body.arrivalPriority ?? null } });
+  });}catch(error){const details=warningDetails(error);if(details.schedulingWarning)return NextResponse.json({...details,error:(error as Error).message},{status:409});throw error;}
+  if(orderNumber)await writeAudit({ tenantId, actorUserId: session?.user.id, entityType: "TICKET", entityId: ticket.id, customerId: customer.id, action: "CREATE", summary: `${source === "ONLINE" ? (ticket.bookingDecision==="ACCEPTED"?"Accepted online appointment":"Received online request") : "Created appointment"} #${orderNumber} for ${pets.map(p => p.name).join(", ")}.`, details: { scheduledStart: scheduledStart?.toISOString()||null, petCount: petIds.length, lineCount: lines.length, arrivalPriority: body.arrivalPriority ?? null } });
   return NextResponse.json({ ticket, warnings: customerWarnings });
 }
 
@@ -155,8 +165,13 @@ export async function PATCH(request: NextRequest) {
   if(nearby&&!await approvedScheduling(request,nearby))return NextResponse.json(schedulingWarning(nearby),{status:409});
   const previousStart = ticket.scheduledStart;
   let updated;try{updated = await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;
     const live=await tx.ticket.findUnique({where:{id:ticket.id}});
+    const currentRules=await checkCustomerBookingRules(tenantId,ticket.customerId,newStart,ticket.durationMin,ticket.pets.map(p=>p.petId),ticket.id,tx);
+    const currentWarning=currentRules.conflicts.length?'Appointment spacing warning: '+currentRules.conflicts.map(c=>c.message).join('\n'):'';
+    if(currentWarning&&!await approvedScheduling(request,currentWarning))throw schedulingException(currentWarning);
+
     if(body.expectedStart&&live?.scheduledStart?.toISOString()!==body.expectedStart)throw Error('Appointment changed elsewhere. Refresh before moving.');
     if(!live||['CLOSED','CANCELLED','NO_SHOW'].includes(live.status))throw Error('This appointment is closed.');
     if(body.plannedAssignments!==undefined){if(live.checkedInAt)throw Error('Use service-line assignments after check-in.');const changed=await checkPlannedPackages(tenantId,{...ticket,scheduledStart:newStart},body.plannedAssignments,await approvedScheduling(request,'Choose an available employee or Assign later.'),tx),previous=await readPlannedPackages(tenantId,ticket.id,tx);const keys=new Set(changed.map(p=>p.petId+'|'+(p.packageKey||'')));await writePlannedPackages(tx,tenantId,ticket.id,[...previous.filter(p=>!keys.has(p.petId+'|'+(p.packageKey||''))),...changed],ticket,previous);}
@@ -168,7 +183,7 @@ export async function PATCH(request: NextRequest) {
     await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "MOVED", previousStart, newStart } });
     return changed;
   });
-  }catch(error){const details=attendanceDecisionDetails(error);if(details.attendanceDecision)return NextResponse.json({error:(error as Error).message,...details},{status:409});throw error;}
+  }catch(error){const warning=warningDetails(error);if(warning.schedulingWarning)return NextResponse.json({...warning,error:(error as Error).message},{status:409});const details=attendanceDecisionDetails(error);if(details.attendanceDecision)return NextResponse.json({error:(error as Error).message,...details},{status:409});throw error;}
   await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: ticket.id, customerId: ticket.customerId, action: "MOVE", summary: `Moved appointment #${ticket.orderNumber} from ${previousStart?.toLocaleString()||"unscheduled"} to ${newStart.toLocaleString()}.`, details: { previousStart: previousStart?.toISOString()||null, newStart: newStart.toISOString() } });
   await reconcileEmployeeAssignments(tenantId);
   return NextResponse.json({ ticket: updated, moved: true, previousStart, newStart });

@@ -1,4 +1,6 @@
 "use client";
+import {CustomerHelpfulHints} from './help-popup';
+import type {PublicHintSettings} from '../lib/public-hint-settings';
 import {useEffect,useRef,useState,type PointerEvent} from 'react';
 import {agreementTitle,customerFields,dogFields,formatAgreementPrice,type AgreementPet,type Stroke} from '../lib/customer-agreement-model';
 
@@ -64,6 +66,16 @@ function downloadPdf(result:Result){
 }
 
 export function CustomerAgreementForm(){
+ const [hints,setHints]=useState<PublicHintSettings>();
+ useEffect(()=>{
+  const url=new URL(window.location.href),tenant=url.searchParams.get('tenant'),location=url.searchParams.get('location');
+  if(!tenant||url.hash||url.searchParams.get('tablet')==='1')return;
+  let active=true;
+  fetch('/api/customer-portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenant,location,action:'branding'}),cache:'no-store'})
+   .then(async response=>{if(!response.ok)return;const data=await response.json();if(active)setHints(data.hints)}).catch(()=>{});
+  return()=>{active=false};
+ },[]);
+
  const [station,setStation]=useState(false),[token,setToken]=useState(''),[stage,setStage]=useState('loading'),[view,setView]=useState<AgreementView|null>(null);
  const [phone,setPhone]=useState(''),[code,setCode]=useState(''),[firstName,setFirst]=useState(''),[lastName,setLast]=useState(''),[dogName,setDogName]=useState(''),[email,setEmail]=useState('');
  const [notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[pending,setPending]=useState(0);
@@ -81,6 +93,7 @@ export function CustomerAgreementForm(){
    cache:'no-store',body:JSON.stringify({locationId:new URLSearchParams(window.location.search).get('location'),tenant:current.tenant,token:override??current.token,action,...data})});
   const payload=await response.json();
   if(!response.ok)throw Object.assign(Error(payload.error||'Could not complete this step.'),{name:'AgreementResponseError'});
+  if(payload.hints&&current.tenant===connection.current.tenant)setHints(payload.hints);
   return payload;
  }).current;
  async function persistDraft(draft:TabletDraft){
@@ -88,7 +101,7 @@ export function CustomerAgreementForm(){
   tabletDraft.current=draft;
   apply(draft.view);
  }
- function apply(data:AgreementView){latestView.current=data;setView(data);setStage(data.profile.id?'form':'create');}
+ function apply(data:AgreementView){setHints(data.hints||stationConfig.current?.hints);latestView.current=data;setView(data);setStage(data.profile.id?'form':'create');}
  useEffect(()=>{
   const url=new URL(window.location.href),id=url.searchParams.get('tenant')||'',secret=url.hash.slice(1);
   connection.current={tenant:id,token:secret};setToken(secret);
@@ -97,7 +110,7 @@ export function CustomerAgreementForm(){
   if(!secret&&!resume){setStage('phone');return;}
   request('view',{station:resume}).then(data=>{
    if(data.tabletStation){
-    const config={terms:data.terms,business:data.business,verifyExisting:data.verifyExisting===true};
+    const config={hints:data.hints,terms:data.terms,business:data.business,verifyExisting:data.verifyExisting===true};
     stationConfig.current=config;
     if(config.verifyExisting)void saveIntakeStation(id,config).catch(()=>setNotice('This tablet could not save its offline setup.'));
     openStation(id);
@@ -116,6 +129,7 @@ export function CustomerAgreementForm(){
   return()=>{window.speechSynthesis?.cancel();};
  },[request]);
  function openStation(tenant:string){
+  setHints(stationConfig.current?.hints);
   connection.current.token='';setToken('');
   history.replaceState(null,'','/customer-forms?tenant='+encodeURIComponent(tenant)+'&tablet=1');
   setStation(true);
@@ -145,7 +159,7 @@ export function CustomerAgreementForm(){
    if(!navigator.onLine)return;
    const data=await request('prepareTablet',{station:true},'');
    if(!active)return;
-   const config: IntakeStation={terms:data.terms,business:data.business,verifyExisting:data.verifyExisting,profiles:data.profiles,verificationPhones:data.verificationPhones};
+   const config: IntakeStation={hints:data.hints,terms:data.terms,business:data.business,verifyExisting:data.verifyExisting,profiles:data.profiles,verificationPhones:data.verificationPhones};
    await saveIntakeStation(tenant,config);
    stationConfig.current=config;
    setLookupReady(!config.verifyExisting&&Array.isArray(config.profiles));
@@ -275,7 +289,7 @@ export function CustomerAgreementForm(){
   startedProfile.current=true;
   void action(async()=>{try{await save({firstName,lastName,email});}catch(error){startedProfile.current=false;throw error;}});
  }
- return <main className="gp-agreement">
+ return <CustomerHelpfulHints settings={hints}><main className="gp-agreement">
   <h1>{view?agreementTitle[view.kind]:station?'New Customer Intake':'Customer forms'}</h1>
   {view?.business&&<p>{view.business}</p>}
   {notice&&<p role="alert">{notice}</p>}
@@ -316,7 +330,7 @@ export function CustomerAgreementForm(){
     const quote=view.quote.find(q=>q.petId===dog.id);
     return <section key={dog.id}><h2>{dog.name}</h2>
      <DogPhoto dog={dog} request={request} save={photo=>save({petId:dog.id,photo})}/>
-     {quote&&<label><input type="checkbox" checked={selected.includes(dog.id)} onChange={e=>setSelected(e.target.checked?[...selected,dog.id]:selected.filter(id=>id!==dog.id))}/>
+     {quote&&<label><input data-customer-help="Select this dog only if you want to enroll them at the plan and recurring price shown. Review each selected dog before signing." type="checkbox" checked={selected.includes(dog.id)} onChange={e=>setSelected(e.target.checked?[...selected,dog.id]:selected.filter(id=>id!==dog.id))}/>
       Enroll {dog.name}{quote.planName?' · '+quote.planName:''} · {formatAgreementPrice(quote.priceCents)} recurring</label>}
      <div className="gp-agreement-grid">{Object.entries(dogFields).map(([key,label])=><LiveField key={key} label={label} value={dog[key as keyof typeof dogFields]}
       save={value=>save({petId:dog.id,[key]:value})}/>)}</div>
@@ -350,5 +364,5 @@ export function CustomerAgreementForm(){
   {stage==='signed'&&<section><h2>Already signed</h2><button className="gp-btn" onClick={()=>void action(async()=>{setResult(await request('sign'));setStage('complete');})}>Open signed copy</button></section>}
   {station&&['code','create','form'].includes(stage)&&<button className="gp-btn" disabled={busy||pending>0} onClick={()=>finish()}>Start over</button>}
   {stage==='finished'&&<p>Thank you. The shop can open another form when ready.</p>}
- </main>;
+ </main></CustomerHelpfulHints>;
 }

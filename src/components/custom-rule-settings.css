@@ -1,0 +1,4 @@
+.gp-rule-editor label{min-width:0;max-width:100%}
+.gp-rule-editor label>input:not([type="checkbox"]),.gp-rule-editor label>select,.gp-rule-editor label>textarea{display:block;width:100%;max-width:100%;box-sizing:border-box;margin-top:5px}
+.gp-rule-editor label>textarea{min-height:100px;resize:vertical}
+.gp-rule-editor p{overflow-wrap:anywhere}

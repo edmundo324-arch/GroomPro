@@ -45,8 +45,8 @@ export function PosTicketLabel({number,compact=false}:{number?:number;compact?:b
  </span>;
 }
 
-export function PosHeaderMenu({details,onDetails,onCall,onCalendar,onReceipt,onEmailReceipt,onGiftCards,onPrepaid,callPending=false}:{
- onPrepaid?:()=>void;onGiftCards?:()=>void;onEmailReceipt?:()=>void;onReceipt?:()=>void;details?:boolean;onDetails?:()=>void;onCall?:()=>void;onCalendar?:(send:boolean)=>void;callPending?:boolean
+export function PosHeaderMenu({details,onDetails,onCall,onCalendar,onReceipt,onEmailReceipt,onGiftCards,onPrepaid,onVoid,onFollowUps,callPending=false}:{
+ onFollowUps?:()=>void;onVoid?:()=>void;onPrepaid?:()=>void;onGiftCards?:()=>void;onEmailReceipt?:()=>void;onReceipt?:()=>void;details?:boolean;onDetails?:()=>void;onCall?:()=>void;onCalendar?:(send:boolean)=>void;callPending?:boolean
 }){
  const [open,setOpen]=useState(false),root=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null);
  useEffect(()=>{
@@ -60,6 +60,8 @@ export function PosHeaderMenu({details,onDetails,onCall,onCalendar,onReceipt,onE
   {open&&<div className="gp-ticket-tab-menu">
    {onDetails&&<button type="button" className="gp-btn" onClick={()=>{setOpen(false);onDetails()}}>{details?'Back to ticket':'Details'}</button>}
    <button type="button" className="gp-btn" disabled={!onReceipt} onClick={()=>{setOpen(false);onReceipt?.()}}>Print / save invoice or receipt</button>
+   {onFollowUps&&<button type="button" className="gp-btn" onClick={()=>{setOpen(false);onFollowUps()}}>Pending follow-ups</button>}
+   {onVoid&&<button type="button" className="gp-btn" onClick={()=>{setOpen(false);onVoid()}}>Void unpaid ticket</button>}
    {onPrepaid&&<button type="button" className="gp-btn" onClick={()=>{setOpen(false);onPrepaid()}}>Prepaid packages</button>}
    {onGiftCards&&<button type="button" className="gp-btn" onClick={()=>{setOpen(false);onGiftCards()}}>Gift cards</button>}
    {onEmailReceipt&&<button type="button" className="gp-btn" onClick={()=>{setOpen(false);onEmailReceipt()}}>Email invoice or receipt</button>}

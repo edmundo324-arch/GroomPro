@@ -30,7 +30,7 @@ export async function portalSelection(tenantId:string,locationId:string,customer
 }
 export async function portalAvailability(tenantId:string,locationId:string,date:string,duration:number,serviceType:string,client:any=db,customerId?:string,requiredClasses:string[][]=[]){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw portalBookingError('Choose a valid date.');
- const hours=await locationHours(tenantId,locationId),zone=hours.timezone;
+ const hours=await locationHours(tenantId,locationId,client),zone=hours.timezone;
  const dayStart=localToInstant(date+'T00:00',zone),nextDate=new Date(Date.parse(date+'T12:00:00Z')+86400000).toISOString().slice(0,10),dayEnd=localToInstant(nextDate+'T00:00',zone);
  const [employees,opted,assets,shifts,assetShifts,overrides,blocks,busy]=await Promise.all([
   client.user.findMany({where:{tenantId,active:true},select:{locationId:true,id:true,firstName:true,lastName:true,displayName:true,role:true,jobTitle:true}}),

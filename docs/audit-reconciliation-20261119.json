@@ -1,0 +1,2047 @@
+{
+  "date": "2026-11-19",
+  "publishedCommit": "b13a17b",
+  "basis": "Original 166 Missing/Partial audit entries, reconciled against current source plus recorded focused checks and latest user scope decisions. Includes local account-change report. Original audit rows, not unique features or engineering tasks. No live GoDaddy or provider verification performed.",
+  "resolved": 73,
+  "open": 93,
+  "categories": {
+    "Development / decision": 7,
+    "Custom-rule decisions": 30,
+    "Provider / payment dependency": 19,
+    "Deferred Maps / mobile": 21,
+    "Deferred shop imports": 2,
+    "Not authorized: Training": 2,
+    "Verification / host setup": 12
+  },
+  "items": [
+    {
+      "id": 2,
+      "capability": "Sales by service, product, membership, package, employee, and location",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 3,
+      "capability": "Sales tax collected and tax liability reports",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 4,
+      "capability": "Gross sales, net sales, refunds, voids, discounts, and adjustments",
+      "originalStatus": "Partial",
+      "currentStatus": "Development / decision",
+      "note": "Saved prices, discounts, refunds and account changes exist; complete void/reversal reconciliation is still incomplete.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 5,
+      "capability": "Payment method and payment processing reconciliation",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 6,
+      "capability": "Outstanding balances and accounts receivable",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current balances and unpaid tickets implemented. User replaced overdue-aging assumption with collection on the next booked visit.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 7,
+      "capability": "Employee productivity and revenue per employee",
+      "originalStatus": "Partial",
+      "currentStatus": "Development / decision",
+      "note": "Productivity formula approved in principle; item-duration calculation not implemented. Returned/refunded exclusion still needs clarification.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 8,
+      "capability": "Employee commissions, payroll-related reports, and tips",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 9,
+      "capability": "Appointment volume by day, time, employee, service, and status",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 10,
+      "capability": "Cancellation and no-show analysis",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 11,
+      "capability": "Customer retention, repeat visits, and inactive customers",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 12,
+      "capability": "Customer lifetime value and highest-value customers",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 13,
+      "capability": "Membership revenue, enrollment, cancellations, and retention",
+      "originalStatus": "Partial",
+      "currentStatus": "Development / decision",
+      "note": "Current enrollment and recorded payment reports exist; historical membership retention/status transitions remain incomplete.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 14,
+      "capability": "Package sales, usage, and outstanding balances",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 15,
+      "capability": "Gift card sales, redemption, and liabilities",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 16,
+      "capability": "Inventory, product sales, and cost of goods",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 18,
+      "capability": "Graphical dashboards and visual reporting",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 19,
+      "capability": "Report filtering, exporting, printing, and scheduled delivery",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 20,
+      "capability": "Multi-location reporting, where applicable",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 21,
+      "capability": "GroomPro-hosted booking pages branded for each grooming business",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Logo/theme/welcome implemented; custom-domain/host operation not verified.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 23,
+      "capability": "Embeddable website booking widgets",
+      "originalStatus": "Missing",
+      "currentStatus": "Verification / host setup",
+      "note": "Embed/link support implemented; external-site hosting behavior not live-verified.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 24,
+      "capability": "Customer portal for existing and new customers",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 28,
+      "capability": "Tenant-controlled appointment availability and booking rules",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 29,
+      "capability": "Employee availability and service assignment",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 31,
+      "capability": "Multi-pet and household booking",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 34,
+      "capability": "Current rabies vaccination requirements and other required documents",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 36,
+      "capability": "Deposits and authorized cards on file",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 37,
+      "capability": "Cancellation, rescheduling, and no-show policies",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 38,
+      "capability": "Booking lead-time and advance-booking restrictions",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 39,
+      "capability": "Customer waitlists and available-slot notifications",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 40,
+      "capability": "Booking abandonment tracking and recovery",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 41,
+      "capability": "Booking conversion and customer acquisition reporting",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 42,
+      "capability": "Prevention of conflicting appointments",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Locked availability checks exist; real database concurrent staff/portal booking verification remains outstanding.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 43,
+      "capability": "Recognize when a customer begins but does not complete an online booking",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 44,
+      "capability": "Identify the point where the booking was abandoned",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 45,
+      "capability": "Preserve available customer, pet, service, and appointment information appropriately",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 46,
+      "capability": "Notify authorized staff of abandoned bookings",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 47,
+      "capability": "Support automated or manually initiated follow-ups",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 48,
+      "capability": "Track recovered appointments and associated revenue",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 49,
+      "capability": "Respect customer communication consent and privacy requirements",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 50,
+      "capability": "Appointment created",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 51,
+      "capability": "Appointment confirmed",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 53,
+      "capability": "Appointment rescheduled or canceled",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 54,
+      "capability": "Customer checked in",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 55,
+      "capability": "Pet ready for pickup",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 56,
+      "capability": "Appointment completed",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 57,
+      "capability": "Customer did not arrive",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 58,
+      "capability": "Customer started but abandoned online booking",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/portal-availability.ts",
+        "src/lib/unfinished-bookings.ts",
+        "src/lib/portal-booking-draft.ts",
+        "src/lib/waitlist.ts",
+        "src/components/customer-portal.tsx"
+      ]
+    },
+    {
+      "id": 59,
+      "capability": "Customer has not returned within a configured period",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 60,
+      "capability": "Pet becomes eligible for rebooking",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 61,
+      "capability": "Membership enrollment or cancellation",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 62,
+      "capability": "Membership payment successfully processed or failed",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 63,
+      "capability": "Package approaching expiration",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 64,
+      "capability": "Package balance approaching zero",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 65,
+      "capability": "Customer birthday or pet birthday",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 66,
+      "capability": "Required documents approaching expiration",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 67,
+      "capability": "Outstanding invoice or unpaid balance",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 68,
+      "capability": "Employee or manager follow-up required",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/staff-tasks.ts",
+        "src/components/staff-task-notices.tsx",
+        "src/components/staff-tasks.tsx"
+      ]
+    },
+    {
+      "id": 69,
+      "capability": "Customer confirmed or has not confirmed",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 70,
+      "capability": "Customer responded or did not respond",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 71,
+      "capability": "Appointment remains active",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 72,
+      "capability": "Customer is an active VIP member",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 73,
+      "capability": "Payment completed or failed",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 74,
+      "capability": "Pet is eligible for a particular service or program",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 75,
+      "capability": "Customer has an upcoming appointment",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 76,
+      "capability": "Follow-up has already been completed",
+      "originalStatus": "Missing",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 77,
+      "capability": "Employee has manually intervened",
+      "originalStatus": "Missing",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 78,
+      "capability": "Immediate actions",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 82,
+      "capability": "Time-zone awareness",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 83,
+      "capability": "Cancellation of obsolete scheduled actions",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 84,
+      "capability": "Prevention of duplicate or contradictory communications",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 85,
+      "capability": "SMS notifications",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 86,
+      "capability": "Email notifications",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 87,
+      "capability": "Internal staff notifications",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/staff-tasks.ts",
+        "src/components/staff-task-notices.tsx",
+        "src/components/staff-tasks.tsx"
+      ]
+    },
+    {
+      "id": 88,
+      "capability": "Tasks and follow-up assignments",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/staff-tasks.ts",
+        "src/components/staff-task-notices.tsx",
+        "src/components/staff-tasks.tsx"
+      ]
+    },
+    {
+      "id": 89,
+      "capability": "Customer account updates",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 90,
+      "capability": "Appointment status updates where appropriate",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 91,
+      "capability": "Automated rebooking invitations",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 92,
+      "capability": "Membership-related follow-ups",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 93,
+      "capability": "Payment reminders",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 94,
+      "capability": "Customer retention messages",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 98,
+      "capability": "Role-based permissions",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 99,
+      "capability": "Automation history and delivery logs",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 100,
+      "capability": "Failure handling and retry behavior",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 101,
+      "capability": "Message personalization using actual customer and pet information",
+      "originalStatus": "Partial",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 104,
+      "capability": "Reporting on automation effectiveness",
+      "originalStatus": "Missing",
+      "currentStatus": "Custom-rule decisions",
+      "note": "Specific approved automatic messages/tasks may exist; the general configurable event/condition/action builder is not implemented. User requested options and has not selected scope.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 107,
+      "capability": "Appointment confirmations",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 108,
+      "capability": "Multiple reminder schedules",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 109,
+      "capability": "SMS and email reminders",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 110,
+      "capability": "Two-way messaging",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Two-way SMS/email handlers exist; live inbound provider configuration/delivery not verified.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 111,
+      "capability": "Customized message templates",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 112,
+      "capability": "Customer and pet information placeholders",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 113,
+      "capability": "Automated appointment status notifications",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 114,
+      "capability": "Ready-for-pickup notifications",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 115,
+      "capability": "Appointment changes and cancellation notifications",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 116,
+      "capability": "Rebooking reminders",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 118,
+      "capability": "Message delivery status",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Delivery callbacks/logs exist; live provider delivery remains unverified.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 119,
+      "capability": "Confirmation tracking",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 120,
+      "capability": "Manager follow-up notifications",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/staff-tasks.ts",
+        "src/components/staff-task-notices.tsx",
+        "src/components/staff-tasks.tsx"
+      ]
+    },
+    {
+      "id": 121,
+      "capability": "Customer opt-in and opt-out management",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/appointment-message-runner.ts",
+        "src/lib/appointment-message-policy.ts",
+        "src/lib/appointment-lifecycle-messages.ts",
+        "src/lib/prepaid-reminder-runner.ts",
+        "src/lib/birthday-message-runner.ts",
+        "src/lib/vaccination-reminder-runner.ts"
+      ]
+    },
+    {
+      "id": 124,
+      "capability": "Membership and package purchases",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 125,
+      "capability": "Integrated credit and debit card processing",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 126,
+      "capability": "Contactless and mobile payment options",
+      "originalStatus": "Missing",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 127,
+      "capability": "Secure card-on-file payments",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 128,
+      "capability": "Digital invoices and receipts",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/ticket-receipt.ts",
+        "app/api/tickets/receipt/route.ts"
+      ]
+    },
+    {
+      "id": 129,
+      "capability": "Payment links",
+      "originalStatus": "Missing",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 130,
+      "capability": "Deposits and prepaid balances",
+      "originalStatus": "Partial",
+      "currentStatus": "Development / decision",
+      "note": "Prepaid package balances/refunds exist; explicit reservation-deposit application/refund workflow remains incomplete.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 132,
+      "capability": "Discounts, promotions, and credits",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/promotion-store.ts",
+        "src/lib/rebooking-discount-store.ts",
+        "src/lib/referral-rewards.ts"
+      ]
+    },
+    {
+      "id": 134,
+      "capability": "Refunds, voids, and adjustments",
+      "originalStatus": "Partial",
+      "currentStatus": "Development / decision",
+      "note": "Native cash/account-credit refunds exist; complete void/payment-reversal lifecycle remains incomplete; provider reversals deferred.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 135,
+      "capability": "Outstanding invoices",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Outstanding tickets/account balances implemented using approved next-appointment collection policy, not invented aging buckets.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 136,
+      "capability": "Recurring membership billing",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 137,
+      "capability": "Failed-payment handling",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 138,
+      "capability": "Gift cards and stored-value liabilities",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/gift-cards.ts",
+        "src/lib/prepaid-balances.ts",
+        "src/lib/prepaid-transfer.ts"
+      ]
+    },
+    {
+      "id": 139,
+      "capability": "Payment transaction reporting",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 141,
+      "capability": "Financial reconciliation",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 146,
+      "capability": "Breed, size, coat, and behavior information",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/pet-photos.ts",
+        "src/lib/pet-documents.ts",
+        "src/lib/vaccination-records.ts",
+        "src/lib/grooming-progress.ts",
+        "src/lib/customer-report-card.ts",
+        "src/components/pet-editor.tsx"
+      ]
+    },
+    {
+      "id": 148,
+      "capability": "Photos and before-and-after comparisons",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/pet-photos.ts",
+        "src/lib/pet-documents.ts",
+        "src/lib/vaccination-records.ts",
+        "src/lib/grooming-progress.ts",
+        "src/lib/customer-report-card.ts",
+        "src/components/pet-editor.tsx"
+      ]
+    },
+    {
+      "id": 149,
+      "capability": "Customer-facing grooming report cards",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/pet-photos.ts",
+        "src/lib/pet-documents.ts",
+        "src/lib/vaccination-records.ts",
+        "src/lib/grooming-progress.ts",
+        "src/lib/customer-report-card.ts",
+        "src/components/pet-editor.tsx"
+      ]
+    },
+    {
+      "id": 151,
+      "capability": "Grooming progress tracking",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/pet-photos.ts",
+        "src/lib/pet-documents.ts",
+        "src/lib/vaccination-records.ts",
+        "src/lib/grooming-progress.ts",
+        "src/lib/customer-report-card.ts",
+        "src/components/pet-editor.tsx"
+      ]
+    },
+    {
+      "id": 152,
+      "capability": "Vaccination and document tracking",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/pet-photos.ts",
+        "src/lib/pet-documents.ts",
+        "src/lib/vaccination-records.ts",
+        "src/lib/grooming-progress.ts",
+        "src/lib/customer-report-card.ts",
+        "src/components/pet-editor.tsx"
+      ]
+    },
+    {
+      "id": 153,
+      "capability": "Customer retention information",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 154,
+      "capability": "Customer tags and segmentation",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/customer-tags.ts",
+        "src/components/customer-tag-manager.tsx"
+      ]
+    },
+    {
+      "id": 155,
+      "capability": "Membership and package history",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/gift-cards.ts",
+        "src/lib/prepaid-balances.ts",
+        "src/lib/prepaid-transfer.ts"
+      ]
+    },
+    {
+      "id": 157,
+      "capability": "Customer data import and export",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred shop imports",
+      "note": "Import/export code exists; representative shop .bak/live 123Pet validation remains deferred.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 162,
+      "capability": "Employee performance reports",
+      "originalStatus": "Partial",
+      "currentStatus": "Development / decision",
+      "note": "Time, assigned sales, commissions and tips exist; new Productivity Report remains unfinished (same implementation as item 7).",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 163,
+      "capability": "Service duration tracking",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Per-stage elapsed-time reporting exists. Separate employee work timers were explicitly rejected; planned item-duration productivity is tracked under 7/162.",
+      "evidence": [
+        "src/lib/pet-photos.ts",
+        "src/lib/pet-documents.ts",
+        "src/lib/vaccination-records.ts",
+        "src/lib/grooming-progress.ts",
+        "src/lib/customer-report-card.ts",
+        "src/components/pet-editor.tsx"
+      ]
+    },
+    {
+      "id": 164,
+      "capability": "Commission and tip reporting",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 165,
+      "capability": "Internal task management",
+      "originalStatus": "Missing",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/staff-tasks.ts",
+        "src/components/staff-task-notices.tsx",
+        "src/components/staff-tasks.tsx"
+      ]
+    },
+    {
+      "id": 166,
+      "capability": "Grooming workflow tracking",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/pet-photos.ts",
+        "src/lib/pet-documents.ts",
+        "src/lib/vaccination-records.ts",
+        "src/lib/grooming-progress.ts",
+        "src/lib/customer-report-card.ts",
+        "src/components/pet-editor.tsx"
+      ]
+    },
+    {
+      "id": 167,
+      "capability": "Employee training and quizzes",
+      "originalStatus": "Missing",
+      "currentStatus": "Not authorized: Training",
+      "note": "Training/Sales Studio work is explicitly unauthorized; general audit approval does not override that restriction.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 168,
+      "capability": "Coaching and performance feedback",
+      "originalStatus": "Missing",
+      "currentStatus": "Not authorized: Training",
+      "note": "Training/Sales Studio work is explicitly unauthorized; general audit approval does not override that restriction.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 169,
+      "capability": "Manager notifications",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/staff-tasks.ts",
+        "src/components/staff-task-notices.tsx",
+        "src/components/staff-tasks.tsx"
+      ]
+    },
+    {
+      "id": 170,
+      "capability": "Multi-location staffing, where applicable",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Shift shop assignments and cross-shop availability implemented; real concurrency/load verification outstanding.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 171,
+      "capability": "Map-based appointment calendar",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 172,
+      "capability": "Route optimization by travel time and distance",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 176,
+      "capability": "Travel-time buffers between appointments",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 179,
+      "capability": "Recurring neighborhood routes",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 180,
+      "capability": "Multi-vehicle scheduling",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 181,
+      "capability": "Vehicle and employee assignments",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 182,
+      "capability": "Automatic route suggestions",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 183,
+      "capability": "Cancellations and route recalculation",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 184,
+      "capability": "Nearby customers eligible for last-minute openings",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 185,
+      "capability": "Emergency rescheduling when vehicles become unavailable",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 187,
+      "capability": "Daily route overview",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 189,
+      "capability": "On-my-way notifications",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 191,
+      "capability": "Customer communication while traveling",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 193,
+      "capability": "On-site payment collection",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 194,
+      "capability": "Mobile invoices and receipts",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/ticket-receipt.ts",
+        "app/api/tickets/receipt/route.ts"
+      ]
+    },
+    {
+      "id": 195,
+      "capability": "Offline access to essential information",
+      "originalStatus": "Partial",
+      "currentStatus": "Development / decision",
+      "note": "Offline edits and saved reports exist; fresh reports do not recompute unsynced work and uncached records remain unavailable.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 196,
+      "capability": "Vehicle-related notes and maintenance tracking",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 197,
+      "capability": "Revenue per route",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 198,
+      "capability": "Revenue per vehicle",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 199,
+      "capability": "Revenue per employee",
+      "originalStatus": "Partial",
+      "currentStatus": "Resolved in approved scope",
+      "note": "Current code and chronological test/review evidence address the original gap within the user-approved scope. Not a claim of live production validation.",
+      "evidence": [
+        "src/lib/report-data.ts",
+        "src/lib/report-export.ts",
+        "src/components/reports-workspace.tsx",
+        "docs/audit-work-queue.md"
+      ]
+    },
+    {
+      "id": 200,
+      "capability": "Mileage and travel time",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 201,
+      "capability": "Grooming time versus driving time",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 202,
+      "capability": "Estimated operating costs",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 203,
+      "capability": "Appointment profitability",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 204,
+      "capability": "Route profitability",
+      "originalStatus": "Missing",
+      "currentStatus": "Deferred Maps / mobile",
+      "note": "Deferred with Maps/routing and vehicle operations; not counted as completed.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 206,
+      "capability": "Responsive phone and tablet interfaces",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Responsive shared controls and focused previews exist; complete all-module/device verification remains outstanding.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 209,
+      "capability": "Optional feature modules",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 212,
+      "capability": "Clear, human-friendly field descriptions and hints",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Shared hint framework and wording work exist; universal content and placement verification remains incomplete.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 213,
+      "capability": "Simple onboarding",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Onboarding/device/tenant setup exists; full first-use live hosting/provider path remains unverified.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 214,
+      "capability": "Customer and pet data migration",
+      "originalStatus": "Partial",
+      "currentStatus": "Deferred shop imports",
+      "note": "Import/export code exists; representative shop .bak/live 123Pet validation remains deferred.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 215,
+      "capability": "System reliability",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Production builds and focused tests pass; live hosting/database/provider reliability not established.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 216,
+      "capability": "Data backup and recovery",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Export coverage improved; full host disaster recovery, backup retention and restore are unverified.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 218,
+      "capability": "Multi-location scalability",
+      "originalStatus": "Partial",
+      "currentStatus": "Verification / host setup",
+      "note": "Sharing and shop comparisons implemented; large multi-location concurrency/load verification outstanding.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    },
+    {
+      "id": 219,
+      "capability": "Transparent subscription and integration costs",
+      "originalStatus": "Partial",
+      "currentStatus": "Provider / payment dependency",
+      "note": "Native portions may exist; full capability depends on deferred payment/provider integration or verified provider/hosting costs.",
+      "evidence": [
+        "docs/audit-work-queue.md",
+        "docs/audit-release-readiness.md"
+      ]
+    }
+  ]
+}

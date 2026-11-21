@@ -137,7 +137,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   {
     path: ['rewards'], title: 'Refer-A-Friend',
     description: 'Choose separate rewards for each customer and the portal invitation wording.',
-    keywords: 'referrals new customer first groom refer a friend referral reward give get free product service addon portal invitation',
+    keywords: 'referrals new customer first groom credit refer a friend referral reward give get free product service addon portal invitation',
     anchor: 'customer-referral-credit', steps: ['Refer-A-Friend'],
   },
   {

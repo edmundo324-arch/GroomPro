@@ -61,7 +61,7 @@ const save = async (url, payload, method='POST') => {
   if (!sessionStorage.getItem('offline-reload')) {
     await api.prepareOffline(scope);
     assert((await api.offlineStatus()).ready, 'Offline data did not prepare');
-    const {customer} = await save('/api/customers',{firstName:'Fictional',lastName:'Customer'});
+    const {customer} = await save('/api/customers',{firstName:'Fictional',lastName:'Customer',phone:'5555550100'});
     online = false;
     const {pet} = await save('/api/pets',{customerId:customer.id,name:'Fluffy'});
     const {draft} = await save('/api/pos-drafts',{requestKey:crypto.randomUUID()});
@@ -79,6 +79,13 @@ const save = async (url, payload, method='POST') => {
   assert(profile.customer.pets[0].id===ids.petId && profile.customer.pets[0].name==='Fluffy Updated','Local pet did not survive reload');
   assert(profile.customer.tickets[0].id===ids.ticketId && profile.customer.tickets[0].lines[0].petId===ids.petId,'Local appointment lost its linked pet');
   assert((await api.offlineStatus()).pending.length===5,'Pending changes did not survive reload');
+  const historyReport=await (await api.deviceFetch('/api/reports?from=2020-01-01&through=2020-01-31&locationId='+scope.locationId)).json();
+  assert(historyReport.offlineReport&&historyReport.closedSalesCents===5000,'Previously unopened historical report did not survive device restart');
+  const pendingReport=await (await api.deviceFetch('/api/reports?start='+encodeURIComponent(new Date(Date.parse(appointmentTime)-3600000).toISOString())+'&end='+encodeURIComponent(new Date(Date.parse(appointmentTime)+86400000).toISOString())+'&locationId='+scope.locationId)).json();
+  assert(pendingReport.appointments===1&&pendingReport.offlinePendingAppointments===1,'Pending appointment missing from forecast');
+  assert(pendingReport.closedSalesCents===0&&pendingReport.collectedCents===0,'Pending appointment changed financial reports');
+  const shopComparison=await (await api.deviceFetch('/api/reports?locations=compare&from=2020-01-01&through=2020-01-31')).json();
+  assert(shopComparison.rows.length===2&&shopComparison.totals.salesCents===10000,'Offline shop comparison did not use both prepared histories');
   online = true;
   await api.syncOffline();
   assert((await api.offlineStatus()).pending.length===4,'A missing acknowledgement removed a pending edit');
@@ -100,6 +107,13 @@ const server = createServer(async (req, res) => {
     if (pathname === '/api/offline/snapshot') {
       return reply({ scope, employee, ...serverRecords, start: '2026-11-07T06:00:00.000Z', since: '2026-07-18T05:00:00.000Z',
         through: '2026-12-08T06:00:00.000Z', location: { id: scope.locationId, name: 'Test', timezone: 'America/Chicago' }, fetchedAt: Date.now() });
+    }
+    if (pathname === '/api/reports') return reply({locations:[{id:scope.locationId,name:'Test'},{id:'second-shop',name:'Second shop'}]});
+    if (pathname === '/api/offline/report-history') {
+      const query=new URL(req.url,'http://test').searchParams,part=query.get('part'),reportScope={...scope,locationId:query.get('locationId')};
+      const oldTicket={id:'history-ticket',customerId:'history-customer',status:'CLOSED',scheduledStart:'2020-01-10T15:00:00Z',closedAt:'2020-01-10T16:00:00Z',createdAt:'2020-01-01',bookingDecision:'ACCEPTED',lines:[{id:'history-line',ticketId:'history-ticket',lineType:'SERVICE',role:'GROOM',description:'Bath',quantity:1,unitPriceCents:5000,discountCents:0,totalCents:5000}],pets:[],payments:[]};
+      const rows=part==='tickets'||part==='visits'?[oldTicket]:part==='customers'?[{id:'history-customer',firstName:'Old',lastName:'Customer',active:true,createdAt:'2020-01-01',balanceCents:0,creditCents:0}]:[];
+      return reply({version:1,accessKey:'test',scope:reportScope,location:{id:reportScope.locationId,name:'Test',timezone:'America/Chicago'},canManageTime:true,asOf:new Date().toISOString(),part,rows,next:null});
     }
     if (pathname === '/api/catalog') return reply({ services: [{ id: 'service', name: 'Bath', priceCents: 2000, durationMin: 30, active: true }] });
     return reply({});

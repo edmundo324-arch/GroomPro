@@ -1,0 +1,216 @@
+GROOMPRO TESTING GUIDE — NOVEMBER 21, 2026
+
+Purpose: test this release and the recent approved features it works with. This is a shop-work checklist, not a claim that every audit item is finished. Payment processing, the real 123Pet backup, and unfinished Maps work are not included as completed features.
+
+BEFORE YOU START
+
+1. Sync GitHub main to GoDaddy and wait until GoDaddy reports that deployment succeeded. Then refresh GroomPro.
+2. Use your test business and fictional records. Use your own email/phone for message tests. Test transactions still change account balances, reports and stock.
+3. Create a customer called Test Maria and two dogs, Test Gizmo and Test Bella. Add a second customer, Test John. Give each customer a different phone number.
+4. Record the business, location, device and date you are testing. Keep notes of any settings you change so you can restore them.
+5. Factory settings apply when no tenant choice has replaced them. An existing saved preference should remain in place.
+
+For each numbered test, write: PASS / NEEDS ATTENTION / WAITING FOR CONNECTION / NOT TESTED.
+If something fails, record the steps and screenshot before trying unrelated changes.
+
+START HERE — EVERYDAY SHOP WORK
+
+01. Clicking a dog's name — the reported error
+Open Day, open a test POS ticket, and click Test Gizmo's name. Use a dog with an assigned grooming package. Click again to remove that package, then again to add it.
+Expected: no saved-information error. The assigned package toggles without duplicating its items. Separate extras, products and other dogs' packages remain. Existing grooming history is preserved. Pet-name clicking adds/removes the package; editing the dog remains in the pet editor.
+Result:
+
+02. Complete forms and clear hints
+Open a new POS ticket before choosing a customer. Open a customer and pet editor. Open a question-mark hint, then dismiss it with Escape.
+Expected: the established form structure appears before its information arrives. Opening an editable form does not select an input automatically; PIN authorization is the exception. Hints explain the field, keep it visible and disappear when dismissed. Test your highlight color under Settings → Calendar & Workflow → Helpful hints, then refresh.
+Result:
+
+03. Reorder Menu and Search
+Right-click the blue menu, choose Reorder Menu, move two items and save. Refresh. Open Search, search for Rewards, follow the customer account result, then search for a different item.
+Expected: menu order survives refresh. Search keeps its wording and remains open until you close it with X. You can move its window. It finds working modules/fields, not merely Settings. Multiple destinations let you choose; the destination uses the current customer where applicable and highlights the requested field.
+Result:
+
+04. Customer information and family contacts
+Open Customer Profile → Details. Enter three phone contacts and add another. Try creating another customer with the same primary phone, then a different phone with the same name/email.
+Expected: family contacts remain on that customer's account. Matching phone numbers prevent duplicate customer creation; matching names/emails alone do not. New customers require a phone. Save and reopen to verify persistence.
+Result:
+
+05. Notes and grooming history
+Enter Customer Notes and Today's Grooming Notes for Test Gizmo. Reopen the dog through Customer Profile and through the POS ticket. Review an older appointment too.
+Expected: Customer Notes and appointment-specific grooming notes appear in their intended places. Today's Grooming Notes may use the shorter Grooming Notes label where space is limited. The floating pet notes show appointment grooming notes. Earlier dates remain distinguishable and are not overwritten by today's edits. Earlier free-text instructions stay visible with their explanation; Historical notes explain unmatched imported customer notes.
+Result:
+
+06. Transfer a dog without losing history
+Transfer Test Gizmo from Test Maria to Test John, then open a ticket from before the transfer. Transfer the dog back.
+Expected: one current owning family at a time. Old tickets still open and retain their original customer and history. Family contacts do not automatically become separate owners/accounts.
+Result:
+
+07. Agreement Settings and customer forms
+Open Customers → Agreement Settings. Try X, Full Size and Restore Size. Reopen it and try a protected change.
+Expected: the window stays above the other windows, its controls work, and authorization opens the PIN module when required. Helpful explanations remain readable. Test intake or VIP forms with fictional information; delivery of signed copies requires connected email.
+Result:
+
+08. Complete one ordinary visit
+Book both test dogs, assign services and employees, confirm, check in, mark ready, record a test payment and close. Reopen the ticket from history.
+Expected: the dogs, service assignments, notes and amounts remain correct. Check-in/ready undo actions affect the intended ticket. Closing requires settlement; the closed ticket has no balance due. History opens normally.
+Result:
+
+BOOKING AND CUSTOMER COMMUNICATION
+
+09. Online availability
+Review each test service, employee and resource's online availability and online-booking classes. Open the customer portal and search for a visit.
+Expected: only eligible online services/resources/employees appear, within their shop's schedule. Factory availability favors resources; tenants can change this. New service online availability defaults off, while existing selections are preserved. A shop location is required on public booking links.
+Result:
+
+10. Accepted versus Confirmed
+Submit a portal request and accept it as staff. Then record that the customer confirmed attendance.
+Expected: shop acceptance shows Accepted. The customer's confirmation changes the appointment to Confirmed and stops further confirmation requests. A booking notice is separate from asking the customer to confirm attendance.
+Result:
+
+11. Confirmation schedule and moving a visit
+Review Settings → Communications and the tenant's confirmation schedule. Move a confirmed test appointment. Try the choice not to request confirmation again, then test the other choice on a separate appointment.
+Expected: declining a new request keeps it Confirmed. Requesting one starts the appropriate new confirmation process. Old appointment-time requests do not continue. The appointment-change notice remains separate. Factory request timing is 7, 5, 3 and 2 days before at 9 AM, plus appointment morning at 7 AM when still before the visit; tenants can edit it.
+Result:
+
+12. Customer-selected reminders and editable messages
+In the portal, choose more than one reminder and a time for each. Review the tenant's ready-for-pickup, reminder, rebooking, review-request and other message wording. Save a harmless wording change and reopen it.
+Expected: selected reminders and tenant wording persist. Messages use the correct dog, appointment date and time. Actual delivery is WAITING FOR CONNECTION unless the relevant email/text service is configured.
+Result:
+
+13. Failed email and manual resend
+With connected email, use a controlled test that produces a genuine bounced/failed confirmation. Open its appointment, correct the email, then later test manual resend.
+Expected: staff see useful guidance; a corrected address can trigger a new applicable confirmation. Staff can request another reminder outside the normal intervals. Uncertain delivery is not blindly resent. Do not use somebody else's address for this test.
+Result:
+
+14. Customer portal, unfinished booking and waitlist
+Edit a test customer's contact/pet details and view their appointments/agreements. Leave a booking unfinished, return and continue it. Add a waitlist request through the portal and through staff controls.
+Expected: saved choices return without creating duplicate appointments. Staff can see unfinished bookings for follow-up. Staff choose whom to contact from the waitlist; customers are not automatically promised the same opening.
+Result:
+
+15. Late cancellation
+Use a test appointment inside the tenant's cancellation window; factory notice is 30 hours. Request cancellation through the portal.
+Expected: a clear warning explains the tenant's rule. The booking stays in place for staff review, the request time is retained and the pending-cancellation appearance is applied. Staff can resolve it and waive a fee when authorized. Same-day time moves preserve the approved fee exception.
+Result:
+
+16. Report cards, birthdays and vaccination notices
+Save a report card and try the available send choices before/after closing. Check its closing policy, birthday settings and vaccination settings.
+Expected: report cards support email, text or both; factory closing behavior is automatic, with an ask-staff option. Birthday messages default on at 8 AM and use March 1 for February 29 birthdays in non-leap years, with tenant choices. Vaccination reminders default to eight weeks for active customers. Missing/expired vaccinations flag booking for review rather than automatically blocking it under factory rules. Actual sending requires connected services.
+Result:
+
+MONEY, REWARDS AND INVENTORY
+
+17. Deposit and Customer Credit
+Record a $45 test deposit, reopen the customer account and apply it to a later ticket.
+Expected: $45 appears in Customer Credit, stays available after an eligible reschedule, and is applied only once. Collecting a deposit is not reported as another grooming sale.
+Result:
+
+18. No-show fee and Balance Owed
+Use a test account with $20 credit and a $45 no-show/cancellation fee. Process the no-show without a usable connected card.
+Expected: credit covers $20 and the remaining $25 becomes Balance Owed. The next visit can collect that amount without counting it as a new service sale. Saved-card charging remains a separate payment-provider test.
+Result:
+
+19. Void and refund
+Void an unpaid test ticket using an authorized role and a reason. Try the same on a paid ticket. Refund a separate closed test sale.
+Expected: void retains history and the reason; paid tickets use refunds. Factory refunds are store credit unless the tenant enables cash. Refunded item tax and the refunded portion of commission are handled; performed work still counts in Productivity Report. Staff choose whether refunded merchandise returns to sellable stock.
+Result:
+
+20. Discounts and return visits
+Test a fixed-dollar discount across eligible items and as one discount line. Test a percentage discount. Use a qualifying repeat GR, FFT or FW visit within two weeks, plus a separate extra.
+Expected: a $10 discount totals $10, not $10 per item. The main grooming package qualifies for the configured return-visit offer; separate extras do not. Factory checkout-booked tiers are 10% within four weeks and 5% within six weeks. Same-date time changes preserve those discounts; date changes follow the approved removal rule. Competing eligible discounts use the larger discount rather than stacking by default.
+Result:
+
+21. Refer-A-Friend
+Review the tenant's referral offer, open it in the portal and link a fictional new customer to the referrer. Complete the qualifying visit.
+Expected: factory Give $10! Get $10! rewards are assigned to the right people once. Tenant choices can give each person a different reward, including a product, service or add-on.
+Result:
+
+22. Gift cards
+Sell a test gift card, fully pay/close its ticket, and redeem part of it using its code. Review print/email choices.
+Expected: purchase activation follows payment and closing; every redemption requires a code and reduces the remaining balance once. Anyone with the code can redeem under the factory rule. Email can go to the purchaser or another recipient. Factory refund policy is nonrefundable unless changed by the tenant.
+Result:
+
+23. Prepaid packages
+Create a test six-visit offer at the price you choose. Buy it, use one visit and close that visit's ticket. Test family-wide versus one-dog eligibility, and transfer some unused visits to Test John.
+Expected: visit deduction happens at closing. The package follows its own tax, commission, expiration and eligibility settings. Transfers preserve remaining visits and purchaser history. When keeping a one-dog balance with the original family, it can remain unused until another dog is assigned. Refunds require tenant permission and cover whole unused visits; gifted-visit refunds offer the approved recipient choice.
+Result:
+
+24. Tips and stock
+Add a $30 tip and assign $15/$10/$5 to three employees; test equal splitting on another ticket. Add a tip after closing. Sell merchandise and review stock and recorded cost.
+Expected: tips total correctly and use the original ticket closing date in employee reports. Stock subtracts at closing; a shortage warns but does not block the sale. Product cost is saved at closing so later cost edits do not rewrite past reports.
+Result:
+
+STAFF, REPORTS AND AUTOMATION
+
+25. Schedule, time clock and staff tasks
+Under Schedule, record a test shift, clock-in/out and a break. Make a manager correction with a reason. Create a staff task for a Customer Service Associate and give it a due date.
+Expected: corrected time and reason remain recorded. Owners/managers assign tasks under factory permissions; tenants can expand this. Overdue tasks appear and notify inside GroomPro. Completing the task resolves applicable pending task follow-ups.
+Result:
+
+26. Productivity Report
+Open Reports for a past day with six assigned service hours and eight clocked hours including a half-hour recorded break. Then review today/future dates.
+Expected: past productivity is 6 ÷ 7.5 = 80%. Today/future use scheduled hours. Durations estimate work; no employee stopwatch is required. Refunded performed services still count; cancelled, voided and no-show work does not. Work without an assigned employee is not credited to someone arbitrarily.
+Result:
+
+27. Sales, accounts and other reports
+Compare your test tickets against Reports, including Reconciliation, Deposits, Account changes, Voids, refunds, gift cards, prepaid packages, stock/cost, memberships, customer outcomes and message results. Try CSV export and printing.
+Expected: sales, tax, tips and old-balance collections remain distinct. For example, $100 new services + $8 tax + $25 old balance means $133 collected but $100 new service sales. Tax reports count closed tickets. Paused VIP memberships are excluded from retained membership counts. Each report's dates and shop match your selection.
+Result:
+
+28. Scheduled staff reports
+Open Reports → Scheduled staff reports. Configure one test report to your own email, then review daily/weekly/monthly options.
+Expected: scheduling stays off until configured. Missing monthly dates use the last day of the month. Missed reports use the settings that applied when each was due. Actual timed delivery and recovery after host downtime need the running host and connected email; do not mark those passed from the settings screen alone.
+Result:
+
+29. Custom automatic rules and marketing limits
+Under Settings → Communications, create a small test rule that makes a staff follow-up task. Review service/package and VIP targeting, rule priority, existing-record choices, and message replacement choices.
+Expected: only matching records qualify. Enabling lets the tenant choose whether existing records qualify. Matching custom messages replace the selected standard message as configured. Factory marketing allowance is one per customer per week for rebooking/promotions; ordinary appointment messages are separate. These rules do not gain unauthorized automatic account or appointment-status changes.
+Result:
+
+30. Customer conversations and follow-ups
+With OpenAI and messaging connected, send a test offer to your own phone and reply, “Not this month.” Try an appointment date/time question too.
+Expected: only that customer's relevant offer pauses. Conversation handling continues and remembers context. The offer resumes only if still relevant. Factory “next month” timing uses the original send date: 1st–22nd → next month's 1st; 23rd onward → next month's 15th, at 9 AM. An explicit customer date takes priority. Appointment answers use the saved dog's name, date and time. Without the connections, mark delivery/conversation tests WAITING FOR CONNECTION.
+Result:
+
+31. Offline work and reconnecting
+While online, allow the test device to finish preparing its offline information. Stay on that same GroomPro address. Disconnect internet, move a fictional appointment, review reports and try approved offline customer/service/package/schedule work. Close/reopen, then reconnect.
+Expected: available saved records remain usable, queued changes survive reopening and sync once. Pending appointment moves affect forecasts/planned reports; they do not invent payments or closed sales. Conflicts request review rather than silently overwriting somebody else's changes. Report history shows its saved-through date. Messages and external payments cannot actually send while offline.
+Result:
+
+32. Location access, permissions and saved preferences
+Test a one-location business, then a test business with sharing groups. Sign in with an ordinary employee and an authorized owner. Review the same customer, reports and Whiteboard visibility.
+Expected: a one-location business does not require an unnecessary shop choice. Groups set in Settings → Locations & hours → Customer sharing control access. Restricted records remain restricted across screens. Whiteboard layout remains unchanged. Owner/developer access uses its authorized sign-in path; employee PINs remain bound to the selected verified business.
+Result:
+
+33. Optional features and seven-stage care
+With developer access, review subscription feature choices and grants. For a test tenant with seven-stage care enabled, open Settings → Calendar & Workflow → Seven-stage care and edit an instruction.
+Expected: access follows the tenant's granted features. Instructions save without changing the seven approved stage names/order. This does not establish that subscription payment collection is connected.
+Result:
+
+34. Import/export and Windows catalog correction
+Use Settings → Data & integrations → Starter library to review the approved catalog. If you already have a harmless supported sample import, preview its customer/pet links and notes before importing. Review an authorized tenant export.
+Expected: the unchanged reviewed catalog is accepted. Imports do not guess pet ownership from a name alone or duplicate already-linked source records. Exported business information excludes passwords/API secrets. The real 123Pet backup test remains tabled; do not treat it as completed by this check.
+Result:
+
+WHEN SOMETHING NEEDS ATTENTION
+
+Test number/name:
+Business and location:
+Device/browser:
+Date/time:
+Where I started:
+Exactly what I clicked or entered:
+What I expected:
+What actually happened:
+Does refreshing change it?:
+Screenshot attached:
+
+Do not include PINs, passwords, API keys or private customer information in the report.
+
+COMPLETION RECORD
+
+Passed:
+Needs attention:
+Waiting for a connection or hosting access:
+Not tested:
+
+This checklist covers recent completed work and its related shop workflows. Maps setup, payment-provider work, the real 123Pet backup and other explicitly deferred work remain separate. A successful local build is not a substitute for these GoDaddy and real-device checks.

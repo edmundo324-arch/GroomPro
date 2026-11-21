@@ -37,5 +37,5 @@ test('configuration history storage is scoped to the business and module and nev
 });
 test('POS sample renders actual shared editable-item table and controls instead of placeholder blocks',()=>{
  const {TicketLayoutPreview}=require('../src/components/pos-layout-controls.tsx');const html=renderToStaticMarkup(React.createElement(TicketLayoutPreview,{layout:defaultTicketLayout()}));
- assert.ok(html.includes('gp-pos-table'));assert.ok(html.includes('gp-pos-pet-strip'));assert.ok(html.includes('gp-pos-promotions'));assert.ok(html.includes('type="date"'));assert.ok(html.includes('type="time"'));assert.ok(html.includes('Edit customer'));assert.ok(html.includes('Change customer'));assert.ok(!html.includes('gp-layout-preview-control'));assert.ok(html.includes('$86.60'));assert.ok(html.includes('data-pos-control="recordPayment"'));
+ assert.ok(html.includes('gp-pos-table'));assert.ok(html.includes('gp-pos-pet-strip'));assert.ok(html.includes('gp-pos-promotions'));assert.ok(html.includes('type="date"'));assert.ok(html.includes('type="time"'));assert.ok(html.includes('Edit customer'));assert.ok(html.includes('Replace customer'));assert.ok(!html.includes('gp-layout-preview-control'));assert.ok(html.includes('$86.60'));assert.ok(html.includes('data-pos-control="recordPayment"'));
 });

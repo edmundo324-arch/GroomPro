@@ -1,3 +1,4 @@
+import {ticketSettledCents} from './ticket-settlement';
 import {dogTicketTotals} from './dog-ticket-summary';
 import {isGiftCardLine} from './gift-card-line';
 import {isPrepaidPurchaseLine} from './prepaid-lines';
@@ -21,7 +22,7 @@ export function refundRequest(value:any):RefundRequest{
 export function ordinaryRefundLine(line:any){return ['SERVICE','PRODUCT'].includes(line.lineType)&&((!isGiftCardLine(line)&&!isPrepaidPurchaseLine(line))||line.storedRefund?.allowed===true)&&!/^Customer Account Balance$/i.test(line.description||'');}
 export function refundAvailable(ticket:any,refunds:any[]){
  const taxes=dogTicketTotals(ticket.lines.filter((l:any)=>!/^Customer Account Balance$/i.test(l.description||'')).map((l:any)=>({...l,petId:l.id})),ticket.salesTaxCents);
- const totalRefunded=refunds.reduce((sum,r)=>sum+r.totalCents,0),paid=ticket.payments.reduce((sum:number,p:any)=>sum+Math.round(Number(p.amount)*100),0);
+ const totalRefunded=refunds.reduce((sum,r)=>sum+r.totalCents,0),paid=ticketSettledCents(ticket);
  return {remainingCents:Math.max(0,Math.min(ticket.totalCents,paid)-totalRefunded),taxCents:Math.max(0,ticket.salesTaxCents-refunds.reduce((sum,r)=>sum+r.taxCents,0)),tipCents:Math.max(0,ticket.tipCents-refunds.reduce((sum,r)=>sum+r.tipCents,0)),lines:ticket.lines.filter(ordinaryRefundLine).map((line:any)=>{const prior=refunds.flatMap(r=>r.items).filter((r:RefundItem)=>r.lineId===line.id);return {...line,refundCapCents:Math.max(0,line.totalCents-prior.reduce((sum:number,r:RefundItem)=>sum+r.amountCents,0)),taxShareCents:(taxes[line.id]?.totalCents||0)-(taxes[line.id]?.subtotalCents||0),remainingCents:Math.min(line.storedRefund?.balanceCents??Infinity,Math.max(0,line.totalCents-prior.reduce((sum:number,r:RefundItem)=>sum+r.amountCents,0))),returnableQuantity:line.lineType==='PRODUCT'&&line.productId?Math.max(0,line.quantity-prior.reduce((sum:number,r:RefundItem)=>sum+r.returnQuantity,0)):0};})};
 }
 export function validateRefund(ticket:any,refunds:any[],input:RefundRequest){

@@ -25,7 +25,7 @@ export async function actionPermissions(request:NextRequest,configure=false):Pro
   return body.ticketId?['EDIT']:['CREATE','EDIT'];
  }
  if(request.method==='DELETE')return ['DELETE'];
- if(request.method==='POST'&&['/api/whiteboard','/api/tickets/checkout','/api/tickets/no-show','/api/tickets/account-credit','/api/tickets/daycare','/api/customers/account','/api/customers/rewards'].includes(path))return ['EDIT'];
+ if(request.method==='POST'&&['/api/whiteboard','/api/tickets/checkout','/api/tickets/no-show','/api/tickets/account-credit','/api/tickets/confirmation-request','/api/tickets/daycare','/api/customers/account','/api/customers/rewards'].includes(path))return ['EDIT'];
  return [request.method==='POST'?'CREATE':'EDIT'];
 }
 export function withRequestPolicy<A extends unknown[]>(handler:(request:NextRequest,...args:A)=>Promise<any>,policy:Policy={}){

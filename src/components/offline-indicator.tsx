@@ -5,7 +5,7 @@ import type { OfflineCommand } from '../lib/offline-actions';
 
 export function OfflineIndicator({ scope, employeeId }: { scope: string; employeeId?: string }) {
   const [online, setOnline] = useState(true);
-  const [state, setState] = useState({ ready: false, pending: [] as OfflineCommand[], archived: [] as OfflineCommand[], lastSaved: 0, signInRequired: false });
+  const [state, setState] = useState({ ready: false, pending: [] as OfflineCommand[], archived: [] as OfflineCommand[], lastSaved: 0, signInRequired: false,reportSavedAt:0 });
   const [shellReady, setShellReady] = useState(false);
   const [review, setReview] = useState(false);
   useEffect(() => {
@@ -65,6 +65,7 @@ export function OfflineIndicator({ scope, employeeId }: { scope: string; employe
     {review && <section aria-label="Offline changes" className="gp-floating-window" style={{ position: 'fixed', top: '4rem', right: '1rem', zIndex: 31, width: 'min(32rem, 92vw)', padding: '1rem', maxHeight: '75dvh', overflow: 'auto' }}>
       <h2>Offline changes</h2>
       <p>{pending ? 'These changes are saved on this device until GoDaddy confirms them.' : state.ready ? 'The local records are ready.' : 'Keep GroomPro open online while this device prepares.'}</p>
+      <p>{state.reportSavedAt?`Reporting history is available through the copy saved ${new Date(state.reportSavedAt).toLocaleString()}.`:"Full reporting history has not finished preparing on this device. Keep GroomPro connected to finish; previously opened reports remain available."}</p>
       {state.signInRequired && <p>Sign in as the employee who saved these changes to resume syncing.</p>}
       {issue && <>
         <p role="alert">{issue.issue}</p>

@@ -1,7 +1,8 @@
 import type {PortalBookingDraft} from './portal-booking-draft';
 import {db} from './db';
 import {readPortalPolicy} from './portal-policy-store';
-export const bookingStages={STARTED:'Opened booking',DOGS_SERVICES:'Choosing dogs and services',DATE:'Choosing a date',TIMES:'Reviewing available times',TIME_SELECTED:'Selected a time'} as const;
+import {bookingStages} from './booking-stages';
+export {bookingStages} from './booking-stages';
 export type BookingStage=keyof typeof bookingStages;
 export function bookingStage(value:unknown):BookingStage{if(typeof value==='string'&&Object.hasOwn(bookingStages,value))return value as BookingStage;throw Error('Refresh the booking form before continuing.');}
 export const unfinishedBookingPrefix='PORTAL_UNFINISHED:';

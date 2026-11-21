@@ -1,3 +1,4 @@
+import {readStoredValuePolicy} from './stored-value-policy';
 import {prepareStoredValueRefunds,removeRefundedStoredValue} from './stored-value-refunds';
 import {db} from './db';
 import {addAccountEntry} from './customer-account';
@@ -8,7 +9,7 @@ export async function ticketRefundHistory(tx:any,tenantId:string,ticketId:string
  const rows=await tx.tenantSetting.findMany({where:{tenantId,settingKey:{startsWith:ticketRefundPrefix(ticketId)}},select:{value:true}});
  return rows.map((row:any)=>{const value=row.value;if(!value||value.ticketId!==ticketId||!Number.isSafeInteger(value.totalCents)||value.totalCents<=0)throw Error('An earlier refund record needs review. Ask the business owner to check this ticket.');const normalized=refundRequest(value);if(normalized.items.reduce((sum,item)=>sum+item.amountCents,0)+normalized.taxCents+normalized.tipCents!==value.totalCents)throw Error('An earlier refund total needs review before another refund can be recorded.');return value;}).sort((a:any,b:any)=>String(a.recordedAt).localeCompare(String(b.recordedAt)));
 }
-export async function readTicketRefunds(tenantId:string,ticketId:string){const ticket=await db.ticket.findFirst({where:{tenantId,id:ticketId},include:{lines:{include:{service:true,product:true}},payments:true}});if(!ticket)throw Error('This ticket is unavailable. Reopen it from the customer’s history.');await prepareStoredValueRefunds(db,tenantId,ticket);const refunds=await ticketRefundHistory(db,tenantId,ticketId);const purchaser=await db.customer.findFirst({where:{tenantId,id:ticket.customerId},select:{id:true,firstName:true,lastName:true}});return {ticketId,purchaser,orderNumber:ticket.orderNumber,status:ticket.status,refunds,...refundAvailable(ticket,refunds)};}
+export async function readTicketRefunds(tenantId:string,ticketId:string){const ticket=await db.ticket.findFirst({where:{tenantId,id:ticketId},include:{lines:{include:{service:true,product:true}},payments:true}});if(!ticket)throw Error('This ticket is unavailable. Reopen it from the customer’s history.');await prepareStoredValueRefunds(db,tenantId,ticket);const refunds=await ticketRefundHistory(db,tenantId,ticketId);const purchaser=await db.customer.findFirst({where:{tenantId,id:ticket.customerId},select:{id:true,firstName:true,lastName:true}});return {cashRefundsEnabled:(await readStoredValuePolicy(db,tenantId)).cashRefundsEnabled===true,ticketId,purchaser,orderNumber:ticket.orderNumber,status:ticket.status,refunds,...refundAvailable(ticket,refunds)};}
 
 // The caller must supply the approved commission policy; it is never taken from customer input.
 // This records a staff-reported cash return or account credit, not a provider transaction.
@@ -19,6 +20,7 @@ export async function recordTicketRefund(tenantId:string,actorUserId:string,tick
   const ticket=await tx.ticket.findFirst({where:{tenantId,id:ticketId},include:{lines:{include:{service:true,product:true}},payments:true}});if(!ticket)throw Error('This ticket is unavailable. Reopen it from the customer’s history.');
   const refunds=await ticketRefundHistory(tx,tenantId,ticketId),existing=refunds.find((r:any)=>r.id===input.id);
   if(existing){if(existing.fingerprint!==fingerprint)throw Error('This refund was already recorded with different details. Reopen the refund history before continuing.');return {refund:existing,repeated:true};}
+  if(input.method==='CASH'&&(await readStoredValuePolicy(tx,tenantId)).cashRefundsEnabled!==true)throw Error('This business returns refunds as Customer Credit. An owner can enable cash refunds in the refund rules.');
   const storedValues=await prepareStoredValueRefunds(tx,tenantId,ticket,true,input.items);const {totalCents}=validateRefund(ticket,refunds,input),recordedAt=new Date().toISOString();
   const items=input.items.map(item=>{const line=ticket.lines.find(l=>l.id===item.lineId)!;
    // Record any approved reversal separately; never rewrite original service earnings.

@@ -1,3 +1,4 @@
+import {retryCorrectedConfirmationEmails} from '@/src/lib/confirmation-requests';
 import {saveCustomerTags} from '@/src/lib/customer-tags';
 import {customerMessagePreferences} from '@/src/lib/customer-message-preferences';
 import {withRequestPolicy} from '@/src/lib/request-policy';
@@ -37,12 +38,14 @@ async function handlePolicyPATCH(request:NextRequest,{params}:{params:Promise<{c
  const data={...customerDetails(b),...customerMessagePreferences(b),firstName,lastName,email:email||null,notes:String(b.notes||"").trim()||null};
  const expected=b.expectedUpdatedAt===undefined?undefined:new Date(String(b.expectedUpdatedAt));
  if(expected&&Number.isNaN(expected.getTime()))return NextResponse.json({error:'Reload the customer before saving.'},{status:400});
+ let previousEmail='';
  const result=await db.$transaction(async tx=>{
-  const before=b.consolidateCustomerNotes&&typeof b.notes==='string'&&expected?await tx.customer.findFirst({where:{id:customerId,tenantId,updatedAt:expected}}):null;
-  if(before?.popupNotes)Object.assign(data,{popupNotes:null});
+  const before=await tx.customer.findFirst({where:{id:customerId,tenantId,...(expected?{updatedAt:expected}:{})}});previousEmail=before?.email||'';
+  if(email&&previousEmail.trim().toLowerCase()!==email.toLowerCase()&&before?.invalidEmail)Object.assign(data,{invalidEmail:false});
+  if(b.consolidateCustomerNotes&&typeof b.notes==='string'&&expected&&before?.popupNotes)Object.assign(data,{popupNotes:null});
   const changed=await tx.customer.updateMany({where:{id:customerId,tenantId,...(expected?{updatedAt:expected}:{})},data});
   if(changed.count){
-   if(before?.popupNotes)await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'CUSTOMER',entityId:customerId,customerId,action:'CONSOLIDATE_CUSTOMER_NOTES',summary:'Consolidated customer notes.',details:{previousNotes:before.notes,previousPopupNotes:before.popupNotes,notes:data.notes}}});
+   if(b.consolidateCustomerNotes&&typeof b.notes==='string'&&expected&&before?.popupNotes)await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'CUSTOMER',entityId:customerId,customerId,action:'CONSOLIDATE_CUSTOMER_NOTES',summary:'Consolidated customer notes.',details:{previousNotes:before.notes,previousPopupNotes:before.popupNotes,notes:data.notes}}});
    if(b.phones!==undefined)await saveCustomerPhones(tx,tenantId,customerId,b.phones);
    await saveCustomerReferral(tx,tenantId,customerId,b);
    await saveCustomerTags(tx,tenantId,customerId,b.tagIds);
@@ -51,7 +54,8 @@ async function handlePolicyPATCH(request:NextRequest,{params}:{params:Promise<{c
  });
  if(!result.count)return expected?NextResponse.json({error:'This profile changed while you were editing. Close and reopen it before saving.'},{status:409}):NextResponse.json({error:"Customer not found."},{status:404});
  await writeAudit({tenantId,actorUserId:session.user.id,entityType:"CUSTOMER",entityId:customerId,customerId,action:"EDIT",summary:"Updated customer profile and contact information."});
- return NextResponse.json({customer:await getCustomerProfile(tenantId,customerId)});
+ let deliveryNotice='';try{await retryCorrectedConfirmationEmails(tenantId,customerId,session.user.id,previousEmail,email);}catch{deliveryNotice='Customer saved. Review Communication History to check reminder delivery.';}
+ return NextResponse.json({deliveryNotice,customer:await getCustomerProfile(tenantId,customerId)});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Could not save customer. Please retry."},{status:400})}
 }
 

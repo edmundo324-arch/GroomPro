@@ -24,6 +24,13 @@ test('reduced side space narrows the hint without covering the field',()=>{
 test('Historical notes explains unmatched imported customer notes without changing its name',()=>{
  const hint=fieldHint('Historical notes');assert.equal(hint.name,'Historical notes');assert.match(hint.help,/could not match to an existing note field/);assert.match(hint.path,/Additional notes/);
 });
+test('shared Birthday label points to the record being edited, without losing unique field hints',()=>{
+ const customer=fieldHint('Birthday',{pet:false}),pet=fieldHint('Birthday',{pet:true});
+ assert.equal(customer.path,'Customer Profile → Details → Birthday');
+ assert.equal(pet.path,'Customer Profile → Pets → Edit pet → Birthday');
+ assert.match(pet.help,/pet/);assert.match(customer.help,/customer/);
+ assert.equal(fieldHint('Earlier free-text instructions',{pet:false}).pet,true);
+});
 test('tenant highlight colors are retained and missing or invalid values use factory gold',()=>{
  assert.equal(hintHighlightColor('#316ad4'),'#316ad4');
  assert.equal(hintHighlightColor('#ABCDEF'),'#ABCDEF');

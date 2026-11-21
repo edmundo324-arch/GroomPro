@@ -10,13 +10,15 @@ async function handle(r:NextRequest){
  const location=await db.location.findFirst({where:{tenantId,...(session.user.locationId?{id:session.user.locationId}:{})},orderBy:{createdAt:'asc'},select:{timezone:true}}),timezone=location?.timezone||'America/Chicago';
  if(r.method==='GET'){
   const [policy,employees,records]=await Promise.all([db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:staffTaskPolicyKey}}}),db.user.findMany({where:{tenantId,...(hide?{role:{not:'PLATFORM_OWNER' as const}}:{})},select:{id:true,displayName:true,firstName:true,lastName:true,active:true},orderBy:{lastName:'asc'}}),db.tenantSetting.findMany({where:{tenantId,settingKey:{startsWith:staffTaskPrefix}}})]);
+  const linkedIds=[...new Set(records.map(r=>(r.value as any)?.customerId).filter(Boolean))] as string[];const accessible=new Set(linkedIds.length?(await db.customer.findMany({where:{tenantId,id:{in:linkedIds}},select:{id:true}})).map(c=>c.id):[]);
   const anyEmployeeCanAssign=(policy?.value as any)?.anyEmployeeCanAssign===true;
-  return reply({employeeId:userId,timezone,manager,anyEmployeeCanAssign,canAssignOthers:manager||anyEmployeeCanAssign,employees,tasks:records.map(r=>r.value as unknown as StaffTask).filter(t=>taskVisible(t,userId,manager)&&employees.some(e=>e.id===t.assigneeId)).sort((a,b)=>Number(!!a.completedAt)-Number(!!b.completedAt)||(a.dueDate||'9999').localeCompare(b.dueDate||'9999')||b.createdAt.localeCompare(a.createdAt))});
+  return reply({employeeId:userId,timezone,manager,anyEmployeeCanAssign,canAssignOthers:manager||anyEmployeeCanAssign,employees,tasks:records.map(r=>r.value as unknown as StaffTask).filter(t=>(!t.customerId||accessible.has(t.customerId))&&taskVisible(t,userId,manager)&&employees.some(e=>e.id===t.assigneeId)).sort((a,b)=>Number(!!a.completedAt)-Number(!!b.completedAt)||(a.dueDate||'9999').localeCompare(b.dueDate||'9999')||b.createdAt.localeCompare(a.createdAt))});
  }
  try{const input=await r.json();if(!/^[a-f0-9-]{36}$/i.test(input.id||''))throw Error('Reopen the task before saving.');
  const task=await db.$transaction(async tx=>{
   await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
   const where={tenantId_settingKey:{tenantId,settingKey:staffTaskPrefix+input.id}},row=await tx.tenantSetting.findUnique({where}),previous=row?.value as unknown as StaffTask|undefined;
+  if(previous?.customerId&&!await tx.customer.findFirst({where:{tenantId,id:previous.customerId},select:{id:true}}))throw Error('This customer task is not shared with this shop.');
   const policy=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:staffTaskPolicyKey}}}),canAssignOthers=manager||(policy?.value as any)?.anyEmployeeCanAssign===true;
   const next=changeTask(previous,input,{id:userId,manager,canAssignOthers,timezone},new Date().toISOString());
   if(input.action==='SAVE'&&!await tx.user.findFirst({where:{tenantId,id:next.assigneeId,active:true,...(hide?{role:{not:'PLATFORM_OWNER' as const}}:{})}}))throw Error('Choose an active employee in this business.');

@@ -6,7 +6,7 @@ import {zonedParts} from './operating-hours';
 export async function refreshRebookingDiscounts(tx:any,tenantId:string,ticketId:string,actor:string|null=null,overrideStart?:Date){
  await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticketId} AND tenantId=${tenantId} FOR UPDATE`;
  const ticket=await tx.ticket.findFirst({where:{tenantId,id:ticketId},include:{lines:{include:{service:true},orderBy:{sortOrder:'asc'}},location:true,payments:true,scheduleHistory:{orderBy:{changedAt:'asc'}}}});
- if(!ticket||['CLOSED','CANCELLED','NO_SHOW','VOIDED'].includes(ticket.status)||!ticket.scheduledStart)return {changed:0};
+ if(!ticket||['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status)||!ticket.scheduledStart)return {changed:0};
  const timezone=ticket.location.timezone,settingKey='REBOOKING_DISCOUNT:'+ticketId,where={tenantId_settingKey:{tenantId,settingKey}};
  const saved=(await tx.tenantSetting.findUnique({where}))?.value as any;
  if(saved?.managerOverride===true)return {changed:0};
@@ -20,7 +20,7 @@ export async function refreshRebookingDiscounts(tx:any,tenantId:string,ticketId:
   if(!originalDates[petId])originalDates[petId]=zonedParts(petSchedule({...ticket,lineStarts:starts},petId).start,timezone).date;
   if(day!==originalDates[petId])removed.add(petId);
   const earliest=new Date(target);earliest.setUTCDate(earliest.getUTCDate()-50);
-  const previous=await tx.ticket.findMany({where:{tenantId,id:{not:ticketId},scheduledStart:{gte:earliest,lte:target},OR:[{status:'CLOSED'},{checkedInAt:{not:null},status:{notIn:['CANCELLED','NO_SHOW','VOIDED']}}],pets:{some:{petId}}},include:{lines:{include:{service:true},orderBy:{sortOrder:'asc'}}},orderBy:{scheduledStart:'desc'}});
+  const previous=await tx.ticket.findMany({where:{tenantId,id:{not:ticketId},scheduledStart:{gte:earliest,lte:target},OR:[{status:'CLOSED'},{checkedInAt:{not:null},status:{notIn:['CANCELLED','NO_SHOW']}}],pets:{some:{petId}}},include:{lines:{include:{service:true},orderBy:{sortOrder:'asc'}}},orderBy:{scheduledStart:'desc'}});
   const candidates:any[]=[];
   for(const prior of previous){
    const priorStarts=(await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'TICKET_LINE_STARTS:'+prior.id}}}))?.value||{};

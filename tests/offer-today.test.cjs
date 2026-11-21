@@ -29,7 +29,7 @@ test('booking resolves trusted price and persists offer provenance without dedup
 });
 function fixture(){let lines=[{id:'manual',serviceId:'brush',petId:'coco',quantity:1,role:'ADD_ON',durationMin:5,sortOrder:0},{id:'package',serviceId:'brush',petId:'coco',packageId:'bundle',quantity:1,role:'ADD_ON',durationMin:5,sortOrder:1}];let next=0,checks=0;
  const ticket={id:'ticket',tenantId:'tenant',locationId:'location',status:'OPEN',timingMode:'SEQUENTIAL',pets:[{petId:'coco'},{petId:'fluffy'}]};
- const tx={ticket:{findFirst:async q=>{assert.equal(q.where.tenantId,'tenant');return {...ticket,lines}},update:async()=>{}},service:{findFirst:async q=>{assert.equal(q.where.tenantId,'tenant');return service}},ticketLine:{create:async({data})=>{const line={...data,id:'offer'+(++next)};lines.push(line);return line},deleteMany:async({where})=>{lines=lines.filter(l=>!Object.entries(where).every(([key,value])=>(l[key]??null)===value));}}};
+ const tx={$queryRaw:async()=>[],ticket:{findFirst:async q=>{assert.equal(q.where.tenantId,'tenant');return {...ticket,lines}},update:async()=>{}},service:{findFirst:async q=>{assert.equal(q.where.tenantId,'tenant');return service}},ticketLine:{create:async({data})=>{const line={...data,id:'offer'+(++next)};lines.push(line);return line},deleteMany:async({where})=>{lines=lines.filter(l=>!Object.entries(where).every(([key,value])=>(l[key]??null)===value));}}};
  for(const l of lines)l.ticketId='ticket';
  return{tx,ticket,get lines(){return lines},check:async()=>{checks++},get checks(){return checks}};
 }

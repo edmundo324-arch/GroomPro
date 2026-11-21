@@ -1,6 +1,8 @@
 "use client";
-import { offlineAttendanceChoice, offlineAction, offlineRecordVersion, offlineScopeKey, offlineTargetKey, type OfflineCommand, type OfflineScope } from './offline-actions';
-import { deviceRead, deviceUpdate, emptyOutbox, outboxKey, snapshotKey, type OfflineOutbox } from './offline-device-store';
+import {downloadReportHistory,type ReportHistory} from './offline-report-history';
+import {offlineReport,offlineShopComparison} from './offline-report';
+import { offlineAttendanceChoice, offlineRecordId, offlineAction, offlineRecordVersion, offlineScopeKey, offlineTargetKey, type OfflineCommand, type OfflineScope } from './offline-actions';
+import { reportHistoryInfoKey, reportHistoryKey, deviceRead, deviceUpdate, emptyOutbox, outboxKey, snapshotKey, type OfflineOutbox } from './offline-device-store';
 import { findRecord, offlineReadRecords, projectOffline, type OfflineRecords } from './offline-records';
 
 const activeKey = 'active-employee';
@@ -29,12 +31,13 @@ async function activeDevice(): Promise<ActiveDevice | undefined> {
 
 export async function offlineStatus() {
   const active = await activeDevice();
-  if (!active) return { ready: false, pending: [], archived: [], lastSaved: 0, signInRequired: false };
-  const [state, queue] = await Promise.all([
+  if (!active) return { ready: false, pending: [], archived: [], lastSaved: 0, signInRequired: false,reportSavedAt:0 };
+  const [state, queue, history] = await Promise.all([
     deviceRead<OfflineRecords>(snapshotKey(active.scope)),
     deviceRead<OfflineOutbox>(outboxKey(active.scope)),
+    deviceRead<Pick<ReportHistory,'asOf'>>(reportHistoryInfoKey(active.scope)),
   ]);
-  return { ready: Boolean(state), pending: queue?.pending || [], archived: queue?.archived || [], lastSaved: state?.fetchedAt || 0, signInRequired: Boolean(queue?.signInRequired) };
+  return { reportSavedAt:history?Date.parse(history.asOf):0, ready: Boolean(state), pending: queue?.pending || [], archived: queue?.archived || [], lastSaved: state?.fetchedAt || 0, signInRequired: Boolean(queue?.signInRequired) };
 }
 
 export async function stopOfflineAccess() {
@@ -79,6 +82,31 @@ async function refreshDevice(scope: OfflineScope) {
   } : current);
   if (revision === identityRevision) localAccessBlocked = false;
   if (typeof navigator.storage?.persist === 'function') void navigator.storage.persist().catch(() => {});
+  change();
+  // Keep reporting history separate from editable records and their conflict bases.
+  try {
+    async function prepareHistory(reportScope:OfflineScope){
+      const previousHistory=await deviceRead<Pick<ReportHistory,'accessKey'|'canManageTime'>>(reportHistoryInfoKey(reportScope));
+      const discardHistory=async()=>{await deviceUpdate(reportHistoryKey(reportScope),()=>undefined);await deviceUpdate(reportHistoryInfoKey(reportScope),()=>undefined)};
+      const history=await downloadReportHistory(async(part,after)=>{
+        const result=await fetch('/api/offline/report-history?'+new URLSearchParams({locationId:reportScope.locationId,part,after}),{cache:'no-store'});
+        if(!result.ok){if([401,403].includes(result.status))await discardHistory();throw Error('Reporting history is unavailable.');}
+        const page=await result.json();if(previousHistory&&(previousHistory.accessKey!==page.accessKey||previousHistory.canManageTime!==page.canManageTime))await discardHistory();return page;
+      },()=>revision===identityRevision&&navigator.onLine);
+      if(history&&same(reportScope,history.scope)&&revision===identityRevision){await deviceUpdate<ReportHistory>(reportHistoryKey(reportScope),()=>history);await deviceUpdate(reportHistoryInfoKey(reportScope),()=>({asOf:history.asOf,accessKey:history.accessKey,canManageTime:history.canManageTime}));return history;}
+      return null;
+    }
+    const history=await prepareHistory(scope),manifestKey='report-shops:'+offlineScopeKey(scope);
+    if(history?.canManageTime){
+      await deviceUpdate(manifestKey,()=>undefined);
+      const response=await fetch('/api/reports?locations=1',{cache:'no-store'});if(!response.ok)throw Error('Shop list unavailable.');const data=await response.json();
+      const locations=Array.isArray(data.locations)?data.locations:[];
+      if(!locations.some((l:any)=>l.id===scope.locationId))throw Error('Shop list changed.');
+      for(const location of locations){if(location.id===scope.locationId)continue;if(!await prepareHistory({...scope,locationId:location.id}))throw Error('Shop history incomplete.');}
+      if(revision===identityRevision)await deviceUpdate(manifestKey,()=>({scope,locations,accessKey:history.accessKey}));
+    }else await deviceUpdate(manifestKey,()=>undefined);
+
+  } catch { /* Retain the last complete history after interrupted downloads. */ }
   change();
 }
 
@@ -130,6 +158,12 @@ async function projected(active: ActiveDevice) {
     try { projectOffline(snapshot, command); } catch { /* Keep the original command available for review. */ }
   }
   return { snapshot, queue };
+}
+
+function pendingReportTickets(data:{snapshot:OfflineRecords;queue:OfflineOutbox}|null){
+ if(!data)return [];
+const ids=new Set<string>();for(const command of data.queue.pending){try{const body=JSON.parse(command.body),action=offlineAction(new URL(command.url,location.origin),command.method,body);if(action?.target?.entity==='ticket'||action?.target?.entity==='draft')ids.add(action.target.id);if(action?.create==='ticket'||body.kind==='REBOOK'||new URL(command.url,location.origin).pathname==='/api/tickets/rebook')ids.add(offlineRecordId(command.id));}catch{}}
+ return data.snapshot.tickets.filter(t=>ids.has(t.id));
 }
 
 export async function offlineBootstrap() {
@@ -249,6 +283,29 @@ export async function deviceFetch(input: string, init?: RequestInit): Promise<Re
     const data = device && await projected(device);
     if (data) {
       try {
+        if(url.pathname==='/api/reports'&&device){
+          const history=await deviceRead<ReportHistory>(reportHistoryKey(device.scope));
+          if(history&&same(history.scope,device.scope)){
+            if(url.searchParams.has('locations')){
+              const manifest=await deviceRead<any>('report-shops:'+offlineScopeKey(device.scope));
+              if(url.searchParams.get('locations')==='compare'){
+                if(!history.canManageTime||!manifest||manifest.accessKey!==history.accessKey)throw Error('Reconnect as an owner or manager to finish preparing shop comparisons.');
+                const histories=await Promise.all(manifest.locations.map((l:any)=>deviceRead<ReportHistory>(reportHistoryKey({...device.scope,locationId:l.id}))));
+                if(histories.some(h=>!h))throw Error('Reconnect to finish preparing each shop’s reporting history.');
+                const pendingByShop:Record<string,any[]>={};for(const l of manifest.locations)pendingByShop[l.id]=pendingReportTickets(l.id===device.scope.locationId?data:await projected({...device,scope:{...device.scope,locationId:l.id}}));
+                return json(offlineShopComparison(histories as ReportHistory[],url.searchParams.get('from')||'',url.searchParams.get('through')||'',pendingByShop));
+              }
+              if(history.canManageTime&&manifest?.accessKey===history.accessKey)return json({locations:manifest.locations,selected:device.scope.locationId});
+            }
+            const requested=url.searchParams.get('locationId');if(requested&&requested!==device.scope.locationId){
+              const manifest=await deviceRead<any>('report-shops:'+offlineScopeKey(device.scope));
+              if(!history.canManageTime||manifest?.accessKey!==history.accessKey||!manifest.locations.some((l:any)=>l.id===requested))throw Error('This shop’s reporting history is not prepared on this device.');
+              const other=await deviceRead<ReportHistory>(reportHistoryKey({...device.scope,locationId:requested}));if(!other?.canManageTime)throw Error('Reconnect to refresh this shop’s reporting access.');return json(offlineReport(other,url.searchParams,pendingReportTickets(await projected({...device,scope:{...device.scope,locationId:requested}}))));
+            }
+
+            return json(offlineReport(history,url.searchParams,pendingReportTickets(data)));
+          }
+        }
         const value = offlineReadRecords(data.snapshot, url);
         if (value !== undefined) return json(value);
       } catch (error) { return json({ error: (error as Error).message }, 404); }

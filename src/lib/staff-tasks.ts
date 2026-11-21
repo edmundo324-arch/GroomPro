@@ -1,4 +1,4 @@
-export type StaffTask={id:string;revision:number;title:string;notes:string;assigneeId:string;dueDate:string;timezone?:string;createdBy:string;createdAt:string;updatedAt:string;completedAt:string|null;completedBy:string|null};
+export type StaffTask={customerId?:string;sourceRuleId?:string;id:string;revision:number;title:string;notes:string;assigneeId:string;dueDate:string;timezone?:string;createdBy:string;createdAt:string;updatedAt:string;completedAt:string|null;completedBy:string|null};
 export const staffTaskPrefix='STAFF_TASK:',staffTaskPolicyKey='STAFF_TASK_POLICY';
 export const taskManager=(role:string)=>['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER','FLOOR_MANAGER'].includes(role);
 export function taskFields(value:any){
@@ -20,7 +20,7 @@ export function changeTask(previous:StaffTask|undefined,input:any,actor:{id:stri
  if(previous&&!actor.manager&&previous.createdBy!==actor.id)throw Error('Ask the person who assigned this task or a manager to change its details.');
  const fields=taskFields(input);
  if(fields.assigneeId!==actor.id&&fields.assigneeId!==previous?.assigneeId&&!actor.canAssignOthers)throw Error('An owner or manager can assign tasks to another employee.');
- return {...fields,timezone:previous?.timezone||actor.timezone||'America/Chicago',id:previous?.id||input.id,revision:(previous?.revision||0)+1,createdBy:previous?.createdBy||actor.id,createdAt:previous?.createdAt||at,updatedAt:at,completedAt:previous?.completedAt||null,completedBy:previous?.completedBy||null};
+ return {...fields,...(previous?.customerId?{customerId:previous.customerId}:{}),...(previous?.sourceRuleId?{sourceRuleId:previous.sourceRuleId}:{}),timezone:previous?.timezone||actor.timezone||'America/Chicago',id:previous?.id||input.id,revision:(previous?.revision||0)+1,createdBy:previous?.createdBy||actor.id,createdAt:previous?.createdAt||at,updatedAt:at,completedAt:previous?.completedAt||null,completedBy:previous?.completedBy||null};
 }
 
 export function taskOverdue(task:StaffTask,now=new Date(),fallbackZone='America/Chicago'){

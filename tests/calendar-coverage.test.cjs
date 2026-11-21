@@ -21,7 +21,7 @@ test('coverage reviews first, excludes conflicts and time blocks, and rejects a 
   '@prisma/client':{Prisma:{TransactionIsolationLevel:{Serializable:'Serializable',RepeatableRead:'RepeatableRead'}}},
   'next/server':{NextResponse:{json:(data,options)=>({data,status:options?.status||200})}},
   'platform-access':{platformSession:async()=>({tenantId:'tenant',user:{id:'manager',role:'MANAGER'}})},
-  'request-policy':{withRequestPolicy:handler=>handler},'request-location':{requestLocation:async()=> 'shop'},
+  'request-policy':{withRequestPolicy:handler=>handler,hidePlatformOwners:async()=>false},'request-location':{requestLocation:async()=> 'shop'},
   db:{db:{location:{findFirst:async()=>({timezone:'America/Chicago'})},$transaction:callback=>callback(tx)}},
   'workflow-settings':{workflowSettings:async()=>({})},
   'calendar-blocks':{calendarBlocks:async()=>[{resourceKind:'employee',resourceId:'w1',start:start.toISOString(),end:'2026-11-09T16:00:00Z'}]},

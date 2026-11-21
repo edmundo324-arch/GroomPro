@@ -57,3 +57,6 @@ export async function deviceUpdate<T>(key: string, update: (current: T | undefin
 export const snapshotKey = (scope: OfflineScope) => 'snapshot:' + offlineScopeKey(scope);
 export const outboxKey = (scope: OfflineScope) => 'outbox:' + offlineScopeKey(scope);
 export const emptyOutbox = (): OfflineOutbox => ({ pending: [], confirmed: [] });
+
+export const reportHistoryKey=(scope:OfflineScope)=>'report-history:'+offlineScopeKey(scope);
+export const reportHistoryInfoKey=(scope:OfflineScope)=>reportHistoryKey(scope)+':info';

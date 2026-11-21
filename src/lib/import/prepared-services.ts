@@ -8,7 +8,9 @@ const norm=(v:any)=>String(v||'').trim().replace(/\s+/g,' ').toLowerCase();
 function comparable(s:any){return JSON.stringify(fields.map(k=>k==='commissionPct'?s[k]==null?null:Number(s[k]):k==='commissionExemptRoles'?s[k]==null?null:[...s[k]].sort():s[k]??null))}
 export async function loadPreparedServices(db:any,tenantId:string,actorId:string,apply=false){
  const bytes=await readFile(join(process.cwd(),'transfer-data','GroomPro-Local-Services.json'));
- if(createHash('sha256').update(bytes).digest('hex')!==expected)throw Error('The prepared service file does not match the reviewed version.');
+ // Git can check out the reviewed JSON with Windows line endings. Normalize
+ // only those separators; changes to catalog content must still be rejected.
+ if(createHash('sha256').update(bytes.toString('utf8').replace(/\r\n/g,'\n')).digest('hex')!==expected)throw Error('The prepared service file does not match the reviewed version.');
  const data=JSON.parse(bytes.toString('utf8'));
  if(data.version!==1||!Array.isArray(data.services)||!data.services.length||!Array.isArray(data.categories))throw Error('Invalid prepared service catalog.');
  const ids=new Set<string>();

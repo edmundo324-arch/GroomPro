@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useId,useRef,useState,type ReactNode} from 'react';
+import {createPortal} from 'react-dom';
 import {reconcileForm} from '../lib/form-hydration';
 import {HelpPopup} from './help-popup';
 import {FloatingEditorWindow} from './floating-editor-window';
@@ -164,7 +165,7 @@ export function CustomerAgreementTools({customerId}:{customerId?:string}){
     {' · '}{doc.sentCopy?'Email accepted':'Email pending or unavailable'}
    </p>)}</section>}
   </div>}
-   {setup&&<FloatingEditorWindow windowKey="agreement-settings" title="Agreement Settings" onClose={closeSettings} className="gp-paper-editor" style={{zIndex:80}}>{error&&<p role="alert">{error}<DismissButton label="Dismiss agreement error" onClick={()=>setError('')}/></p>}<AgreementSettings tenantId={context?.tenantId||''} available={!!context?.config} initial={context?.config||emptyAgreement} onClose={closeSettings} onSaved={config=>setContext(old=>old?{...old,config}:old)}/></FloatingEditorWindow>}
+   {setup&&createPortal(<FloatingEditorWindow windowKey="agreement-settings" title="Agreement Settings" onClose={closeSettings} className="gp-paper-editor" style={{zIndex:80}}>{error&&<p role="alert">{error}<DismissButton label="Dismiss agreement error" onClick={()=>setError('')}/></p>}<AgreementSettings tenantId={context?.tenantId||''} available={!!context?.config} initial={context?.config||emptyAgreement} onClose={closeSettings} onSaved={config=>setContext(old=>old?{...old,config}:old)}/></FloatingEditorWindow>,document.body)}
  </div>;
 }
 export function createCustomerAgreement(input:object){

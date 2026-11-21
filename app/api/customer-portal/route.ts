@@ -1,3 +1,4 @@
+import {readPublicHintSettings} from '@/src/lib/public-hint-settings';
 import {readReferralPolicy,referralInvitation,referralShare,claimPortalReferral} from '@/src/lib/referral-policy';
 import {readPortalBranding} from '@/src/lib/portal-branding';
 import {customerReportCardKey,readCustomerReportCard,customerReportCardHtml} from '@/src/lib/customer-report-card';
@@ -31,7 +32,7 @@ export async function POST(r:NextRequest){
   const raw=await r.text();if(raw.length>7_010_000)return reply({error:'This update is too large. Send a shorter message.'},400);
   const b=JSON.parse(raw),tenantId=b.tenant;if(b.action!=='uploadPetDocument'&&raw.length>260000)return reply({error:'This update is too large. Send a shorter message.'},400);
   if(!validTenant(tenantId)||await platformRestriction(tenantId))return reply({error:'This customer portal is unavailable. Contact the shop.'},404);
-  if(b.action==='branding'){await requireAgreementLocation(tenantId,b.location);const business=await db.tenant.findUniqueOrThrow({where:{id:tenantId},select:{name:true}});return reply({business:business.name,...await readPortalBranding(tenantId)});}
+  if(b.action==='branding'){await requireAgreementLocation(tenantId,b.location);const business=await db.tenant.findUniqueOrThrow({where:{id:tenantId},select:{name:true}});return reply({business:business.name,...await readPortalBranding(tenantId),hints:await readPublicHintSettings(db,tenantId)});}
   if(b.action==='sendCode')return reply({token:await startPhoneVerification(tenantId,String(b.phone||''),undefined,b.location,'portal')});
   if(!isAgreementToken(b.token))return reply({error:'Sign in with your mobile number first.'},401);
   const state=await readAccess(db,tenantId,b.token);
@@ -71,7 +72,7 @@ export async function POST(r:NextRequest){
    if(b.action==='saveMessagePreferences')return reply({preferences:await savePortalMessagePreferences(tenantId,profile.id,b.preferences)});
    if(b.action==='attendance')return reply({attendance:await updateCustomerAttendance(tenantId,profile.id,String(b.ticketId||''),{revision:b.revision,scheduledStart:b.scheduledStart,confirm:b.confirm===true,reminders:b.reminders})});
    if(b.action==='calendar'){
-    const ticket=await db.ticket.findFirst({where:{tenantId,id:String(b.ticketId||''),customerId:profile.id,status:{in:['CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED']},bookingDecision:{notIn:['REQUESTED','PENDING']}},include:{tenant:{select:{name:true}},location:true}});
+    const ticket=await db.ticket.findFirst({where:{tenantId,id:String(b.ticketId||''),customerId:profile.id,status:{in:['OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS','READY','CLOSED']},bookingDecision:{notIn:['REQUESTED','PENDING']}},include:{tenant:{select:{name:true}},location:true}});
     if(!ticket?.scheduledStart)return reply({error:'This appointment is not confirmed or is no longer available. Refresh your appointments or contact the shop.'},404);
     const address=[ticket.location.address1,ticket.location.address2,ticket.location.city,ticket.location.state,ticket.location.postalCode].filter(Boolean).join(', ');
     return new NextResponse(calendarInvitation({...ticket,scheduledStart:ticket.scheduledStart},ticket.tenant.name,address),{headers:{...headers,'Content-Type':'text/calendar; charset=utf-8','Content-Disposition':'attachment; filename="grooming-appointment.ics"'}});

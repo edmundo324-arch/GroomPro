@@ -23,8 +23,8 @@ export async function saveAppointmentMessageSettings(tenantId:string,userId:stri
 
 // Establish one activation boundary before a scheduled worker considers existing bookings.
 // Reading Settings alone must not advance this boundary or start a new schedule.
-export async function initializeAppointmentMessageSettings(tenantId:string){
- return db.$transaction(async tx=>{
+export async function initializeAppointmentMessageSettings(tenantId:string,client:any=db){
+ return client.$transaction(async (tx:any)=>{
   await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
   const current=await readAppointmentMessageSettings(tenantId,tx);
   const reportReady=current.policy.enabled&&current.policy.reportCardMode==='AUTO'&&!!current.policy.publicOrigin;

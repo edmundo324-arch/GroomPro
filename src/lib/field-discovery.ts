@@ -14,7 +14,7 @@ export function describeField(element:HTMLElement){
  const name=fieldLabel(element);if(!name||name.length>100)return null;
  const window=element.closest('[role="dialog"]')?.getAttribute('aria-label');
  const module=element.closest<HTMLElement>('[data-module-name]')?.dataset.moduleName||window||'Current form';
- const candidate=fieldHint(name);
+ const candidate=fieldHint(name,{pet:!!element.closest('.gp-pet-window')});
  const customerContext=!!element.closest('[data-customer-id],.gp-customer-window,.gp-pet-window,.gp-pos-window')||/customer|pet|pos|ticket/i.test(window||module);
  const known=candidate?.tab==='Details'&&!customerContext?undefined:candidate;
  const panels:string[]=[];for(let panel=element.closest<HTMLElement>('[data-settings-panel]');panel;panel=panel.parentElement?.closest<HTMLElement>('[data-settings-panel]')||null){const label=document.getElementById(panel.getAttribute('aria-labelledby')||'')?.textContent?.trim();if(label)panels.unshift(label);}
@@ -42,7 +42,7 @@ export function describeField(element:HTMLElement){
  const contextHelp=name==='Status'&&appearance?'Choose the appointment stage whose colors you want to edit. This does not change an appointment’s status.':
   name==='Status'&&/pos|ticket/i.test(window||module)?'Set the stage this appointment has reached. Its appearance follows this business’s configured colors.':
   name==='Service type'&&appearance?'Choose the service type whose appointment colors you want to edit, such as GR, FW or FFT.':undefined;
- const help=element.dataset.help||control?.getAttribute('data-help')||accountHelp||contextHelp||(['Primary','SMS','Call','Show Inactive'].includes(name)&&!customerContext?undefined:purpose[name])||known?.help||fieldPurposes[name]||control?.getAttribute('title')||element.getAttribute('title')||'';
+ const help=element.dataset.help||control?.getAttribute('data-help')||accountHelp||contextHelp||(['Primary','SMS','Call','Show Inactive'].includes(name)&&!customerContext?undefined:purpose[name])||known?.help||fieldPurposes[control?.getAttribute('aria-label')||'']||fieldPurposes[name]||control?.getAttribute('title')||element.getAttribute('title')||'';
  return {name:element.dataset.helpName||known?.name||name,aliases:[name,...(known?.aliases||[])],path:element.dataset.helpPath||known?.path||path,help,element,module};
 }
 export function discoverFields(){

@@ -4,3 +4,5 @@ test('receipt uses saved discounted lines, tax, tips and partial payments withou
 test('fully paid ticket is a receipt; untrusted names and descriptions are escaped and internal data omitted',()=>{const html=ticketReceipt({...base,notes:'PRIVATE',payments:[{amount:'13.00',paymentType:'CASH'}],customer:{firstName:'<script>alert(1)</script>',lastName:'Smith'}});assert.match(html,/Receipt #12/);assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('PRIVATE'))});
 
 test('email receipt retains amounts without an unusable print action',()=>{const html=ticketReceipt(base,true);assert.match(html,/Invoice #12/);assert.match(html,/\$13.00/);assert.ok(!html.includes('onclick='));});
+
+test('voided ticket history is not presented as a payable invoice',()=>{const html=ticketReceipt({...base,status:'CANCELLED',displayStatus:'Voided'});assert.match(html,/Voided ticket #12/);assert.match(html,/no payment is due/);assert.match(html,/<strong>Due<\/strong><span>\$0.00/);assert.match(html,/Bath/);});

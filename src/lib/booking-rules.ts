@@ -9,10 +9,10 @@ export type BookingConflict = {
   message: string;
 };
 
-export async function checkCustomerBookingRules(tenantId:string,customerId:string,start:Date,durationMin:number,petIds?:string[],excludeId?:string){
- const settings=await workflowSettings(tenantId);if(!settings.bookingWarnings)return {conflicts:[],hardOverlap:false};
+export async function checkCustomerBookingRules(tenantId:string,customerId:string,start:Date,durationMin:number,petIds?:string[],excludeId?:string,client:Pick<typeof db,"ticket"|"tenantSetting">=db){
+ const settings=await workflowSettings(tenantId,client);if(!settings.bookingWarnings)return {conflicts:[],hardOverlap:false};
  const days=settings.warningDays, end=new Date(+start+durationMin*60000);
- const tickets=await db.ticket.findMany({
+ const tickets=await client.ticket.findMany({
   where:{tenantId,customerId,...(excludeId?{id:{not:excludeId}}:{}),scheduledStart:{not:null},status:{notIn:['CANCELLED','NO_SHOW']}},
   select:{scheduledStart:true,durationMin:true,orderNumber:true,pets:{select:{petId:true,pet:{select:{name:true}}}}},
  });

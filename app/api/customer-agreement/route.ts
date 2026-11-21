@@ -1,3 +1,4 @@
+import {readPublicHintSettings} from '@/src/lib/public-hint-settings';
 import {sharingKey,sharingScope,sharedLocations,type SharingConfig} from '@/src/lib/customer-sharing-context';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -39,7 +40,7 @@ export async function POST(request:NextRequest){
    if(!config.channels.includes('tablet'))return reply({error:'Tablet intake is disabled.'},403);
    const business=await db.tenant.findUniqueOrThrow({where:{id:tenant},select:{name:true}});
    const records=action==='prepareTablet'?await tabletIntakeProfiles(tenant,config.intake,config.tabletVerifyExisting===true):{};
-   const response=reply({tabletStation:true,terms:config.intake,business:business.name,verifyExisting:config.tabletVerifyExisting===true,...records});
+   const response=reply({hints:await readPublicHintSettings(db,tenant),tabletStation:true,terms:config.intake,business:business.name,verifyExisting:config.tabletVerifyExisting===true,...records});
    response.cookies.set('groompro_intake_station',token,{httpOnly:true,sameSite:'strict',secure:process.env.NODE_ENV==='production'||request.nextUrl.protocol==='https:',path:'/api/customer-agreement',maxAge:365*86400});
    return response;
   }
@@ -47,7 +48,7 @@ export async function POST(request:NextRequest){
    await clearTabletForm(tenant,token);
    return reply({cleared:true});
   }
-  if(action==='view'&&!state.phone&&!state.customerId&&state.kind==='intake')return reply({needsPhone:true});
+  if(action==='view'&&!state.phone&&!state.customerId&&state.kind==='intake')return reply({needsPhone:true,hints:await readPublicHintSettings(db,tenant)});
   readableAgreement(state);
   if(action==='sign')return reply(await signAgreement(tenant,token,body));
   if(state.documentId)return reply({signed:true});
@@ -61,7 +62,7 @@ export async function POST(request:NextRequest){
   if(action!=='view'&&action!=='edit')return reply({error:'Choose a valid form action.'},400);
   const profile=action==='edit'?await updateAgreementProfile(tenant,token,body.fields||{},Number.isSafeInteger(body.offlineEditIndex)&&typeof body.expectedRevision==='string'?{index:body.offlineEditIndex,revision:body.expectedRevision}:undefined):await agreementProfile(db,tenant,state);
   const business=await db.tenant.findUnique({where:{id:tenant},select:{name:true}});
-  return reply({profile,kind:state.kind,tablet:state.channel==='tablet',quote:state.quote,terms:state.terms,business:business?.name||'',
+  return reply({hints:await readPublicHintSettings(db,tenant),profile,kind:state.kind,tablet:state.channel==='tablet',quote:state.quote,terms:state.terms,business:business?.name||'',
    revision:agreementRevision(profile,state.terms,state.quote)});
   };
   return await (sharing?.enabled?sharingScope.run({tenantId:tenant,locationId,locations:sharedLocations(sharing,locationId)},execute):execute());

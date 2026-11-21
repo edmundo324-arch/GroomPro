@@ -1,0 +1,18 @@
+require('./load-ts.cjs');const test=require('node:test'),assert=require('node:assert/strict');const {customRuleResults,customRuleResultsReport}=require('../src/lib/report-custom-rules.ts');
+test('results deduplicate execution records and preserve unknown delivery outcomes',()=>{
+ const a={id:'a',action:'CUSTOM_RULE_TASK',details:{ruleId:'r',recordId:'t'}},refs=['one','two','three','four'].map(communicationId=>({ruleId:'r',communicationId}));
+ const r=customRuleResults([a,a,{id:'n',action:'CUSTOM_RULE_NOTICE',details:{ruleId:'r'}}],[...refs,refs[0]],[{id:'one',deliveryStatus:'DELIVERED'},{id:'two',deliveryStatus:'UNKNOWN'},{id:'three',deliveryStatus:'FAILED'}],[{id:'t',completedAt:'2026-11-20'}],new Map([['r','Review rule']])).rows[0];
+ assert.deepEqual(r,{id:'r',name:'Review rule',tasks:1,completedTasks:1,notices:1,messages:4,delivered:1,failed:1,unconfirmed:1,notSubmitted:1,bookedCustomers:0});
+});
+test('report excludes inaccessible customers, other employees and attempts outside the selected dates',async()=>{
+ const at='2026-11-20T12:00:00Z',client={auditEntry:{findMany:async q=>{assert.equal(q.where.tenantId,'tenant');return[{id:'a',customerId:'allowed',action:'CUSTOM_RULE_TASK',details:{ruleId:'r',recordId:'t',assigneeId:'me'}},{id:'b',customerId:'hidden',action:'CUSTOM_RULE_NOTICE',details:{ruleId:'r',assigneeId:'me'}},{id:'c',action:'CUSTOM_RULE_NOTICE',details:{ruleId:'r',assigneeId:'other'}}]}},tenantSetting:{findMany:async()=>[{settingKey:'CUSTOM_RULE:r',value:{id:'r',name:'Review rule'}},{settingKey:'STAFF_TASK:t',value:{id:'t',completedAt:at}},...['allowed','hidden','old'].map(customerId=>({settingKey:'CUSTOM_RULE_DELIVERY:'+customerId,value:{ruleId:'r',customerId,communicationId:customerId,recordedAt:customerId==='old'?'2026-10-01':at}}))]},customer:{findMany:async q=>{assert.deepEqual(q.where.id.in.sort(),['allowed','hidden']);return[{id:'allowed'}]}},ticket:{findMany:async()=>[]},communication:{findMany:async q=>{assert.deepEqual(q.where.id.in,['allowed']);return[{id:'allowed',deliveryStatus:'ACCEPTED'}]}}};
+ const data=await customRuleResultsReport('tenant',new Date('2026-11-20'),new Date('2026-11-21'),'me',false,client);assert.equal(data.staffScope,'SELF');assert.equal(data.rows[0].tasks,1);assert.equal(data.rows[0].notices,0);assert.equal(data.rows[0].messages,1);assert.equal(data.rows[0].unconfirmed,1);
+});
+test('CSV and printable report preserve the displayed results without recalculation',()=>{const {reportRows}=require('../src/lib/report-export.ts'),{printableReport}=require('../src/lib/report-print.ts');const data={customRules:{rows:[{name:'Rule <one>',tasks:2,completedTasks:1,notices:0,messages:3,delivered:1,failed:0,unconfirmed:2,notSubmitted:0}]}};assert.ok(reportRows(data,'Shop').some(r=>r[0]==='Custom rule results'&&r[1]==='Rule <one>'&&r[2]===2));assert.match(printableReport(data,'Shop'),/Rule &lt;one&gt;/);});
+
+test('phone-entered bookings count after sent messages without links, while old, cancelled and pending bookings do not',()=>{
+ const refs=['text','email'].map(communicationId=>({ruleId:'r',customerId:'c',communicationId,recordedAt:'2026-11-01'})),messages=refs.map(v=>({id:v.communicationId,deliveryStatus:'SENT',createdAt:'2026-11-01'})),booking={customerId:'c',createdAt:'2026-11-02',scheduledStart:'2026-11-20',status:'CONFIRMED',bookingDecision:'ACCEPTED',bookingSource:'STAFF'};
+ const result=b=>customRuleResults([],refs,messages,[],new Map([['r','Rebook']]),b).rows[0].bookedCustomers;
+ assert.equal(result([booking,{...booking}]),1);
+ for(const change of [{createdAt:'2026-10-30'},{status:'CANCELLED'},{status:'NO_SHOW'},{bookingDecision:'REQUESTED'},{customerId:'other'}])assert.equal(result([{...booking,...change}]),0);
+});

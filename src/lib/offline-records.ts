@@ -1,3 +1,4 @@
+import {ticketSettledCents} from './ticket-settlement';
 import {changeTask} from './staff-tasks';
 import {newCustomerPhones} from './new-customer-phones';
 import {normalizePhone} from './phone-normalization';
@@ -432,7 +433,7 @@ export function offlineReadRecords(state: OfflineRecords, url: URL) {
   if (path === '/api/tickets/checkout') {
     const ticket = findRecord(state, 'ticket', ticketId || '');
     if (ticket) {
-      const paidCents = ticket.payments.reduce((total: number, payment: any) => total + Math.round(Number(payment.amount || 0) * 100), 0);
+      const paidCents = ticketSettledCents(ticket);
       const subtotalCents = ticket.lines.reduce((total: number, line: any) => total + Number(line.totalCents || 0), 0);
       return { ticket, paidCents, subtotalCents, totalCents: ticket.totalCents, dueCents: Math.max(0, ticket.totalCents - paidCents), account: customerRecord(state, ticket.customerId) };
     }

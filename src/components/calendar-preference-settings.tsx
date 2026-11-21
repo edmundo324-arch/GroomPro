@@ -63,7 +63,7 @@ export function CalendarPreferenceSettings({ value, onChange }: { value: any; on
         <select aria-label="Calendar rule width" value={item.width} onChange={e => rule(index, { width: e.target.value })}>
           <option value="">Device default</option><option value="fit">Fit all</option><option value="100">100 px</option><option value="160">160 px</option><option value="220">220 px</option>
         </select>
-        <label><input type="checkbox" checked={item.remember} onChange={e => rule(index, { remember: e.target.checked })}/> Remember</label>
+        <label data-help={"Restore this choice the next time you open the Calendar instead of returning it to the factory choice."}><input type="checkbox" checked={item.remember} onChange={e => rule(index, { remember: e.target.checked })}/> Remember</label>
         <button type="button" className="gp-btn" onClick={() => onChange({ ...value, calendarPreferences: { ...policy, rules: policy.rules.filter((_, i) => i !== index) } })}>Remove rule</button>
       </div>;
     })}

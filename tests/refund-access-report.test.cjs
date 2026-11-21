@@ -1,5 +1,6 @@
+require('./load-ts.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
-function load(file,deps){const api={};new Function('require','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(n=>{if(!(n in deps))throw Error(n);return deps[n]},api);return api;}
+function load(file,deps){const api={};new Function('require','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)((dependency=>dependency==='./report-calculations'?require('../src/lib/report-calculations.ts'):(n=>{if(!(n in deps))throw Error(n);return deps[n]})(dependency)),api);return api;}
 test('refund access requires a signed-in manager and uses the verified tenant and actor',async()=>{
  let session=null,calls=[];const api=load('app/api/tickets/refunds/route.ts',{'next/server':{NextResponse:{json:(body,opts)=>({body,status:opts?.status||200})}},'@/src/lib/platform-access':{platformSession:async()=>session},'@/src/lib/request-policy':{withRequestPolicy:f=>f},'@/src/lib/ticket-refunds':{recordTicketRefund:async(...args)=>{calls.push(args);return{ok:true}},readTicketRefunds:async()=>({})}});
  const request={method:'POST',json:async()=>({ticketId:'t',tenantId:'attacker',actorUserId:'attacker'})};

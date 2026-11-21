@@ -1,3 +1,4 @@
+import {ticketSettledCents} from './ticket-settlement';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {giftCardSource,isGiftCardLine} from './gift-card-line';
 export {giftCardSource,isGiftCardLine} from './gift-card-line';
@@ -17,7 +18,7 @@ export async function prepareGiftCardSale(tx:any,tenantId:string,ticket:any,face
  await audit(tx,tenantId,actorUserId,card,'GIFT_CARD_PREPARED',{ticketId:ticket.id,faceValueCents});return {id,last4:card.last4,faceValueCents};
 }
 export async function activateGiftCards(tx:any,tenantId:string,ticket:any,actorUserId:string,at:Date){
- if(ticket.tenantId!==tenantId||ticket.status!=='CLOSED'||(ticket.payments||[]).reduce((n:number,p:any)=>n+Math.round(Number(p.amount)*100),0)!==(ticket.lines||[]).reduce((n:number,l:any)=>n+Math.max(0,l.quantity*l.unitPriceCents-l.discountCents),0)+ticket.tipCents+ticket.salesTaxCents)throw Error('Pay and close the purchase ticket before activating its gift cards.');
+ if(ticket.tenantId!==tenantId||ticket.status!=='CLOSED'||ticketSettledCents(ticket)!==(ticket.lines||[]).reduce((n:number,l:any)=>n+Math.max(0,l.quantity*l.unitPriceCents-l.discountCents),0)+ticket.tipCents+ticket.salesTaxCents)throw Error('Pay and close the purchase ticket before activating its gift cards.');
  const issued=[];for(const line of ticket.lines.filter(isGiftCardLine)){const id=line.sourceKey.slice(giftCardSource.length),card=await lockCard(tx,tenantId,id);
  if(card.saleTicketId!==ticket.id||card.lineId!==line.id||line.quantity!==1||line.discountCents!==0||line.unitPriceCents!==card.faceValueCents||line.totalCents!==card.faceValueCents)throw Error('A gift card amount changed. Remove that gift card line and add a new card for the intended amount.');
  if(card.state==='PENDING'){card.state='ACTIVE';card.activatedAt=at.toISOString();card.balanceCents=card.faceValueCents;card.entries=[{id:'issue:'+id,kind:'ISSUE',amountCents:card.faceValueCents,ticketId:ticket.id,locationId:ticket.locationId,at:at.toISOString()}];await tx.tenantSetting.update({where:where(tenantId,cardKey(id)),data:{value:card}});await audit(tx,tenantId,actorUserId,card,'GIFT_CARD_ACTIVATED',{ticketId:ticket.id,amountCents:card.faceValueCents});}

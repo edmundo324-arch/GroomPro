@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm'),ts=require('typescript');
-function load(file,deps={},env={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:n=>n in deps?deps[n]:require(n),Buffer,process:{env},Date,Set});return exports}
+function load(file,deps={},env={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:n=>n in deps?deps[n]:['@/src/lib/roles','@/src/lib/business-context'].includes(n)?load(n.replace('@/','')+'.ts'):n==='@/src/lib/platform-business'?{}:require(n),Buffer,process:{env},Date,Set});return exports}
 const pin=load('src/lib/pin.ts');
-test('imported employees without sign-in PINs do not block new PIN assignment',async()=>{assert.equal(await pin.pinAssignmentError('9451',[{pinHash:'IMPORT_DISABLED',pinPrefixHashes:null},{pinHash:'PIN_REMOVED',pinPrefixHashes:null}]),null);assert.equal(await pin.verifyPin('9451','IMPORT_DISABLED'),false)});
+test('imported employees without sign-in PINs do not block new PIN assignment',async()=>{assert.equal(await pin.pinAssignmentError('945123',[{pinHash:'IMPORT_DISABLED',pinPrefixHashes:null},{pinHash:'PIN_REMOVED',pinPrefixHashes:null}]),null);assert.equal(await pin.verifyPin('9451','IMPORT_DISABLED'),false)});
 test('valid unambiguous PIN signs in automatically despite imported records without PINs',async()=>{
  const user={id:'worker',role:'ADMIN',pinHash:await pin.hashPin('9451'),pinPrefixHashes:await pin.hashPinPrefixes('9451')};let starts=0;
  const api=load('app/api/employee/session/route.ts',{'@/src/lib/device-authorization':{deviceApprovalCookie:'groompro_device_approval',deviceApproved:async()=>true},'@/src/lib/roles':{isPlatformRole:()=>false},'@/src/lib/pin-vault':{pinVaultConfigured:()=>false},'@/src/lib/business-context':{},'@/src/lib/platform-business':{},'@/src/lib/platform-restrictions':{platformRestriction:async()=>null,isDeveloperId:()=>false},'@/src/lib/audit':{writeAudit:async()=>{}},'next/server':{NextResponse:{json:(body,options)=>({body,status:options?.status||200,cookies:{set(){}}})}},'@/src/lib/db':{db:{user:{findMany:async()=>[user,{id:'history',pinHash:'IMPORT_DISABLED',pinPrefixHashes:null}]}}},'@/src/lib/pin':pin,'@/src/lib/pin-attempts':{allowPinAttempt:async()=>true},'@/src/lib/employee-session':{createDeviceId:()=> 'device',startEmployeeSession:async()=>{starts++;return{id:'s',user:{id:user.id,role:user.role}}}}});
@@ -22,7 +22,7 @@ test('platform route rejects tenant owners before reading another business',asyn
 
 test('owner removes only sign-in credentials and revokes sessions without deleting employee history',async()=>{
  const changes=[];const tx={user:{update:async q=>changes.push(q)},tenantSetting:{deleteMany:async q=>changes.push(q)},employeeSession:{updateMany:async q=>changes.push(q)},$queryRaw:async()=>[]};
- const api=load('app/api/employees/pin/route.ts',{'@/src/lib/request-policy':{withRequestPolicy:f=>f},'@/src/lib/employee-session':{getActiveEmployeeSession:async()=>({user:{id:'owner',role:'ADMIN'}})},'@/src/lib/db':{db:{user:{findFirst:async()=>({id:'worker'})},$transaction:async fn=>fn(tx)}},'@/src/lib/pin-vault':{pinVaultKey:id=>'vault:'+id},'@/src/lib/platform-restrictions':{isDeveloperId:()=>false,platformRestriction:async()=>null},'@/src/lib/audit':{writeAudit:async()=>{}},'next/server':{NextResponse:{json:(body,options)=>({body,status:options?.status||200})}}});
+ const api=load('app/api/employees/pin/route.ts',{'@/src/lib/request-policy':{withRequestPolicy:f=>f},'@/src/lib/employee-session':{getActiveEmployeeSession:async()=>({user:{id:'owner',role:'ADMIN'}})},'@/src/lib/db':{db:{user:{findFirst:async()=>({id:'worker'})},$transaction:async fn=>fn(tx)}},'@/src/lib/pin':pin,'@/src/lib/pin-vault':{pinVaultKey:id=>'vault:'+id},'@/src/lib/platform-restrictions':{isDeveloperId:()=>false,platformRestriction:async()=>null},'@/src/lib/audit':{writeAudit:async()=>{}},'next/server':{NextResponse:{json:(body,options)=>({body,status:options?.status||200})}}});
  const r=await api.POST({headers:{get:()=> 'tenant'},cookies:{get:()=>({value:'s'})},json:async()=>({userId:'worker',action:'REMOVE'})});assert.equal(r.status,200);assert.equal(changes[0].data.pinHash,'PIN_REMOVED');assert.equal(changes[0].data.active,undefined);assert.equal(changes[2].where.userId,'worker');assert.equal(changes[2].where.tenantId,'tenant');assert.ok(changes[2].data.endedAt);
 });
 
@@ -31,7 +31,7 @@ test('tenant staff cannot see Platform Owners but platform staff retain access',
  let role='ADMIN';
  const policy=load('src/lib/request-policy.ts',{
   '@/src/lib/roles':roles,'./business-context':context,'./platform-restrictions':{},
-  './request-authorization':{},'next/server':{},'./db':{},'./module-entitlement':{},'./offline-replay':{},
+  './customer-sharing-request':{withCustomerSharing:(_r,_s,fn)=>fn(_r)},'./request-authorization':{},'next/server':{},'./db':{},'./module-entitlement':{},'./offline-replay':{},
   './employee-session':{getActiveEmployeeSession:async()=>({user:{role}})},
  });
  const signedIn={cookies:{get:()=>({value:'session'})}},anonymous={cookies:{get:()=>undefined}};

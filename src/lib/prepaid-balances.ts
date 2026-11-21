@@ -1,3 +1,4 @@
+import {ticketSettledCents} from './ticket-settlement';
 import {randomUUID} from 'node:crypto';
 import {prepaidOffersKey,type PrepaidOffer} from './prepaid-offers';
 import {remainingPrepaidValues,prepaidPurchaseSource,isPrepaidPurchaseLine} from './prepaid-lines';
@@ -20,7 +21,7 @@ export async function preparePrepaidPurchase(tx:any,tenantId:string,ticket:any,o
 export async function activatePrepaidPurchases(tx:any,tenantId:string,ticket:any,actorUserId:string,at:Date){
  const issued=[];for(const line of ticket.lines.filter(isPrepaidPurchaseLine)){const id=line.sourceKey.split(':')[1],key=prepaidPurchaseKey(id);await tx.$queryRaw`SELECT id FROM TenantSetting WHERE tenantId=${tenantId} AND settingKey=${key} FOR UPDATE`;const p=(await tx.tenantSetting.findUnique({where:where(tenantId,key)}))?.value;
  if(!p||p.saleTicketId!==ticket.id||p.lineId!==line.id||line.quantity!==1||line.discountCents!==0||line.totalCents!==p.offer.priceCents||line.unitPriceCents!==p.offer.priceCents)throw Error('A prepaid purchase changed. Remove it and add the intended offer before closing.');
- if(ticket.status!=='CLOSED'||ticket.payments.reduce((n:number,p:any)=>n+Math.round(Number(p.amount)*100),0)!==ticket.lines.reduce((n:number,l:any)=>n+Math.max(0,l.quantity*l.unitPriceCents-l.discountCents),0)+ticket.tipCents+ticket.salesTaxCents)throw Error('Pay and close the purchase ticket before using prepaid visits.');
+ if(ticket.status!=='CLOSED'||ticketSettledCents(ticket)!==ticket.lines.reduce((n:number,l:any)=>n+Math.max(0,l.quantity*l.unitPriceCents-l.discountCents),0)+ticket.tipCents+ticket.salesTaxCents)throw Error('Pay and close the purchase ticket before using prepaid visits.');
  if(p.state==='PENDING'){p.state='ACTIVE';p.visitsRemaining=p.offer.visits;p.activatedAt=at.toISOString();if(p.offer.expiresAfterDays){const date=new Date(zonedParts(at,p.timezone).date+'T12:00:00Z');date.setUTCDate(date.getUTCDate()+p.offer.expiresAfterDays);p.expiresOn=date.toISOString().slice(0,10);}p.entries=[...(p.entries||[]),{id:'issue:'+id,kind:'PURCHASE',at:at.toISOString(),ticketId:ticket.id,locationId:ticket.locationId,visits:p.offer.visits,amountCents:p.offer.priceCents}];await tx.tenantSetting.update({where:where(tenantId,key),data:{value:p}});await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId,entityType:'TICKET',entityId:ticket.id,action:'PREPAID_PURCHASE_ACTIVATED',summary:'Activated '+p.offer.name+'.',details:{purchaseId:id,visits:p.offer.visits}}});}issued.push(p);
  }return issued;
 }

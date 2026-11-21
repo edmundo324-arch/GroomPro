@@ -32,7 +32,10 @@ export function AppNavigation<T extends string>({modules,active,onSelect,onCalen
  const [open,setOpen]=useState(false);
  const scope=usePreferenceScope(),[order,setOrder]=useState<string[]>([]);
  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem('groompro:menu-order:'+scope)||'[]');setOrder(Array.isArray(saved)?saved.filter(v=>typeof v==='string'):[])}catch{setOrder([])}},[scope]);
- function reorder(next:string[]){setOrder(next);if(scope)try{localStorage.setItem('groompro:menu-order:'+scope,JSON.stringify(next))}catch{}};
+ function reorder(next:string[]){
+  if(!scope){window.dispatchEvent(new CustomEvent('groompro:save-error',{detail:{message:'Sign in before saving your menu order. If you are already signed in, refresh and try again.'}}));return;}
+  try{localStorage.setItem('groompro:menu-order:'+scope,JSON.stringify(next));setOrder(next)}catch{window.dispatchEvent(new CustomEvent('groompro:save-error',{detail:{message:'Your browser could not save the menu order. Allow site storage and try again.'}}))}
+ };
  const root=useRef<HTMLDivElement>(null),more=useRef<HTMLButtonElement>(null);
  const calendarShortcuts=Boolean(onCalendarView&&modules.some(value=>value==='Calendar'));
  const navigationModules=calendarShortcuts?modules.filter(module=>module!=='Calendar'):modules;

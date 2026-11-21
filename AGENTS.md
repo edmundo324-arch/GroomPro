@@ -98,3 +98,9 @@
 - Keep unfinished work local. Do not publish small intermediate batches or ask the user to sync GoDaddy repeatedly.
 - Hold the next GitHub upload until the agreed work is complete and checked, unless the user explicitly requests an urgent release. Prior blanket publication authorization does not override this newer timing instruction.
 - Ask only for necessary unresolved business rules; continue independent approved work while answers are pending. Do not imply background work continues after a turn has ended.
+
+## Continuous approved work — reinforced November 20, 2026
+- Finishing a batch, test run, or progress update is not a reason to end the turn. Continue directly to the next unfinished approved item. Do not require another Continue from the user.
+- Keep implementation local while the user's no-publication instruction remains active. A progress report is not an instruction for the user to sync or review an incomplete release.
+- Ask concrete, example-based questions only where an unresolved requirement blocks dependent work; continue independent approved work. Preserve the existing functionality/conflict protection rule.
+- If a genuine execution limit or external blocker forces an interruption, state exactly what remains and never imply work continues in the background after ending the turn.

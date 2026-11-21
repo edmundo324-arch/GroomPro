@@ -117,6 +117,8 @@ async function main() {
     if(!process.argv.includes("--verify-only")){const repaired=await require("./repair-demo-hours.cjs").repairDemoHours(db);if(repaired)console.log(`GroomPro: corrected ${repaired} untouched demo appointments to location time.`)}
     if(!process.argv.includes("--verify-only")){const changed=await require("./upgrade-imported-services.cjs").upgradeImportedServices(db);if(changed)console.log(`GroomPro: separated imported service fields for ${changed} services; original values retained.`)}
     if (!process.argv.includes('--verify-only')) {
+      const corrected=await require('./correct-online-acceptance.cjs').correctOnlineAcceptance(db);
+      if(corrected)console.log(`GroomPro: corrected ${corrected} upcoming online bookings to Accepted; recorded customer confirmations retained.`);
       await db.$transaction(registerCustomerContactFeature);
       await db.featureModule.createMany({skipDuplicates:true,data:[{code:'SEVEN_STAGE_GROOMING',name:'Seven-stage grooming workflow',description:'Track each dog’s care stages and actual stage times separately from booked services and employee pay.'}]});
       const { addresses, phones, reenabled } = await applyDemoContacts(db);
