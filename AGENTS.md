@@ -1,5 +1,7 @@
 # GroomPro product requirements
 
+- GroomPro's original Platform Owner workspace is exempt from owner-email device enrollment for employee PIN sign-in, including limited testing employees. New tenant businesses still require device verification. Identify the original workspace by its native active Platform Owner record, never its display name or a linked platform operator; preserve PIN checks and employee permissions.
+
 - Use Title Case for new or revised module titles, field titles and buttons, including the owner's spelling “PrePaid Packages” and “Add PrePaid”. Preserve tenant-authored names and previously approved terminology. Catalog search controls must accept typing and filter as the person types, including available plain-language descriptions. Combined item lists should default to All selected and offer independent type checkboxes so staff may choose any combination; do not convert unrelated setting choices into search controls.
 
 - Design for busy human employees and business owners, not AI agents. Group settings by the user's task and familiar entities (Ticket information, Customer information, Pet information). Use readable labels, spacing, and progressive disclosure instead of dense field dumps. Put short explanations behind accessible question-mark help controls. Verify the rendered interface, not just the code. Preserve approved layouts and the “Less clicking is more productive” rule.

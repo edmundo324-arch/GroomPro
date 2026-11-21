@@ -4,6 +4,7 @@ import {createHash,randomBytes,randomInt} from 'node:crypto';
 import {db} from './db';
 import {businessOwnerKey} from './platform-business';
 import {platformRestriction} from './platform-restrictions';
+import {businessId,platformUserPrefix} from './business-context';
 export const deviceApprovalCookie='groompro_device_approval';
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const challengeKey=(token:string)=>'DEVICE_CHALLENGE:'+hash(token);
@@ -19,6 +20,12 @@ export async function ownerBusinesses(email:string,client:any=db){
  return matches.sort((a,b)=>a.id.localeCompare(b.id));
 }
 export async function deviceApproved(tenantId:string,deviceId:string,token:string,client:any=db){
+ // GroomPro's original platform workspace permits employee PIN testing without
+ // tenant enrollment. Linked platform operators in customer businesses do not.
+ if(tenantId&&!businessId(tenantId)){
+  const owner=await client.user.findFirst({where:{tenantId,active:true,role:'PLATFORM_OWNER',NOT:{id:{startsWith:platformUserPrefix}}},select:{id:true}});
+  if(owner&&!await platformRestriction(tenantId,owner.id))return true;
+ }
  if(!tenantId||!deviceId||!/^\w{64}$/.test(token))return false;
  const row=await client.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:approvalKey(token)}}});
  const value=row?.value;

@@ -1,19 +1,19 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),crypto=require('node:crypto');
 function fixture(){
- const rows=new Map(),sent=[];const users=[{id:'oa',tenantId:'a',email:'owner@example.invalid',tenant:{name:'Shop A'}},{id:'ob',tenantId:'b',email:'owner@example.invalid',tenant:{name:'Shop B'}}];
+ let platformOwner=null;const rows=new Map(),sent=[];const users=[{id:'oa',tenantId:'a',email:'owner@example.invalid',tenant:{name:'Shop A'}},{id:'ob',tenantId:'b',email:'owner@example.invalid',tenant:{name:'Shop B'}}];
  for(const u of users)rows.set(u.tenantId+':BUSINESS_OWNER',{tenantId:u.tenantId,settingKey:'BUSINESS_OWNER',value:{userId:u.id}});
  const key=w=>{const v=w.tenantId_settingKey;return v.tenantId+':'+v.settingKey};
- const db={user:{findMany:async({where})=>users.filter(u=>u.email===where.email)},$queryRaw:async()=>[],auditEntry:{create:async()=>{}},tenantSetting:{
+ const db={user:{findFirst:async({where})=>platformOwner&&platformOwner.tenantId===where.tenantId&&platformOwner.active&&platformOwner.role===where.role&&!platformOwner.id.startsWith(where.NOT.id.startsWith)?platformOwner:null,findMany:async({where})=>users.filter(u=>u.email===where.email)},$queryRaw:async()=>[],auditEntry:{create:async()=>{}},tenantSetting:{
  findUnique:async({where})=>rows.get(key(where)),findFirst:async({where})=>[...rows.values()].find(r=>r.settingKey===where.settingKey),
  create:async({data})=>{rows.set(data.tenantId+':'+data.settingKey,data);return data},
  upsert:async({where,create,update})=>{const k=key(where),row=rows.has(k)?{...rows.get(k),...update}:create;rows.set(k,row);return row},
  update:async({where,data})=>{const k=key(where),row={...rows.get(k),...data};rows.set(k,row);return row},delete:async({where})=>rows.delete(key(where))}};
  let tail=Promise.resolve();db.$transaction=fn=>{const next=tail.then(()=>fn(db));tail=next.catch(()=>{});return next};
- const deps={'./message-provider-connection':{messageProviderConnection:async()=>({apiKey:'test',from:'test@example.invalid'})},'node:crypto':crypto,'./db':{db},'./device-password':{devicePolicyKey:'DEVICE_AUTH_POLICY',deviceEmailVerifiedKey:'DEVICE_EMAIL_VERIFIED',checkDevicePassword:async(password,stored)=>password===stored},'./platform-business':{businessOwnerKey:'BUSINESS_OWNER'},'./platform-restrictions':{platformRestriction:async()=>null}};
+ const deps={'./business-context':{businessId:id=>id.startsWith('pilot_'),platformUserPrefix:'pilot_operator_'},'./message-provider-connection':{messageProviderConnection:async()=>({apiKey:'test',from:'test@example.invalid'})},'node:crypto':crypto,'./db':{db},'./device-password':{devicePolicyKey:'DEVICE_AUTH_POLICY',deviceEmailVerifiedKey:'DEVICE_EMAIL_VERIFIED',checkDevicePassword:async(password,stored)=>password===stored},'./platform-business':{businessOwnerKey:'BUSINESS_OWNER'},'./platform-restrictions':{platformRestriction:async()=>null}};
  const source=ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname,'../src/lib/device-authorization.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,exports={};
  const fakeFetch=async(url,request)=>{sent.push(JSON.parse(request.body));return {ok:true}};
  new Function('require','exports','fetch','process',source)(k=>deps[k],exports,fakeFetch,{env:{GROOMPRO_AGREEMENT_EMAIL_TENANTS_JSON:JSON.stringify({a:{apiKey:'test',from:'test@example.invalid'},b:{apiKey:'test',from:'test@example.invalid'}})}});
- return {...exports,rows,sent,code:()=>sent.at(-1).text.match(/code is (\d{6})/)[1]};
+ return {...exports,rows,sent,setPlatformOwner:value=>platformOwner=value,code:()=>sent.at(-1).text.match(/code is (\d{6})/)[1]};
 }
 test('one owner email can verify and choose either tenant, but approval belongs to one tenant and device',async()=>{
  const f=fixture(),token=await f.sendDeviceCode('OWNER@example.invalid');
@@ -79,3 +79,16 @@ test('password choice requires first email verification and never grants another
  assert.equal(await f.deviceApproved('a','device',await f.approveDevice(result.token,'a','device')),true);
  const code=await f.sendDeviceCode('owner@example.invalid');assert.deepEqual(await f.verifyDeviceCode(code,f.code()),[{id:'b',name:'Shop B'}]);
 });
+
+ test('only the original platform workspace exempts ordinary employee device enrollment',async()=>{
+ const f=fixture();
+ f.setPlatformOwner({id:'owner',tenantId:'groompro',active:true,role:'PLATFORM_OWNER'});
+ assert.equal(await f.deviceApproved('groompro','',''),true);
+ assert.equal(await f.deviceApproved('other','',''),false);
+ for(const owner of [
+  {id:'pilot_operator_owner',tenantId:'groompro',active:true,role:'PLATFORM_OWNER'},
+  {id:'owner',tenantId:'groompro',active:false,role:'PLATFORM_OWNER'},
+  {id:'owner',tenantId:'groompro',active:true,role:'ADMIN'},
+  {id:'owner',tenantId:'pilot_new',active:true,role:'PLATFORM_OWNER'}
+ ]){f.setPlatformOwner(owner);assert.equal(await f.deviceApproved(owner.tenantId,'',''),false)}
+ });
