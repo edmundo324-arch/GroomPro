@@ -1,3 +1,4 @@
+import {assignmentApproval} from '@/src/lib/calendar-assignment-approval';
 import {recordAttendanceMove,attendanceDecisionDetails} from '@/src/lib/attendance-move';
 import {moveGroomingNotes} from '@/src/lib/grooming-notes-store';
 import {NextRequest,NextResponse} from 'next/server';
@@ -23,13 +24,15 @@ async function move(r:NextRequest){const tenantId=r.headers.get('x-tenant-id')||
   if(b.expectedStart&&+new Date(b.expectedStart)!==+previous.start)throw Error('This dog’s time changed elsewhere. Refresh before moving.');
   const message=await appointmentHoursError(tenantId,locationId,start,previous.durationMin);if(message)throw Error(message);
   const plans=await readPlannedPackages(tenantId,ticket.id,tx),oldPlan=plans.find(p=>p.petId===b.petId&&!p.packageKey),oldEmployee=oldPlan?oldPlan.userId:ticket.assignments.find(a=>a.role==='PLANNED_GROOMER')?.userId||null;const employeeId=b.employeeId===undefined?oldEmployee:b.employeeId||null;if(employeeId&&!await tx.user.findFirst({where:{id:employeeId,tenantId,active:true,OR:[{locationId},{locationId:null}]}}))throw Error('Choose an active employee at this location.');
-  if(employeeId&&!await employeeAvailable(tenantId,employeeId,locationId,start,previous.durationMin)&&!await approvedScheduling(r,'The selected employee is unavailable at this time.'))throw schedulingException('The selected employee is unavailable at this time.');
+  const availabilityApproved=!!employeeId&&await approvedScheduling(r,'The selected employee is unavailable at this time.');
+  if(employeeId&&!await employeeAvailable(tenantId,employeeId,locationId,start,previous.durationMin)&&!availabilityApproved)throw schedulingException('The selected employee is unavailable at this time.');
   const sameDay=zonedParts(previous.start,hours.timezone).date===zonedParts(start,hours.timezone).date;
   if(!sameDay){const rules=await checkCustomerBookingRules(tenantId,ticket.customerId,start,previous.durationMin,ticket.pets.map(p=>p.petId),ticket.id);const text=rules.conflicts.length?'Appointment spacing warning: '+rules.conflicts.map(c=>c.message).join('\n'):'';if(text&&!await approvedScheduling(r,text))throw schedulingException(text);}
   const nextStarts=movePetTimes(live,b.petId,start),bounds=scheduleBounds(live,nextStarts);
   if(ticket.timingMode==='CONCURRENT'&&+previous.start!==+start)for(const pet of ticket.pets.filter(p=>p.petId!==b.petId)){const actual=responsibleEmployee(ticket.lines,pet.petId),userId=actual?.assignedUserId||plans.find(p=>p.petId===pet.petId&&!p.packageKey)?.userId;if(userId){const period=petSchedule({...live,lineStarts:nextStarts},pet.petId);if(!await employeeAvailable(tenantId,userId,locationId,period.start,period.durationMin)&&!await approvedScheduling(r,'This employee is unavailable for this appointment.'))throw schedulingException('This employee is unavailable for this appointment.');}}
-  const changed=plans.filter(p=>p.petId!==b.petId);changed.push({petId:b.petId,userId:employeeId});for(const p of plans.filter(p=>p.petId===b.petId&&p.packageKey))changed.push({...p,userId:employeeId});
-  if(b.employeeId!==undefined)await writePlannedPackages(tx,tenantId,ticket.id,changed,ticket,plans);await writeLineStarts(tx,tenantId,ticket.id,nextStarts,ticket);
+  const availabilityApproval=availabilityApproved?assignmentApproval({...live,lineStarts:nextStarts},b.petId,employeeId!):undefined;
+  const changed=plans.filter(p=>p.petId!==b.petId);changed.push({petId:b.petId,userId:employeeId,availabilityApproval});for(const p of plans.filter(p=>p.petId===b.petId&&p.packageKey))changed.push({...p,userId:employeeId,availabilityApproval});
+  if(b.employeeId!==undefined||availabilityApproved)await writePlannedPackages(tx,tenantId,ticket.id,changed,ticket,plans);await writeLineStarts(tx,tenantId,ticket.id,nextStarts,ticket);
   if(!sameDay)await moveGroomingNotes(tx,tenantId,ticket.id,ticket.timingMode==='CONCURRENT'?new Date(bounds.scheduledStart):start,ticket.timingMode==='CONCURRENT'?undefined:b.petId);
   await recordAttendanceMove(tx,ticket,new Date(bounds.scheduledStart),r,session.user.id);
   const updated=await tx.ticket.update({where:{id:ticket.id},data:bounds});

@@ -1,3 +1,4 @@
+import {assignmentApproval} from './calendar-assignment-approval';
 import {responsibleEmployee} from './pet-scheduling';
 import {packageKey} from './package-display';
 import {db} from './db';
@@ -11,6 +12,7 @@ export async function readPlannedPackages(tenantId:string,ticketId:string,client
 export async function checkPlannedPackages(tenantId:string,ticket:any,value:any,allowUnavailable=false,client:any=db){
  const settings=ticketWorkspace((await workflowSettings(tenantId,client)).posLayout),plans=validatePlannedPackages(value,ticket.pets.map((p:any)=>p.petId||p.pet.id),ticket.lines,settings.individualPackageAssignments);
  for(const userId of new Set(plans.map(p=>p.userId).filter((id):id is string=>!!id))){if(!await client.user.findFirst({where:{id:userId,tenantId,active:true,OR:[{locationId:ticket.locationId},{locationId:null}]}}))throw Error('Choose an active employee at this location.');if(ticket.scheduledStart&&!allowUnavailable&&!await employeeAvailable(tenantId,userId,ticket.locationId,new Date(ticket.scheduledStart),ticket.durationMin))throw schedulingException('This employee is unavailable for this appointment. Choose another employee or Assign later.');}
+ if(allowUnavailable)for(const plan of plans)if(plan.userId)plan.availabilityApproval=assignmentApproval(ticket,plan.petId,plan.userId);
  return plans;
 }
 export async function writePlannedPackages(client:any,tenantId:string,ticketId:string,items:PlannedPackage[],ticket?:any,previous:PlannedPackage[]=[]){
