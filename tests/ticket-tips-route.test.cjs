@@ -1,0 +1,25 @@
+require('./load-ts.cjs');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+function fixture(){
+ let allocation={revision:0,shares:[]},savedPercentages={},role='MANAGER';const ops=new Map(),audits=[];
+ const ticket={id:'t',tenantId:'tenant',locationId:'shop',status:'OPEN',tipCents:0,totalCents:10000,lines:[{petId:'dog',packageId:'pkg',role:'GROOM'}]};
+ const db={user:{findMany:async()=>[{id:'g',firstName:'Groomer'},{id:'outside',firstName:'Other'}]},ticket:{findFirst:async q=>q.where.id==='t'&&q.where.tenantId==='tenant'&&q.where.locationId==='shop'?ticket:null,update:async q=>Object.assign(ticket,q.data)},tenantSetting:{findUnique:async q=>({value:q.where.tenantId_settingKey.settingKey==='TIP_ROLE_PERCENTAGES'?savedPercentages:allocation}),upsert:async q=>{if(q.where.tenantId_settingKey.settingKey==='TIP_ROLE_PERCENTAGES')savedPercentages=q.update.value;else allocation=q.update.value}},posOperation:{findUnique:async q=>ops.get(q.where.tenantId_requestKey.requestKey),create:async q=>{ops.set(q.data.requestKey,q.data);return q.data}},auditEntry:{create:async q=>audits.push(q)},$queryRaw:async()=>[],$transaction:async f=>f(db)};
+ const deps={'@/src/lib/ticket-settlement':require('../src/lib/ticket-settlement.ts'),'next/server':{NextResponse:{json:(body,o={})=>({body,status:o.status||200})}},'node:crypto':require('node:crypto'),'@/src/lib/db':{db},'@/src/lib/ticket-refunds':{ticketRefundHistory:async()=>[]},'@/src/lib/gift-cards':{redeemGiftCard:async()=>{}},'@/src/lib/request-policy':{withRequestPolicy:h=>h,hidePlatformOwners:async()=>false},'@/src/lib/employee-session':{getActiveEmployeeSession:async()=>({user:{id:'manager',role}})},'@/src/lib/request-location':{requestLocation:async()=> 'shop'},'@/src/lib/ticket-tips':require('../src/lib/ticket-tips.ts'),'@/src/lib/planned-package-store':{readPlannedPackages:async()=>[{petId:'dog',userId:'g'}]}};
+ const api={};new Function('require','exports',ts.transpileModule(fs.readFileSync('app/api/tickets/tips/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>{if(!(id in deps))throw Error(id);return deps[id]},api);
+ const req=body=>({headers:new Headers({'x-tenant-id':'tenant'}),cookies:{get:()=>({value:'session'})},nextUrl:new URL('https://test.invalid/?ticketId=t'),json:async()=>body});
+ return {api,req,ticket,audits,employee:()=>role='BACK'};
+}
+test('entered tip and exact package employee shares save together and retry does not duplicate',async()=>{
+ const f=fixture();const initial=await f.api.GET(f.req());assert.deepEqual(initial.body.employees.map(e=>e.id),['g']);
+ const body={ticketId:'t',requestId:require('node:crypto').randomUUID(),action:'ALLOCATE',revision:0,expectedTipCents:0,tipCents:4000,shares:[{userId:'g',amountCents:4000}]};
+ const saved=await f.api.POST(f.req(body));assert.equal(saved.status,200);assert.equal(f.ticket.tipCents,4000);assert.equal(f.ticket.totalCents,14000);assert.equal(saved.body.allocation.shares[0].amountCents,4000);
+ assert.equal((await f.api.POST(f.req(body))).status,200);assert.equal(f.ticket.totalCents,14000);assert.equal(f.audits.length,1);
+});
+test('unassigned employees, mismatched totals and stale tip revisions cannot change the ticket',async()=>{
+ for(const override of [{shares:[{userId:'outside',amountCents:4000}]},{shares:[{userId:'g',amountCents:2000}]},{expectedTipCents:100}]){
+ const f=fixture();const r=await f.api.POST(f.req({ticketId:'t',requestId:require('node:crypto').randomUUID(),action:'ALLOCATE',revision:0,expectedTipCents:0,tipCents:4000,shares:[{userId:'g',amountCents:4000}],...override}));assert.equal(r.status,400);assert.equal(f.ticket.tipCents,0);
+ }
+});
+test('role settings require manager access and percentages totaling 100',async()=>{const f=fixture();assert.equal((await f.api.PUT(f.req({percentages:{GROOM:70}}))).status,400);assert.equal((await f.api.PUT(f.req({percentages:{GROOM:70,BATH:30}}))).status,200);f.employee();assert.equal((await f.api.PUT(f.req({percentages:{GROOM:100}}))).status,403)});
+
+test('changing an entered tip never silently refunds money already paid',async()=>{const f=fixture();f.ticket.tipCents=4000;f.ticket.totalCents=14000;f.ticket.payments=[{amount:'140.00'}];const r=await f.api.POST(f.req({ticketId:'t',requestId:require('node:crypto').randomUUID(),action:'ALLOCATE',revision:0,expectedTipCents:4000,tipCents:1000,shares:[{userId:'g',amountCents:1000}]}));assert.equal(r.status,400);assert.equal(f.ticket.tipCents,4000);});

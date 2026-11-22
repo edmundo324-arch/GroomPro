@@ -19,8 +19,8 @@ export function PosCustomerTitle({name,onEdit,onReplace,disabled=false}:{
  </div>;
 }
 
-export function PosVisitStamps({arrival,onCompleted,onCalled,onTexted,checkedIn,completed,called,texted,timezone,contactNeeded=false}:{
- arrival?:React.ReactNode;onCompleted?:()=>void;onCalled?:()=>void;onTexted?:()=>void;checkedIn?:string|null;completed?:string|null;called?:string|null;texted?:string|null;timezone:string;contactNeeded?:boolean
+export function PosVisitStamps({arrival,onCheckedIn,onCompleted,onCalled,onTexted,checkedIn,completed,called,texted,timezone,contactNeeded=false}:{
+ arrival?:React.ReactNode;onCheckedIn?:()=>void;onCompleted?:()=>void;onCalled?:()=>void;onTexted?:()=>void;checkedIn?:string|null;completed?:string|null;called?:string|null;texted?:string|null;timezone:string;contactNeeded?:boolean
 }){
  const format=(value:string)=>new Date(value).toLocaleTimeString(undefined,{timeZone:timezone,hour:'numeric',minute:'2-digit'});
  const stamps=[
@@ -31,10 +31,10 @@ export function PosVisitStamps({arrival,onCompleted,onCalled,onTexted,checkedIn,
  ] as const;
  return <div className="gp-pos-visit-stamps" aria-label="Visit times">
   {arrival}
-  {stamps.map(([label,at,path])=>{const content=<><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path||''}/></svg>{at&&<time dateTime={at}>{format(at)}</time>}</>;
-   return label==='Called'||label==='Completed'||label==='Texted'?<button key={label} type="button" className="gp-btn gp-pos-stamp-action" disabled={label==='Called'?!onCalled:label==='Texted'?!onTexted:!onCompleted} title={at?label+' '+format(at):label==='Called'?'Call Customer or Record Call':label==='Texted'?'Open Pickup Text':'Mark Ready for Pickup'} aria-label={label} onClick={label==='Called'?onCalled:label==='Texted'?onTexted:onCompleted}>{content}</button>:<span key={label} title={at?label+' '+format(at):label} aria-label={label}>{content}</span>;
+  {stamps.map(([label,at,path])=>{const content=<><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path||''}/></svg>{label==='Checked in'&&<span>In @ </span>}{at&&<time dateTime={at}>{format(at)}</time>}</>;
+   return <button key={label} type="button" className="gp-btn gp-pos-stamp-action" style={label==='Checked in'?{borderRight:'2px solid #8497a6',paddingRight:12,marginRight:8}:undefined} disabled={label==='Checked in'?!onCheckedIn:label==='Called'?!onCalled:label==='Texted'?!onTexted:!onCompleted} title={at?label+' '+format(at):label==='Checked in'?'Check In This Appointment':label==='Called'?'Call Customer or Record Call':label==='Texted'?'Open Pickup Text':'Mark Ready for Pickup'} aria-label={label} onClick={label==='Checked in'?onCheckedIn:label==='Called'?onCalled:label==='Texted'?onTexted:onCompleted}>{content}</button>;
   })}
-  {contactNeeded&&<strong className="gp-pos-contact-needed" role="status"><span aria-hidden="true">!</span> Call and text</strong>}
+  {contactNeeded&&<strong className="gp-pos-contact-needed" role="status" tabIndex={0} data-help="The dogs are ready, but no pickup call or sent pickup message is recorded. Use the phone icon to call or record a call, or the text icon to review and send their pickup message."><span aria-hidden="true">!</span> Call and text</strong>}
  </div>;
 }
 

@@ -4,8 +4,8 @@ type Option={value:string;label:string;description:string;disabled:boolean};
 function text(node:ReactNode):string{return Children.toArray(node).map(n=>isValidElement(n)?text((n.props as any).children):String(n)).join('');}
 function options(children:ReactNode):Option[]{return Children.toArray(children).flatMap(n=>{if(!isValidElement(n))return [];const p=n.props as any;return n.type==='option'?[{value:String(p.value??text(p.children)),label:text(p.children),description:p['data-description']||'',disabled:!!p.disabled}]:options(p.children);});}
 /** Catalog and record picker: typing filters choices; only an intentional choice changes the saved value. */
-export function SearchableSelect({children,value,onChange,disabled,multiple,'aria-label':label,'data-help':help,...props}:SelectHTMLAttributes<HTMLSelectElement>&{'data-help'?:string}){
- const id=useId(),[query,setQuery]=useState(''),[open,setOpen]=useState(false),[active,setActive]=useState(-1);
+export function SearchableSelect({children,value,onChange,disabled,multiple,defaultOpen=false,'aria-label':label,'data-help':help,...props}:SelectHTMLAttributes<HTMLSelectElement>&{'data-help'?:string;defaultOpen?:boolean}){
+ const id=useId(),[query,setQuery]=useState(''),[open,setOpen]=useState(defaultOpen),[active,setActive]=useState(-1);
  const rows=options(children),values=Array.isArray(value)?value.map(String):[String(value??'')];
  const terms=query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
  const found=rows.filter(o=>terms.every(t=>(o.label+' '+o.description).toLocaleLowerCase().includes(t))),visible=found.slice(0,50);

@@ -108,3 +108,11 @@
 - Keep implementation local while the user's no-publication instruction remains active. A progress report is not an instruction for the user to sync or review an incomplete release.
 - Ask concrete, example-based questions only where an unresolved requirement blocks dependent work; continue independent approved work. Preserve the existing functionality/conflict protection rule.
 - If a genuine execution limit or external blocker forces an interruption, state exactly what remains and never imply work continues in the background after ending the turn.
+
+## POS corrections approved November 22, 2026
+- Status opens a floating searchable picker from the Status label. Package selection floats too; initially show eligible packages, search all available packages when typing, and retain eligibility validation. Neither picker shifts the ticket form.
+- Offer Today is a compact persistent floating window; default dog choices have service lines on the ticket, and Show All includes every customer-owned dog (inactive dogs remain unavailable for new booking).
+- Ready for Pick-Up reminders keep names and Ready @ time/date on one row. A contacted reminder can be dismissed for all devices at its location without changing appointment or communication history; a new completion creates a fresh reminder.
+- Header arrival display is Order [number] | In @ [time], with a separate actionable Check-In control. Customer Notes hover shows permanent notes and warnings. Picture placeholders belong in the remaining space to the right.
+- Ticket Tips carries the entered amount, includes service-line and package-assigned employees, offers Equal Split, tenant role-based % Split and manual amounts, and preserves exact totals and duplicate-save protections. Never invent percentage defaults or silently redistribute a missing role's share.
+- Show the reserved Booking Asset in POS only when one is assigned; preserve resource scheduling and availability.
