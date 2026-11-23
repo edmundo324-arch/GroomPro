@@ -1,3 +1,4 @@
+import {pickupContactMethods} from './pickup-call';
 import {ticketSettledCents} from './ticket-settlement';
 import {changeTask} from './staff-tasks';
 import {newCustomerPhones} from './new-customer-phones';
@@ -260,6 +261,13 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
     if (details.status === 'OPEN' || details.checkedIn === false) Object.assign(ticket, { checkedInAt: null, arrivalPriority: null });
   } else if (path === '/api/tickets/visit-history') {
     if(ticket.status!=='READY'||!ticket.pickupAt||ticket.pickupCompletedAt)throw Error('Mark the ticket ready for pickup before recording a call.');
+    if(body.action==='CONTACT'){
+      const at=Date.parse(body.contactedAt);
+      if(!Object.hasOwn(pickupContactMethods,body.method)||!Number.isFinite(at)||at<+new Date(ticket.pickupAt)||at>+new Date(now)+300000)throw Error('Choose the contact method and a time since this appointment became ready.');
+      if(body.readyAt!==new Date(ticket.pickupAt).toISOString())throw Error('This appointment’s ready time changed. Reopen Customer Contacted.');
+      ticket.readyContacted=true;
+      return {contact:{method:body.method,contactedAt:new Date(at).toISOString(),note:body.note||''}};
+    }
     ticket.pickupCalledAt ||= now;
     return {pickupCalledAt:ticket.pickupCalledAt};
   } else if (path === '/api/ticket-lines') {

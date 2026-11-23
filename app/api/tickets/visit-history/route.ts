@@ -3,7 +3,7 @@ import { db } from '@/src/lib/db';
 import { platformSession } from '@/src/lib/platform-access';
 import { requestLocation } from '@/src/lib/request-location';
 import { withRequestPolicy } from '@/src/lib/request-policy';
-import { pickupCallAction, pickupCallTime } from '@/src/lib/pickup-call';
+import { pickupCallAction, pickupCallTime, pickupContactAction, pickupContactMethods, recordedPickupContact } from '@/src/lib/pickup-call';
 
 async function history(request: NextRequest) {
   const session = await platformSession(request);
@@ -14,11 +14,12 @@ async function history(request: NextRequest) {
   const ticket = locationId && id ? await db.ticket.findFirst({ where: { id, tenantId, locationId }, select: { id: true } }) : null;
   if (!ticket) return NextResponse.json({ error: 'Ticket not found at this location.' }, { status: 404 });
   const entries = await db.auditEntry.findMany({
-    where: { tenantId, entityType: 'TICKET', entityId: id, action: { in: ['STATUS_CHANGE', 'UNDO_CHECK_IN', 'UNDO_READY', 'CLOSE', pickupCallAction] } },
+    where: { tenantId, entityType: 'TICKET', entityId: id, action: { in: ['STATUS_CHANGE', 'UNDO_CHECK_IN', 'UNDO_READY', 'CLOSE', pickupCallAction, pickupContactAction] } },
     select: { action: true, details: true, occurredAt: true }, orderBy: { occurredAt: 'desc' }, take: 100
   });
   const labels: Record<string, string> = { CHECKED_IN: 'Checked in', READY: 'Ready for pickup', UNDO_CHECK_IN: 'Check-in reversed', UNDO_READY: 'Ready status reversed', CLOSE: 'Pickup completed', [pickupCallAction]: 'Pickup call recorded' };
   const events = entries.flatMap(entry => {
+    if(entry.action===pickupContactAction){const c=recordedPickupContact(entry);return c?[{label:'Customer Contacted — '+pickupContactMethods[c.method]+(c.note?' — '+c.note:''),at:c.contactedAt}]:[];}
     const key = entry.action === 'STATUS_CHANGE' ? (entry.details as { newStatus?: string } | null)?.newStatus : entry.action;
     return key && labels[key] ? [{ label: labels[key], at: key===pickupCallAction?pickupCallTime(entry):entry.occurredAt }] : [];
   });
@@ -42,6 +43,16 @@ async function recordCall(request: NextRequest) {
     if (!ticket) return { error: 'Ticket not found at this location.', status: 404 };
     if (ticket.status !== 'READY' || !ticket.pickupAt || ticket.pickupCompletedAt) {
       return { error: 'Mark the ticket ready for pickup before recording a call.', status: 409 };
+    }
+    if(body.action==='CONTACT'){
+      const at=typeof body.contactedAt==='string'?Date.parse(body.contactedAt):NaN;
+      if(!Object.hasOwn(pickupContactMethods,body.method)||!Number.isFinite(at)||at<+ticket.pickupAt||at>Date.now()+300000)return {error:'Choose the contact method and a time since this appointment became ready.',status:400};
+      if(typeof body.requestId!=='string'||!/^[a-zA-Z0-9-]{1,80}$/.test(body.requestId)||typeof body.note!=='string'||body.note.length>500)return {error:'Review the contact note and try again.',status:400};
+      if(body.readyAt!==ticket.pickupAt.toISOString())return {error:'This appointment’s ready time changed. Reopen Customer Contacted.',status:409};
+      const previous=await tx.auditEntry.findFirst({where:{tenantId,entityType:'TICKET',entityId:ticketId,action:pickupContactAction,details:{path:'$.requestId',equals:body.requestId}},select:{details:true,occurredAt:true}});
+      if(previous)return {contact:recordedPickupContact(previous)};
+      const entry=await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId,entityType:'TICKET',entityId:ticketId,customerId:ticket.customerId,action:pickupContactAction,summary:'Recorded customer pickup contact.',details:{method:body.method,contactedAt:new Date(at).toISOString(),note:body.note.trim(),requestId:body.requestId,readyAt:body.readyAt}},select:{details:true,occurredAt:true}});
+      return {contact:recordedPickupContact(entry)};
     }
     const previous = await tx.auditEntry.findFirst({
       where:{tenantId,entityType:'TICKET',entityId:ticketId,action:pickupCallAction,occurredAt:{gte:ticket.pickupAt}},

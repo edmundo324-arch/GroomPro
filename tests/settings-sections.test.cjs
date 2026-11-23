@@ -40,14 +40,15 @@ test('Settings search finds operational controls and routes each result to a rea
  const {findSettings,settingsSearchEntries,settingsBreadcrumb}=require('../src/lib/settings-search.ts');
  const read=name=>fs.readFileSync('src/components/'+name+'.tsx','utf8');
  const tabs=read('settings')+read('workflow-settings');
- const anchors=['promotion-settings','device-settings','portal-settings','customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings','platform-access-settings'].map(read).join('\n');
+ const anchors=['sales-tax-settings','promotion-settings','device-settings','portal-settings','customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings','platform-access-settings'].map(read).join('\n');
  for(const entry of settingsSearchEntries){
   const labels=settingsBreadcrumb(entry).split(' → ').slice(1,entry.path.length+1);
   entry.path.forEach((id,index)=>assert.ok(tabs.includes("id:'"+id+"',label:'"+labels[index]+"'"),entry.title+' → '+id));
   if(entry.anchor)assert.ok(anchors.includes('data-settings-target="'+entry.anchor+'"'),entry.title);
  }
  const queries={
-  'workflow/ticket-layout':['tax','sales taxes','POS header color','remove package discount','planned employee','VIP icon','VIP sales conversation','assign unassigned','called in sick','new POS ticket button','calendar sidebar','three month calendar'],
+  'sales-tax':['tax','sales taxes'],
+  'workflow/ticket-layout':['POS header color','remove package discount','planned employee','VIP icon','VIP sales conversation','assign unassigned','called in sick','new POS ticket button','calendar sidebar','three month calendar'],
   'workflow/appearance':['calendar colors','gradient strength','border thickness','copy appearance','manufacturer colors'],
   'workflow/popup':['calendar popup','pet weight'],
   'workflow/profiles':['show inactive pets'],
@@ -70,7 +71,7 @@ test('Settings search finds operational controls and routes each result to a rea
  for(const [path,terms] of Object.entries(queries))for(const term of terms){
   assert.ok(findSettings(term,'PLATFORM_OWNER').some(entry=>entry.path.join('/')===path),term);
  }
- assert.equal(findSettings('sales taxes','ADMIN')[0].anchor,'pos-sales-tax');
+ assert.equal(findSettings('sales taxes','ADMIN')[0].anchor,'sales-tax');
  assert.equal(findSettings('no-show fee','MANAGER')[0].anchor,'no-show-fee');
  assert.equal(findSettings('product name','DEVELOPER').some(entry=>entry.anchor==='product-name'),false);
  assert.equal(findSettings('product name','PLATFORM_OWNER')[0].anchor,'product-name');

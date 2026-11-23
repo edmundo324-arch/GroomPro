@@ -38,7 +38,8 @@ async function handlePolicyPOST(request:NextRequest){
   let ticketId=String(body.ticketId||'');
   const call=async(handler:(r:NextRequest)=>Promise<Response>,path:string,payload:any,method="POST")=>{
    const headers=new Headers(request.headers);headers.set('content-type','application/json');
-   return handler(new NextRequest(new URL(path,request.url),{method,headers,body:JSON.stringify(payload)}));
+   const url=new URL(path,request.url),locationId=request.nextUrl.searchParams.get('locationId');if(locationId)url.searchParams.set('locationId',locationId);
+   return handler(new NextRequest(url,{method,headers,body:JSON.stringify(payload)}));
   };
   const complete=async(response:Response)=>{
    const data=await response.json();

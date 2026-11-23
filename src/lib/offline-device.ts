@@ -241,6 +241,13 @@ async function saveOnDevice(active: ActiveDevice, url: URL, method: string, raw:
         ...latest, pending: latest.pending.filter(entry => entry.id !== command.id),
       }));
       change();
+      // This is a new online command rejected before any write, not an old
+      // queued edit. Send it using the current authenticated session instead
+      // of a stale device snapshot identity. Never reassign queued edits.
+      if (response.status === 403 && (await response.clone().json().catch(()=>null))?.code === 'OFFLINE_SCOPE_MISMATCH') {
+        await stopOfflineAccess();
+        return fetch(url, live);
+      }
       return response;
     }
     await deviceUpdate<OfflineOutbox>(key, latest => latest && ({
@@ -266,6 +273,19 @@ export async function deviceFetch(input: string, init?: RequestInit): Promise<Re
     const raw = typeof init?.body === 'string' ? init.body : '';
     if (active) {
       const queue = await deviceRead<OfflineOutbox>(outboxKey(active.scope)).catch(() => undefined);
+      if (!offline && url.searchParams.get('locationId') && url.searchParams.get('locationId') !== active.scope.locationId) return fetch(input, init);
+      if (!offline && queue?.pending.length) {
+        // A saved outbox belongs to its original employee. Before appending a
+        // new online edit, verify that another sign-in has not replaced them.
+        try {
+          const check=await fetch('/api/employee/session',{cache:'no-store'});
+          const current=check.ok?(await check.json()).employee:undefined;
+          if(check.status===401||check.ok&&(!current||current.id!==active.scope.employeeId)){
+            await stopOfflineAccess();
+            return fetch(input,init);
+          }
+        } catch { /* A valid prepared employee can still work while offline. */ }
+      }
       const supported = !init?.body || typeof init.body === 'string';
       let allowed = false;
       try { allowed = supported && Boolean(offlineAction(url, method, JSON.parse(raw || '{}'))); } catch {}

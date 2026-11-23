@@ -104,6 +104,7 @@ const server = createServer(async (req, res) => {
   }
   const reply = (value, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
   if (req.method === 'GET') {
+    if (pathname === '/api/employee/session') return reply({employee});
     if (pathname === '/api/offline/snapshot') {
       return reply({ scope, employee, ...serverRecords, start: '2026-11-07T06:00:00.000Z', since: '2026-07-18T05:00:00.000Z',
         through: '2026-12-08T06:00:00.000Z', location: { id: scope.locationId, name: 'Test', timezone: 'America/Chicago' }, fetchedAt: Date.now() });

@@ -37,3 +37,28 @@ export function percentageTip(amountCents:number,team:{userId:string;roles:strin
  portions.forEach((p,i)=>{for(const s of splitTip(cents[i],team.filter(t=>t.roles.includes(p.role)).map(t=>t.userId)))shares.set(s.userId,(shares.get(s.userId)||0)+s.amountCents)});
  return [...shares].map(([userId,amountCents])=>({userId,amountCents}));
 }
+
+export type DogTipTeam={petId:string;name:string;team:{userId:string;roles:string[]}[]};
+export function dogTipTeams(lines:any[],plans:any[]):DogTipTeam[]{
+ const dogs=new Map<string,{name:string;members:Map<string,Set<string>>}>();
+ for(const line of lines){
+  const petId=line.petId||line.pet?.id;if(!petId||line.lineType==='PRODUCT')continue;
+  let dog=dogs.get(petId);if(!dog){dog={name:line.pet?.name||petId,members:new Map()};dogs.set(petId,dog)}
+  const plan=plans.find(p=>p.petId===petId&&p.packageKey===packageKey(line))||plans.find(p=>p.petId===petId&&!p.packageKey);
+  const userId=line.assignedUserId||plan?.userId;if(!userId)continue;
+  const roles=dog.members.get(userId)||new Set<string>();roles.add(line.role||'OTHER');dog.members.set(userId,roles);
+ }
+ return [...dogs].map(([petId,dog])=>({petId,name:dog.name,team:[...dog.members].map(([userId,roles])=>({userId,roles:[...roles]}))}));
+}
+export function percentageTipByDog(amountCents:number,dogs:DogTipTeam[],percentages:Record<string,number>,fullWashPercentages:Record<string,number>={}):TipShare[]{
+ const portions=splitTip(amountCents,dogs.map(d=>d.petId)),result=new Map<string,number>();
+ for(const dog of dogs){
+  const amount=portions.find(p=>p.userId===dog.petId)!.amountCents;
+  if(!dog.team.length)throw Error('Assign the employees who worked on '+dog.name+' before splitting the tip.');
+  const roles=dog.team.flatMap(t=>t.roles),fullWash=roles.includes('BATH')&&!roles.includes('GROOM');
+  if(fullWash&&dog.team.length>1&&!Object.keys(fullWashPercentages).length)throw Error('Set Full Wash percentages in Settings → Tip Distribution, or enter individual tip amounts.');
+  const shares=dog.team.length===1?[{userId:dog.team[0].userId,amountCents:amount}]:percentageTip(amount,dog.team,fullWash?fullWashPercentages:percentages);
+  for(const share of shares)result.set(share.userId,(result.get(share.userId)||0)+share.amountCents);
+ }
+ return [...result].map(([userId,amountCents])=>({userId,amountCents}));
+}

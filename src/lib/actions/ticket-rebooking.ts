@@ -1,3 +1,5 @@
+import {readPlannedPackages,checkPlannedPackages,writePlannedPackages} from '@/src/lib/planned-package-store';
+import {responsibleEmployee} from '@/src/lib/pet-scheduling';
 import {refreshRebookingDiscounts} from '@/src/lib/rebooking-discount-store';
 import {mainRebookingLineIds} from '@/src/lib/rebooking-discount-rules';
 import {isPrepaidPurchaseLine} from '@/src/lib/prepaid-lines';
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest) {
     const groomerId = body.groomerId ? String(body.groomerId) : null;
     if (!ticketId || Number.isNaN(scheduledStart.getTime())) return NextResponse.json({ error: "Original ticket and a valid new appointment time are required." }, { status: 400 });
 
-    let source = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { pets: true, lines: { include: {service:true}, orderBy: { sortOrder: "asc" } } } });
+    let source = await db.ticket.findFirst({ where: { id: ticketId, tenantId, locationId }, include: { assignments:true, pets: true, lines: { include: {service:true}, orderBy: { sortOrder: "asc" } } } });
     if (!source) return NextResponse.json({ error: "Original ticket could not be found." }, { status: 404 });
     source=attendingPets(source);
     if (source.status === "CANCELLED") return NextResponse.json({ error: "A cancelled appointment cannot be rebooked." }, { status: 409 });
@@ -71,6 +73,18 @@ export async function POST(request: NextRequest) {
     const eligibleSourceLines=mainRebookingLineIds(source);
     const serviceLines = source.lines.filter(line => line.lineType === "SERVICE"&&!isPrepaidPurchaseLine(line));
 
+    let copiedPlans:any[]=[];
+    if(body.copyAssignments===true){
+      const previous=await readPlannedPackages(tenantId,source.id);
+      const legacy=source.assignments.find(a=>a.role==='PLANNED_GROOMER')?.userId||source.assignments.find(a=>a.role==='GROOMER')?.userId||null;
+      const plans=groomerId?source.pets.map(p=>({petId:p.petId,userId:groomerId})):source.pets.flatMap(p=>{
+        const actual=responsibleEmployee(source.lines,p.petId)?.assignedUserId;
+        if(actual)return [{petId:p.petId,userId:actual}];
+        const saved=previous.filter(plan=>plan.petId===p.petId);return saved.length?saved:[{petId:p.petId,userId:legacy}];
+      });
+      try{copiedPlans=await checkPlannedPackages(tenantId,{...source,scheduledStart,durationMin},plans,await approvedScheduling(request,'Choose an available employee or Assign later.'));}
+      catch(e){return NextResponse.json({...warningDetails(e),error:(e as Error).message},{status:409});}
+    }
     const created = await db.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
       orderNumber=await nextTicketNumber(tx,tenantId);
@@ -90,6 +104,7 @@ export async function POST(request: NextRequest) {
         },
         include: { customer: true, pets: { include: { pet: true } }, lines: { include: { pet: true, service: true } }, assignments: { include: { user:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } } }
       });
+      if(body.copyAssignments===true)await writePlannedPackages(tx,tenantId,ticket.id,copiedPlans,ticket);
       await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
       await ensureGroomingNotes(tx,ticket,session.user.id);
       await queueInitialAttendanceRequest(tx,ticket);

@@ -9,7 +9,7 @@ import { attendingPets } from '@/src/lib/appointment-pets';
 import { lineStartsKey } from '@/src/lib/line-time-store';
 import { customerReferrals } from '@/src/lib/customer-referrals';
 import { plannedSettingKey } from '@/src/lib/planned-package-store';
-import { pickupCallAction, pickupCallTime, pickupContacts } from '@/src/lib/pickup-call';
+import { pickupCallAction, pickupCallTime, pickupContacts, pickupContactAction, recordedPickupContact } from '@/src/lib/pickup-call';
 
 async function snapshot(request: NextRequest) {
   const tenantId = request.headers.get('x-tenant-id') || request.cookies.get('groompro_tenant')?.value || process.env.GROOMPRO_DEV_TENANT_ID || '';
@@ -67,16 +67,16 @@ async function snapshot(request: NextRequest) {
   const readyIds=tickets.filter(ticket=>ticket.pickupAt).map(ticket=>ticket.id);
   const [settings,calls]=await Promise.all([
     db.tenantSetting.findMany({ where: { tenantId, settingKey: { in: [...tickets.flatMap(ticket => [lineStartsKey(ticket.id), plannedSettingKey(ticket.id)]),...customerIds.map(id=>'CUSTOMER_TAGS:'+id)] } }, select: { settingKey: true, value: true } }),
-    readyIds.length?db.auditEntry.findMany({where:{tenantId,entityType:'TICKET',entityId:{in:readyIds},action:pickupCallAction},orderBy:{occurredAt:'asc'},select:{entityId:true,occurredAt:true,details:true}}):[],
+    readyIds.length?db.auditEntry.findMany({where:{tenantId,entityType:'TICKET',entityId:{in:readyIds},action:{in:[pickupCallAction,pickupContactAction]}},orderBy:{occurredAt:'asc'},select:{entityId:true,action:true,occurredAt:true,details:true}}):[],
   ]);
   const values = new Map(settings.map(entry => [entry.settingKey, entry.value]));
-  const latestCall=new Map(calls.map(call=>[call.entityId,call]));
+  const latestCall=new Map(calls.filter(call=>call.action===pickupCallAction).map(call=>[call.entityId,call]));
   const contactsByCustomer=new Map(customers.map(customer=>[customer.id,customer.communications.filter(c=>c.direction==='OUTBOUND'&&['SENT','DELIVERED'].includes(c.deliveryStatus))]));
   const records = tickets.map(ticket => {
     const call=latestCall.get(ticket.id);
     return {...attendingPets(ticket),lineStarts:values.get(lineStartsKey(ticket.id))||{},plannedAssignments:(values.get(plannedSettingKey(ticket.id)) as {items?:unknown}|undefined)?.items||[],
       pickupCalledAt:pickupCallTime(ticket.pickupAt&&call&&call.occurredAt>=ticket.pickupAt?call:null),
-      ...pickupContacts(ticket.id,ticket.pickupAt,contactsByCustomer.get(ticket.customerId)||[])};
+      ...pickupContacts(ticket.id,ticket.pickupAt,contactsByCustomer.get(ticket.customerId)||[]),...(ticket.pickupAt&&calls.some(c=>c.entityId===ticket.id&&c.action===pickupContactAction&&c.occurredAt>=ticket.pickupAt!&&recordedPickupContact(c))?{readyContacted:true}:{})};
   });
   return NextResponse.json({
     scope: { tenantId, locationId, employeeId: session.user.id },

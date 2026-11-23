@@ -1,4 +1,6 @@
 "use client";
+import {SalesTaxSettings} from './sales-tax-settings';
+import {TipDistributionSettings} from './tip-distribution-settings';
 import {ConversationSettings} from './conversation-settings';
 import {MarketingLimitSettings} from './marketing-limit-settings';
 import {VoidTicketSettings} from './ticket-void';
@@ -36,6 +38,8 @@ const items=type==="SERVICE"?services:packages;return <section className="gp-set
  {id:'pricing',label:'Pricing',content:<div className="gp-settings-card gp-settings-wide"><div className="gp-settings-card-head"><div><h2>Business base pricing</h2><p>Bulk changes update the business base. Existing location percentage adjustments remain intact.</p></div><div className="gp-bulk-controls"><select value={type} onChange={e=>setType(e.target.value as "SERVICE"|"PACKAGE")}><option value="SERVICE">Services</option><option value="PACKAGE">Packages</option></select><input value={percent} onChange={e=>setPercent(e.target.value)} inputMode="decimal"/><span>%</span><button className="gp-btn primary" onClick={bulk}>Apply</button></div></div><div className="gp-pricing-table"><div className="gp-pricing-row header"><span>Name</span><span>Base</span><span>{locationId?"Location price":"Select a location"}</span><span>Location rule</span></div>{items.map(item=><div className="gp-pricing-row" key={item.id}><span><strong>{item.name}</strong><small>{item.category||""}</small></span><span>{money(item.basePriceCents)}</span><span>{locationId?money(item.finalPriceCents):"—"}</span><span className="gp-price-actions"><button onClick={()=>saveLocationPrice(item,type,"FOLLOW_BASE","0")}>Base</button><button onClick={()=>saveLocationPrice(item,type,"PERCENT_ADJUSTMENT",String(item.adjustmentPct||0))}>{item.adjustmentPct?`${item.adjustmentPct}%`:"%"}</button><button onClick={()=>saveLocationPrice(item,type,"FIXED",String((item.priceOverrideCents??item.basePriceCents)/100))}>Fixed</button></span></div>)}{!items.length&&!loading&&<div className="gp-search-empty">No active {type.toLowerCase()} records yet.</div>}</div></div>},
  {id:'breeds',label:'Breeds',content:<BreedSettings/>},
  {id:'categories',label:'Service categories',content:<><CategorySettings/><BusinessLibrary kind="grooming-picks"/></>},
+ {id:'sales-tax',label:'Sales Tax',content:<SalesTaxSettings/>},
+ {id:'tips',label:'Tip Distribution',content:<TipDistributionSettings locationId={locationId}/>},
  {id:'rewards',label:'Rewards',content:<><ReferralRewardSettings/><RewardSettings/></>},
  {id:'communications',label:'Communications',content:<><AppointmentMessageSettings/><MarketingLimitSettings/><ConversationSettings/><CustomRuleSettings/><BusinessLibrary kind="message-templates"/><HeyRosieSettings/></>},
  {id:'data',label:'Data & integrations',content:<SettingsSections id="settings-data" label="Data and integrations" sections={[{id:'imports',label:'Import & migration',content:<><CustomerImport/><TenantExport/></>},{id:'123pet',label:'123Pet connection',content:<Pet123Settings/>},{id:'library',label:'Starter library',content:<StarterLibrary/>}]}/>},

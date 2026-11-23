@@ -1,3 +1,4 @@
+import {localToInstant,zonedParts} from '@/src/lib/operating-hours';
 import {requestLocation} from '@/src/lib/request-location';
 import {recordStaffAttendance} from '@/src/lib/customer-attendance';
 import {workflowSettings} from '@/src/lib/workflow-settings';
@@ -57,19 +58,23 @@ async function updateStatus(request: NextRequest) {
         const saved=await tx.ticket.update({where:{id:live.id,status:live.status},data:{status}});
         await recordStaffAttendance(tx,live,session.user.id);return saved;
       });
-    } else if (status === "CHECKED_IN" && !ticket.checkedInAt) {
+    } else if (status === "CHECKED_IN" && (!ticket.checkedInAt || !ticket.arrivalPriority)) {
       updated = await db.$transaction(async tx => {
-        const sameDay = ticket.scheduledStart || now;
-        const start = new Date(sameDay);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(start);
-        end.setDate(end.getDate() + 1);
+        // Serialize arrival numbers at this shop, including simultaneous devices.
+        await tx.$queryRaw`SELECT id FROM Location WHERE id=${ticket.locationId} AND tenantId=${tenantId} FOR UPDATE`;
+        const live=await tx.ticket.findFirst({where:{id:ticket.id,tenantId}});
+        if(!live||['CLOSED','CANCELLED','NO_SHOW'].includes(live.status))throw Error('This appointment changed. Reopen it before checking in.');
+        if(live.checkedInAt&&live.arrivalPriority){assignedArrivalPriority=live.arrivalPriority;return tx.ticket.update({where:{id:live.id,status:live.status},data:{status}});}
+        const location=await tx.location.findFirst({where:{id:ticket.locationId,tenantId},select:{timezone:true}});
+        const zone=location?.timezone||'America/Chicago',day=zonedParts(live.scheduledStart||now,zone).date;
+        const next=new Date(day+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);
+        const start=localToInstant(day+'T00:00',zone),end=localToInstant(next.toISOString().slice(0,10)+'T00:00',zone);
         const max = await tx.ticket.aggregate({
           where: { tenantId, locationId: ticket.locationId, scheduledStart: { gte: start, lt: end }, arrivalPriority: { not: null }, id: { not: ticket.id } },
           _max: { arrivalPriority: true }
         });
         assignedArrivalPriority = (max._max.arrivalPriority || 0) + 1;
-        return tx.ticket.update({ where: { id: ticket.id, status: ticket.status }, data: { status, checkedInAt: now, arrivalPriority: assignedArrivalPriority } });
+        return tx.ticket.update({ where: { id: live.id, status: live.status }, data: { status, checkedInAt: live.checkedInAt || now, arrivalPriority: assignedArrivalPriority } });
       });
     } else {
       const data: { status: Status; checkedInAt?: Date | null; pickupAt?: Date | null; pickupCompletedAt?: Date | null; closedAt?: Date | null } = { status };

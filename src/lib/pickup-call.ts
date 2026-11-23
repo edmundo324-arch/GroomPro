@@ -18,3 +18,11 @@ export function pickupContacts<T extends {ticketId:string|null;subject:string|nu
  }
  return {pickupTextedAt,readyContacted};
 }
+
+export const pickupContactAction='PICKUP_CONTACT_RECORDED';
+export const pickupContactMethods={TEXT:'Text Message',CALL:'Phone Call',OTHER:'Other'};
+export function recordedPickupContact(entry:{details:unknown;occurredAt:Date}|null){
+ if(!entry)return null;const d=entry.details as any;
+ if(!d||!Object.hasOwn(pickupContactMethods,d.method)||!Number.isFinite(Date.parse(d.contactedAt)))return null;
+ return {method:d.method as keyof typeof pickupContactMethods,contactedAt:d.contactedAt as string,note:typeof d.note==='string'?d.note:''};
+}

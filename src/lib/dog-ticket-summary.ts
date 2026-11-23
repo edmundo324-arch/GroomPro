@@ -1,7 +1,7 @@
 import {prepaidTaxableCents} from './prepaid-lines';
 import {isGiftCardLine} from './gift-card-line';
 // Allocate the ticket's actual tax for display only. No new charge or payment split.
-function taxable(line:any,catalog?:any){if(isGiftCardLine(line)||/^No-Show Fee$/i.test(line.description||''))return false;if(prepaidTaxableCents(line)!==null)return prepaidTaxableCents(line)!>0;const item=line.service||line.product||(line.lineType==='PRODUCT'||line.type==='PRODUCT'?catalog?.products:catalog?.services)?.find((v:any)=>v.id===(line.serviceId||line.productId||line.id));return item?.taxConfiguration?.taxable!==false}
+function taxable(line:any,catalog?:any){if(isGiftCardLine(line)||/^(No-Show Fee|Customer Account Balance)$/i.test(line.description||''))return false;if(prepaidTaxableCents(line)!==null)return prepaidTaxableCents(line)!>0;const item=line.service||line.product||(line.lineType==='PRODUCT'||line.type==='PRODUCT'?catalog?.products:catalog?.services)?.find((v:any)=>v.id===(line.serviceId||line.productId||line.id));const catalogItem=(line.lineType==='PRODUCT'||line.type==='PRODUCT'?catalog?.products:catalog?.services)?.find((v:any)=>v.id===(line.serviceId||line.productId||line.id));return (item?.taxConfiguration??catalogItem?.taxConfiguration)?.taxable!==false}
 export function dogTicketTotals(lines:any[],taxCents:number,catalog?:any){
  const sums=new Map<string,number>();for(const line of lines){const key=line.petId||line.pet?.id||'';sums.set(key,(sums.get(key)||0)+Math.max(0,Number(line.totalCents??((line.unitPriceCents||0)*(line.quantity||1)-(line.discountCents||0)))))}
  const weights=new Map<string,number>();for(const line of lines)if(taxable(line,catalog)){const key=line.petId||line.pet?.id||'';weights.set(key,(weights.get(key)||0)+(prepaidTaxableCents(line)??Math.max(0,Number(line.totalCents??((line.unitPriceCents||0)*(line.quantity||1)-(line.discountCents||0))))))}const taxableTotal=[...weights.values()].reduce((n,c)=>n+c,0);
@@ -11,3 +11,5 @@ export function dogTicketTotals(lines:any[],taxCents:number,catalog?:any){
  return Object.fromEntries(shares.map(s=>[s.petId,{subtotalCents:s.subtotal,totalCents:s.subtotal+s.tax}]));
 }
 export function defaultTicketTax(lines:any[],rate:number,catalog?:any){return Math.round(lines.reduce((n,l)=>n+(prepaidTaxableCents(l)??(taxable(l,catalog)?Math.max(0,Number(l.totalCents)||0):0)),0)*rate/100)}
+
+export function automaticTicketTax(status:string|undefined,enabled:boolean,manual:boolean){return enabled&&!manual&&!['CLOSED','CANCELLED','NO_SHOW','VOID','VOIDED'].includes(status||'')}

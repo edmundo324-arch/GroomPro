@@ -37,6 +37,7 @@ const sections: Record<string, [label: string, description: string, keywords: st
   'locations/hours': ['Operating hours', 'Set business hours for the selected location.', 'open close opening closing holiday schedule holidays special hours'],
   'locations/locations': ['Locations', 'Choose or add a business location.', 'store address add location'],
   'locations/sharing': ['Customer sharing', 'Choose how customer records are shared between locations.', 'client location access'],
+  'sales-tax': ['Sales Tax', 'Set the tax percentage for open tickets.', 'tax taxes percentage automatic sales tax'],
   pricing: ['Pricing', 'Adjust base service and package prices or set a price rule for a location.', 'rates bulk price markup discount'],
   breeds: ['Breeds', 'Manage breed records and their grooming defaults.', 'breed dog default package'],
   categories: ['Service categories', 'Manage categories used for services and employee qualifications.', 'job title employee categories grooming instructions quick picks body ears tail tbf'],
@@ -63,10 +64,10 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
  {path:['categories'],title:'Grooming quick picks',description:'Manage reusable grooming instructions.',keywords:'quick picks grooming body ears tail face tbf special notes',access:'manager'},
  {path:['data','imports'],title:'Export business records',description:'Download readable linked records for another provider.',keywords:'export download data portable migrate leave',access:'admin'},
   {
-    path: ticketPath, title: 'Sales tax',
-    description: 'Set the default tax rate and turn on automatic tax calculation for new POS tickets.',
+    path: ['sales-tax'], title: 'Sales Tax',
+    description: 'Set the sales tax percentage and calculate tax automatically on open POS tickets.',
     keywords: 'tax taxes sales tax rate automatic tax taxable checkout',
-    access: 'admin', anchor: 'pos-sales-tax', steps: ['Assignment and tax defaults'],
+    access: 'admin', anchor: 'sales-tax', steps: ['Sales Tax'],
   },
   {
     path: ticketPath, title: 'POS header colors',

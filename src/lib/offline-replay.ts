@@ -38,7 +38,7 @@ export async function replayOffline(request: NextRequest, tenantId: string, empl
   }
   const locationId = await requestLocation(request, tenantId);
   if (!locationId || metadata.locationId !== locationId || metadata.tenantId !== tenantId || metadata.employeeId !== employeeId) {
-    return NextResponse.json({ error: 'Sign in as the employee who saved this change, at its original location.' }, { status: 403 });
+    return NextResponse.json({ error: 'Sign in as the employee who saved this change, at its original location.', code: 'OFFLINE_SCOPE_MISMATCH' }, { status: 403 });
   }
   const target = action.target;
   const key = { tenantId, requestKey: 'offline:' + metadata.id };
