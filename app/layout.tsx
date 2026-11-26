@@ -4,6 +4,7 @@ import "./calendar-search.css";
 import "./responsive.css";
 import "./ui-refinements.css";
 import "./ticket-workspace.css";
+import "./site-areas.css";
 
 export const metadata: Metadata = { title: "GroomPro Suite", description: "Multi-tenant grooming salon management platform", appleWebApp: {capable:true,title:"GroomPro",statusBarStyle:"default"}, icons:{apple:"/icons/groompro-192.png"} };
 

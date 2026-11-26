@@ -94,3 +94,5 @@ allowance as proof of the Node.js platform's allowance.
 The user approved publishing this preparation with routing OFF because the final
 domain is still undecided. Activation and automatic provisioning remain pending
 the final domain, hosting confirmation and the activation checks above.
+
+Separate Sales, Administration, Development and Staging deployment preparation is now documented in `five-site-deployment.md`. Those opt-in site roles are independent of business-host routing and remain inactive on the current site.

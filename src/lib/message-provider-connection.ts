@@ -1,8 +1,10 @@
 import {db} from './db';
+import {isTestSite} from './site-deployment';
 export const sharedMessageConnectionKey='PLATFORM_TEST_MESSAGE_CONNECTION';
 // Only platform business creation may establish this link. Business-specific
 // credentials always win; no secrets are copied into a business record.
 export async function messageProviderConnection(environment:string,tenantId:string,client:any=db){
+ if(isTestSite())return null;
  let configs:any;try{configs=JSON.parse(process.env[environment]||'{}')}catch{return null}
  if(Object.hasOwn(configs,tenantId))return configs[tenantId];
  const setting=await client.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:sharedMessageConnectionKey}}});

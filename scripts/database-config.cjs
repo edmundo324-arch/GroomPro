@@ -13,6 +13,7 @@ function databaseUrl(env = process.env) {
   try { url = new URL(value); } catch { throw new Error('DATABASE_URL must be a valid MySQL URL.'); }
   if (url.protocol !== 'mysql:' || !url.hostname || !url.username || !url.pathname.slice(1)) throw new Error('DATABASE_URL must specify a MySQL host, user, and database.');
   if (url.port && (Number(url.port) < 1 || Number(url.port) > 65535)) throw new Error('Invalid MySQL port.');
+  require('./site-deployment.cjs').validateDatabase(value, env);
   return value;
 }
 module.exports = { ROOT, loadEnvironment, databaseUrl };

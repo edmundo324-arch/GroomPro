@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import {isTestSite} from './site-deployment';
 
 export type CloverChargeResult={ok:boolean;chargeId?:string;message?:string;raw?:unknown};
 
 export async function chargeCloverToken(params:{idempotencyKey?:string;source:string;amountCents:number;description:string;externalReference:string;receiptEmail?:string|null}) : Promise<CloverChargeResult> {
+  if(isTestSite())return {ok:false,message:'Card charges are disabled in this separate testing workspace.'};
   const token=process.env.CLOVER_ACCESS_TOKEN;
   if(!token) return {ok:false,message:"Clover payment processing is not connected for this business."};
   const base=process.env.CLOVER_API_BASE_URL||"https://scl-sandbox.dev.clover.com";

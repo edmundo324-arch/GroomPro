@@ -1,9 +1,29 @@
 import {requestBusinessHost,conflictsWithBusiness} from './src/lib/business-host';
+import {siteRole,allowsHost,validateDeployment} from './src/lib/site-deployment';
 import {requestMaterial} from './src/lib/request-fingerprint';
 import { NextRequest, NextResponse } from "next/server";
 import {businessCookie,businessId,deviceCookie,mayOpenBusinessWithoutPin,sessionCookie} from './src/lib/business-context';
 
 export async function middleware(request: NextRequest) {
+  const path=request.nextUrl.pathname;
+  // Background workers use loopback rather than a public business hostname.
+  const internalWorker=['/api/internal/appointment-messages','/api/internal/scheduled-reports'].includes(path)&&request.method==='POST'&&['127.0.0.1','localhost'].includes((request.headers.get('host')||'').replace(/:\d+$/,''))&&Boolean(process.env.GROOMPRO_SCHEDULER_TOKEN)&&request.headers.get('x-groompro-scheduler')===process.env.GROOMPRO_SCHEDULER_TOKEN;
+  if(internalWorker&&['current','tenant'].includes(siteRole()))return NextResponse.next();
+  let role;try{role=siteRole();validateDeployment();if(!allowsHost(request.headers.get('host')))return NextResponse.json({error:'This address does not belong to this GroomPro site.'},{status:404});}catch{return NextResponse.json({error:'This GroomPro site is not ready. Ask the platform owner to complete its setup.'},{status:503});}
+  if(role==='sales')return path==='/'?NextResponse.next():NextResponse.json({error:'This page is not available on the sales site.'},{status:404});
+  if(!path.startsWith('/api/')){const response=NextResponse.next();if(['admin','development','staging'].includes(role)){response.headers.set('X-Robots-Tag','noindex, nofollow');response.headers.set('Cache-Control','no-store');}return response;}
+  if(['admin','development','staging'].includes(role)){
+    const signIn=(path==='/api/setup/context'&&request.method==='GET')||path==='/api/employee/session'||path==='/api/device-authorization';
+    if(!signIn){
+      const tenant=request.cookies.get(businessCookie)?.value,session=request.cookies.get(sessionCookie)?.value,device=request.cookies.get(deviceCookie)?.value;
+      if(!tenant||!session||!device)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
+      if(request.headers.get('x-tenant-id')&&request.headers.get('x-tenant-id')!==tenant)return NextResponse.json({error:'Open the business workspace first.'},{status:403});
+      const [{db},{currentBusinessSession}]=await Promise.all([import('./src/lib/db'),import('./src/lib/platform-business')]);
+      const identity=await currentBusinessSession(db,tenant,session,device);
+      if(!identity)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
+      if(role!=='staging'&&!['PLATFORM_OWNER','DEVELOPER'].includes(identity.user.role))return NextResponse.json({error:'Platform Owner or Developer access is required for this site.'},{status:403});
+    }
+  }
   let hostRoute;try{hostRoute=requestBusinessHost(request)}catch{return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'Business address routing is not configured correctly. Contact GroomPro support.'},{status:503,headers:{'Cache-Control':'no-store'}})}
   if(hostRoute.kind==='unknown')return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'This business address is not configured. Use your existing GroomPro address.'},{status:404,headers:{'Cache-Control':'no-store'}});
   if(hostRoute.kind==='business'){
@@ -61,6 +81,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: ["/((?!_next/static|_next/image|icons/|favicon.ico).*)"],
   runtime: "nodejs",
 };

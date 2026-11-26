@@ -127,3 +127,7 @@
 
 ## Subdomain preparation — November 25, 2026
 - Optional business-host routing stays disabled until the final domain, hosting hostname/TLS support and publication are explicitly approved. Preserve existing addresses through the allowlist when enabling; never infer a business from a display name or unknown subdomain. Hostnames select context, not employee authorization. Do not change DNS, hosting, sending origins or cross-domain sessions as part of code preparation.
+
+## Five-site preparation — November 26, 2026
+- Site roles are opt-in separate deployments; leave the current site role unset and routing off until activation is authorized. Sales has no business database; Administration reuses production controls without duplicate schedulers or schema bootstrap. Development and Staging require separate restricted databases and independent credentials. Never treat a subdomain alone as isolation. See docs/five-site-deployment.md.
+- Personalized questionnaire-based Sales/Training videos remain future work; the public sales preparation must not imply those videos or paid signup are operational.
