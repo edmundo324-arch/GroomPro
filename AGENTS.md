@@ -25,10 +25,10 @@
 
 - Choose Related Files supports linked customer, pet, and appointment imports. Preserve ownership, source-identifier duplicate protection, and booked line-item details without requiring employee-profile or service-catalog imports.
 
-## Future Training & Sales Studio compatibility (no implementation authorized)
+## Training & Sales Studio compatibility
 - Preserve stable, identifiable interface elements and accessible names for future Playwright workflow recording.
 - Reuse centralized feature definitions, tenant settings, subscription permissions, and role-based access controls wherever practical.
-- Keep future development-team-only Training Studio and personalized AI Sales Studio compatible with the architecture. Proposed tooling includes OpenAI services, Playwright, and FFmpeg; do not add dependencies or functionality for these modules yet.
+- Keep future development-team-only Training Studio and personalized AI Sales Studio compatible with the architecture. Proposed tooling includes OpenAI services, Playwright, and FFmpeg; do not add recording/generation dependencies or connect paid services merely to implement the approved questionnaire.
 - Future automation must use a dedicated demonstration tenant with fictional data and retain tenant isolation and permission checks.
 - Prioritize current functionality and approved appearance. Do not rebuild or interfere with working features solely for future Studio compatibility.
 
@@ -130,4 +130,4 @@
 
 ## Five-site preparation — November 26, 2026
 - Site roles are opt-in separate deployments; leave the current site role unset and routing off until activation is authorized. Sales has no business database; Administration reuses production controls without duplicate schedulers or schema bootstrap. Development and Staging require separate restricted databases and independent credentials. Never treat a subdomain alone as isolation. See docs/five-site-deployment.md.
-- Personalized questionnaire-based Sales/Training videos remain future work; the public sales preparation must not imply those videos or paid signup are operational.
+- The user approved actual GroomPro screen recordings with a friendly AI narrator, for both personalized sales tours and training lessons. Begin with the public sales questionnaire and matched outlines. Do not imply recordings, narration, paid signup or video generation are operational until implemented and verified.

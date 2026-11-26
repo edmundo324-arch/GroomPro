@@ -26,7 +26,7 @@ Set `GROOMPRO_SITE_ROLE` to the role above and `GROOMPRO_SITE_HOSTS` to comma-se
 
 Suggested addresses once the domain is chosen: `www.DOMAIN`, `dev.DOMAIN`, `admin.DOMAIN`, `app.DOMAIN`, `staging.DOMAIN`. Business-specific addresses point to the tenant app using the existing configuration in `subdomain-routing.md`. No address is created or registered by setting these variables.
 
-Sales accepts optional HTTPS links in `GROOMPRO_PUBLIC_LOGIN_URL`, `GROOMPRO_PUBLIC_SIGNUP_URL` and `GROOMPRO_PUBLIC_HELP_URL`. Only configured links appear. Optional `GROOMPRO_PUBLIC_PLANS_JSON` accepts an approved public array of `{name, monthlyCents, features: string[]}`. It is independent of the private plan editor, so editing a private plan never silently publishes pricing. Pricing is deliberately not invented; the page states that plan information and registration are not yet published. The signup link is an access-request destination, not paid automatic enrollment. Personalized question-based training/sales videos remain future work as previously recorded in AGENTS.md; no video generation or recording is implemented here.
+Sales accepts optional HTTPS links in `GROOMPRO_PUBLIC_LOGIN_URL`, `GROOMPRO_PUBLIC_SIGNUP_URL` and `GROOMPRO_PUBLIC_HELP_URL`. Only configured links appear. Optional `GROOMPRO_PUBLIC_PLANS_JSON` accepts an approved public array of `{name, monthlyCents, features: string[]}`. It is independent of the private plan editor, so editing a private plan never silently publishes pricing. Pricing is deliberately not invented; the page states that plan information and registration are not yet published. The signup link is an access-request destination, not paid automatic enrollment. The approved sales questionnaire now selects and orders personalized sales and training outlines. The planned format is actual GroomPro screen recordings with friendly AI narration. Recordings and narration are not yet produced; the results explicitly say so.
 
 ## Release and Rollback
 
@@ -43,3 +43,11 @@ To roll back site-role preparation on the existing app, leave the role unset and
 ## Not Yet Live / Still Required
 
 Chosen domain; GoDaddy hostname and certificate confirmation; separate app/database provisioning; independent deployment secrets and accounts; final public plan pricing and signup/help destinations. Billing, 123Pet backup, automatic DNS creation, personalized videos, release automation and a new monitoring/AI-cost dashboard are not included. Existing administration capabilities remain available; this preparation does not claim those additional systems exist.
+
+## Personalized Sales Questionnaire
+
+The public sales page includes a four-step questionnaire for business type/team size, current recordkeeping/software and booking methods, services, and up to three ordered priorities. Visitors receive a priority-first sales outline and a working-day training outline. They can switch between both without losing answers, edit their answers or start over.
+
+Answers are held only in session storage for the browser tab, under `groompro:sales-questionnaire:v1`. Nothing is submitted to business APIs, lead lists or AI services. Reloading can resume the questionnaire in the same tab; storage-unavailable browsers remain usable and show a notice. No customer or contact details are requested. Saved input is normalized against known choices.
+
+The topic library is in `src/lib/sales-questionnaire.ts`; the client form is in `src/components/sales-questionnaire.tsx`. Topic selection does not change subscriptions, promise imports from named competitors, or imply Maps, AI, payment processing or message delivery are connected. There are no pretend video players or recording-complete claims. Screen capture, narration, video hosting and publishing approved recordings remain the next phase, separate from this questionnaire release.
