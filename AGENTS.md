@@ -124,3 +124,6 @@
 - Calendar right-click includes Ready for Pick-Up to reopen snoozed reminders immediately. Copy/Cut/Paste applies to the whole family appointment, never just the clicked dog. Cut moves only when Paste succeeds; Copy uses a new visit, without payments, tips or completion state. Preserve scheduling validation and employee/business isolation.
 
 - Calendar context menu label is Ready for Pickup. Customer Contacted records time and method separately from sending messages or making calls. Settings → Sales Tax exposes the existing business tax policy; open appointments recalculate automatically, preserving exemptions and closed history.
+
+## Subdomain preparation — November 25, 2026
+- Optional business-host routing stays disabled until the final domain, hosting hostname/TLS support and publication are explicitly approved. Preserve existing addresses through the allowlist when enabling; never infer a business from a display name or unknown subdomain. Hostnames select context, not employee authorization. Do not change DNS, hosting, sending origins or cross-domain sessions as part of code preparation.

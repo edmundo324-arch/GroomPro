@@ -1,8 +1,31 @@
+import {requestBusinessHost,conflictsWithBusiness} from './src/lib/business-host';
 import {requestMaterial} from './src/lib/request-fingerprint';
 import { NextRequest, NextResponse } from "next/server";
 import {businessCookie,businessId,deviceCookie,mayOpenBusinessWithoutPin,sessionCookie} from './src/lib/business-context';
 
 export async function middleware(request: NextRequest) {
+  let hostRoute;try{hostRoute=requestBusinessHost(request)}catch{return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'Business address routing is not configured correctly. Contact GroomPro support.'},{status:503,headers:{'Cache-Control':'no-store'}})}
+  if(hostRoute.kind==='unknown')return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'This business address is not configured. Use your existing GroomPro address.'},{status:404,headers:{'Cache-Control':'no-store'}});
+  if(hostRoute.kind==='business'){
+    const tenantId=hostRoute.tenantId,path=request.nextUrl.pathname;
+    const selectors=[request.headers.get('x-tenant-id'),request.cookies.get(businessCookie)?.value,...request.nextUrl.searchParams.getAll('tenantId'),...request.nextUrl.searchParams.getAll('tenant')];
+    if(conflictsWithBusiness(tenantId,selectors))return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'This address belongs to a different business. Open the correct business address.'},{status:403,headers:{'Cache-Control':'no-store'}});
+    if(path==='/api/setup/context'&&request.method==='GET'){
+      const headers=new Headers(request.headers);headers.set('x-tenant-id',tenantId);
+      return NextResponse.next({request:{headers}});
+    }
+    const switchingBusiness=path==='/api/platform-access'&&!['GET','HEAD'].includes(request.method)&&['OPEN_BUSINESS','RETURN_HOME'].includes((await request.clone().json().catch(()=>({}))).action);
+    if(path.startsWith('/api/setup/')||switchingBusiness){
+      // Platform business switching and provisioning stay on the existing shared address.
+      return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'Use the main GroomPro address for business setup or platform access changes.'},{status:409});
+    }
+    if(['/api/customer-portal','/api/customer-agreement','/api/device-authorization'].includes(path)&&request.method==='POST'){
+      const body=await request.clone().json().catch(()=>null);
+      if(body&&conflictsWithBusiness(tenantId,[body.tenant,body.tenantId]))return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'Use this business’s form or sign-in link.'},{status:403});
+    }
+    const publicPost=['/api/customer-portal','/api/customer-agreement','/api/device-authorization','/api/integrations/resend','/api/internal/appointment-messages'].includes(path)&&request.method==='POST';
+    if(!publicPost&&!request.cookies.get(businessCookie)?.value)return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'Open this business’s GroomPro page before continuing.'},{status:409});
+  }
   // The native launcher authenticates this endpoint with its private per-process credential.
   if(request.nextUrl.pathname==='/api/internal/appointment-messages'&&request.method==='POST')return NextResponse.next();
   // Provider callbacks authenticate their raw payload with the tenant's signing secret.

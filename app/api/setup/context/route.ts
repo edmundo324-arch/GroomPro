@@ -1,3 +1,4 @@
+import {requestBusinessHost} from '@/src/lib/business-host';
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 import {businessCookie,businessId,businessPrefix,contextCookieOptions,sessionCookie} from '@/src/lib/business-context';
@@ -7,6 +8,14 @@ export async function GET(request: NextRequest) {
   const headers = { "Cache-Control": "no-store" };
   try {
     const setupSecretConfigured = Boolean(process.env.GROOMPRO_SETUP_SECRET && process.env.GROOMPRO_SETUP_SECRET !== "replace-with-a-long-random-secret");
+    const hostRoute=requestBusinessHost(request);
+    if(hostRoute.kind==='unknown')return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'This business address is not configured.'},{status:404,headers});
+    if(hostRoute.kind==='business'){
+      const tenant=await db.tenant.findUnique({where:{id:hostRoute.tenantId},select:{id:true,name:true}});
+      if(!tenant)return NextResponse.json({code:'BUSINESS_HOST_ROUTING',error:'This business address is not available. Contact GroomPro support.'},{status:404,headers});
+      const response=NextResponse.json({setupRequired:false,setupSecretConfigured,tenant},{headers});
+      response.cookies.set(businessCookie,tenant.id,{...contextCookieOptions(),maxAge:60*60*24*30});return response;
+    }
     const explicit = request.headers.get("x-tenant-id") || request.cookies.get("groompro_tenant")?.value || process.env.GROOMPRO_DEV_TENANT_ID;
     const tenants = await db.tenant.findMany({where:{NOT:{id:{startsWith:businessPrefix}}},select:{id:true,name:true},take:2});
     if (!tenants.length && !explicit && !await db.tenant.count()) return NextResponse.json({setupRequired:true,setupSecretConfigured},{headers});
