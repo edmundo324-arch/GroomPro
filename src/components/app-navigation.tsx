@@ -7,6 +7,7 @@ import {usePreferenceScope} from './floating-editor-window';
 import {RecoverWindows} from './window-recovery';
 
 const moduleIcons:Record<string,string>={
+ 'Master Administration':'M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5M8 9h2m4 0h2M8 12h2m4 0h2',
  'Testing Guide':'M5 3h14v18H5zM8 8l1 1 2-2m2 1h3M8 13l1 1 2-2m2 1h3M8 18h8',
  Tickets:'M5 3h14v18l-3-2-4 2-4-2-3 2V3zM8 8h8m-8 4h8m-8 4h5',
  Customers:'M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m16 0v-2a4 4 0 0 0-3-4m-3-7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zm2-4a4 4 0 0 1 0 8',

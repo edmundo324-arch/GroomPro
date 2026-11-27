@@ -25,7 +25,7 @@ function BusinessOwnerFields({owner,onChange}:{owner:OwnerForm;onChange:(owner:O
  </fieldset>;
 }
 
-export function PlatformAccessSettings(){
+export function PlatformAccessSettings({initiallyOpen=false}:{initiallyOpen?:boolean}={}){
  const [business,setBusiness]=useState({name:'',location:'Main Location',timezone:'America/Chicago',sampleSourceId:'',shareMessageConnection:true});
  const [owner,setOwner]=useState<OwnerForm>(blankOwner),[existingOwner,setExistingOwner]=useState<OwnerForm>(blankOwner);
  const [result,setResult]=useState<{tenantId:string;data:AccessData}|null>(null),[tenantId,setTenant]=useState('');
@@ -89,7 +89,7 @@ export function PlatformAccessSettings(){
    setResult(await read(tenantId));setPin('');setEmployeeReason('');setNotice({task:'employee',text:'Employee access updated.'});
   });
  }
- return <details className="gp-platform-access">
+ return <details className="gp-platform-access" open={initiallyOpen||undefined}>
   <summary data-settings-target="platform-business-controls">GroomPro platform access controls</summary>
   <p><strong>Current business</strong> {data?.tenants.find(item=>item.id===data.currentTenantId)?.name||'—'}</p>
   {data?.canReturnHome&&<button type="button" className="gp-btn primary" disabled={busy} onClick={()=>void backToGroomPro()}>Back to GroomPro</button>}

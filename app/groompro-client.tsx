@@ -34,7 +34,9 @@ import {TicketsWorkspace} from "../src/components/tickets-workspace";
 import {Whiteboard} from "../src/components/whiteboard";
 import {Settings} from "../src/components/settings";
 import {ModuleWorkspace} from "../src/components/module-workspaces";
-import {WORKSPACE_MODULES as modules} from '../src/lib/module-catalog';
+import {MasterAdministration} from '../src/components/master-administration';
+import {WORKSPACE_MODULES,PLATFORM_WORKSPACE_MODULES} from '../src/lib/module-catalog';
+const modules=[...WORKSPACE_MODULES,...PLATFORM_WORKSPACE_MODULES] as const;
 type Module=typeof modules[number];
 type Employee={id:string;firstName:string;lastName:string;role:string;active:boolean};
 export default function Home(){
@@ -98,7 +100,9 @@ export default function Home(){
    window.dispatchEvent(new CustomEvent('groompro:save-error',{detail:{message:(error as Error).message}}));
   }
  }
- const allowed=visibleModules(modules,features);
+ const canAdminister=isPlatformRole(employee?.role);
+ const allowed=[...visibleModules(WORKSPACE_MODULES,features),...(canAdminister?PLATFORM_WORKSPACE_MODULES:[])];
+ useEffect(()=>{if(active==='Master Administration'&&!canAdminister)setActive('Calendar')},[active,canAdminister]);
  if(!contextReady)return <main style={{padding:32}}><h1>GroomPro Suite</h1><p>{contextError||"Opening your business…"}</p>{contextError&&<a href="/setup">Open setup</a>}</main>;
  return <VisualLayoutProvider key={scope+':'+employeeScope} scope={scope+':'+employeeScope}><HelpfulHints excluded={active==="Whiteboard"}><WindowLayoutScope scope={employee&&scope?`${scope}:${employee.id}`:''}><div data-module={active} className={`gp-shell ${active==="Whiteboard"?"gp-whiteboard-shell":""}`}><IntegrationRefresh key={employee?.id||'anonymous'} scope={scope} enabled={!!employee}/><EmployeeActivity employee={employee} scope={scope} onExpired={expireEmployee} onEmployeeChange={signedIn}/><ActionMessage/><PickupNotices scope={scope}/><header data-business-name={business?.name||brand} className="gp-topbar"><div className="gp-brand" title={business?.name||brand}>{business?.id.startsWith("pilot_")?business.name:brand}</div>{canReturnHome&&<button type="button" className="gp-module" disabled={returningHome} onClick={()=>void returnHome()}>Back to GroomPro</button>}<OfflineIndicator scope={scope} employeeId={employee?.id}/><button type="button" className="gp-switch gp-header-employee" title={employee?employeeName(employee):undefined} onClick={()=>void requestEmployeePin(employee?'SWITCH':'SIGN_IN')}>{employee&&<span className="gp-status-dot" aria-hidden="true"/>}<span>{employee?employeeName(employee):"PIN"}</span></button><AppNavigation role={employee?.role} modules={allowed} active={active}
  onSelect={module=>{if(module==='Testing Guide'){setGuideVisited(true);setGuideOpen(true);return}setRequestsOnly(false);setActive(module)}}
@@ -113,6 +117,7 @@ export default function Home(){
  {m==="Whiteboard"&&<section className="gp-whiteboard-host" style={{height:"calc(100vh - 140px)",minHeight:400,background:"var(--gp-secondary)"}}><Whiteboard date={whiteboardDate}/></section>}
  {m==="Schedule"&&<section className="gp-settings"><h1 className="gp-title">Schedule</h1><StaffAvailabilitySettings/><StaffTasks/></section>}
  {m==="Settings"&&<Settings role={employee?.role}/>}
+ {m==='Master Administration'&&canAdminister&&<MasterAdministration employeeRole={employee?.role} onOpenWorkspace={()=>setActive('Calendar')}/>}
  {(m==="Pets"||m==="Messaging"||m==="Inventory"||m==="Reports")&&<ModuleWorkspace module={m} onOpenCustomer={id=>setCustomer(id)} onNewTicket={()=>openTicket()}/>}
  </ModuleView>)} </main>{guideVisited&&<div hidden={!guideOpen} style={guideOpen?{display:"contents"}:{display:"none"}}><TestingGuide onClose={()=>setGuideOpen(false)}/></div>}<ActionPin onSignedIn={signedIn}/>
  {openTickets.map(editor=><div key={editor.key} hidden={posTicket?.key!==editor.key} style={posTicket?.key===editor.key?{display:'contents'}:{display:'none'}}><PosTicketWindow preferredPanel={posPanel} onPanelChange={setPosPanel} active={posTicket?.key===editor.key} ticketId={editor.ticketId} date={editor.date} initialEmployeeId={editor.employeeId} initialCustomerId={editor.customerId} onClose={()=>{setPosTicket(current=>current?.key===editor.key?null:current)}} onScheduled={date=>{if(navigationRef.current.key===editor.key&&navigationRef.current.active!=="Calendar"){setActive("Calendar")}}} onSaved={id=>{window.dispatchEvent(new CustomEvent('groompro:ticket-changed',{detail:{ticketId:id}}));setOpenTickets(all=>all.map(t=>t.key===editor.key?{...t,ticketId:id}:t));setCalendarRevision(v=>v+1)}}/></div>)} {createCustomer&&<CustomerCreateWindow onClose={()=>setCreateCustomer(false)}/>}{customer&&<CustomerProfile customerId={customer} onClose={()=>setCustomer(null)} onNewAppointment={newForCustomer} onCreateTicket={newForCustomer}/>}

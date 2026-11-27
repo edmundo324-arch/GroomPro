@@ -15,6 +15,8 @@ export const MODULE_CODE_BY_NAME=Object.fromEntries(GROOMPRO_MODULES.map(m=>[m.n
 
 // Workspace names and their feature ownership live here, beside the feature catalog.
 export const WORKSPACE_MODULES=["Calendar","Customers","Pets","Tickets","Whiteboard","Messaging","Inventory","Reports","Services","Products","Packages","VIP Memberships","Schedule","Settings","Testing Guide"] as const;
+// Platform tools are separate from business subscription features.
+export const PLATFORM_WORKSPACE_MODULES=['Master Administration'] as const;
 export const WORKSPACE_FEATURES:Record<string,string>={Calendar:'CALENDAR',Customers:'CUSTOMERS',Pets:'PETS',Tickets:'TICKETS',Whiteboard:'WHITEBOARD',Messaging:'MESSAGING',Inventory:'INVENTORY',Reports:'REPORTS',Services:'TICKETS',Products:'INVENTORY',Packages:'TICKETS','VIP Memberships':'TICKETS',Schedule:'CALENDAR'};
 // Always reachable: Calendar and setup/catalog entry points. Server policy still
 // enforces explicit module restrictions; absent configuration never hides them.

@@ -135,3 +135,6 @@
 ## Catalog Update Choices — November 26, 2026
 - Service and package edits offer Today and Future Appointments, Future Appointments Only — Exclude Today, and New Bookings Only. Default to New Bookings Only. Use each shop’s local date; protect closed tickets and any ticket with a recorded payment or applied credit. Preserve staff adjustments, employee assignments, drop-off times and approved scheduling exceptions; report conflicting appointments for individual review.
 - VIP included services and future membership prices have independent choices for current members. Either, both or neither may be selected. Preserve paid charges, activation fees, billing schedules, signed agreements and historical commission attribution. Never infer VIP coverage from a dog’s ordinary service lines.
+
+## Current-Site Master Administration — November 26, 2026
+- Master Administration is also available within the current site's blue menu for Platform Owners and Developers. Reuse the same business, subscription, feature and permission controls as the separate administration deployment. Keep normal business modules and Settings paths intact; remove the administration area when the platform session ends or changes to a non-platform employee. This does not activate subdomain routing or change the current deployment role.
