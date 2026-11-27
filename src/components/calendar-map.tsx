@@ -1,8 +1,13 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { employeeFetch } from '../lib/employee-fetch';
+import {createPortal} from 'react-dom';
+import {appointmentStyle} from '../lib/calendar-presentation';
+import {AppointmentSummary} from './appointment-summary';
+import {CalendarHover} from './calendar-hover';
+import {useAppointmentPreview} from './use-appointment-preview';
 
-type Stop = { appearance?: React.CSSProperties; id: string; day: string; orderNumber: number; scheduledStart: string; customer: string; pets: string[]; address: string };
+type Stop = { appointment?:any;appearance?: React.CSSProperties; id: string; day: string; orderNumber: number; scheduledStart: string; customer: string; pets: string[]; address: string };
 type MapData = { appointments: Stop[]; timezone: string; all: boolean; canSeeAll: boolean; shop: string; origin: string; destination: string; optimize: boolean; embedKey: string; routesConfigured: boolean };
 const dayLabel = (day: string) => new Date(day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -33,6 +38,9 @@ export function CalendarMap({ date, throughDate = date, onOpen }: { date: string
   const [order, setOrder] = useState<string[]>(), [routeError, setRouteError] = useState(''), [section, setSection] = useState(0);
   const [addresses, setAddresses] = useState<{origin: string; destination: string}>();
   const [saving, setSaving] = useState(false), [addressError, setAddressError] = useState('');
+  const [presentation,setPresentation]=useState<any>();
+  const preview=useAppointmentPreview(presentation);
+  useEffect(()=>{let alive=true;const load=()=>employeeFetch('/api/workflow-settings').then(r=>r.json()).then(d=>{if(alive)setPresentation(d.settings||{})}).catch(()=>{});void load();window.addEventListener('groompro:appearance-changed',load);return()=>{alive=false;window.removeEventListener('groompro:appearance-changed',load)}},[]);
 
   useEffect(() => { setFrom(date); setThrough(throughDate); setDay(date); }, [date, throughDate]);
   useEffect(() => {
@@ -124,11 +132,12 @@ export function CalendarMap({ date, throughDate = date, onOpen }: { date: string
       {mapUrl && <iframe className="gp-route-map" title={'Driving map for ' + dayLabel(day)} src={mapUrl} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/>}
       <div className="gp-actions">{sections(points, 4).filter(value => value.length > 1).map((value, index, all) => <a key={index} className="gp-btn" href={directions(value)} target="_blank" rel="noreferrer">{all.length === 1 ? 'Open route in Google Maps' : 'Open route section ' + (index + 1)}</a>)}</div>
       {!visits.length && <p>No appointments for this date range.</p>}
-      {sorted.map(stop => <div key={stop.id + ':' + stop.day} className="gp-map-stop gp-colored-ticket" style={stop.appearance}>
-        <div>{numbered && stop.address && <strong>Stop {stopNumbers.get(stop.address)} · </strong>}<time dateTime={stop.scheduledStart}>{new Date(stop.scheduledStart).toLocaleTimeString(undefined, { timeZone: data.timezone, hour: 'numeric', minute: '2-digit' })}</time></div>
-        <div><strong>{stop.customer}</strong>{stop.pets.length > 0 && <div>{stop.pets.join(', ')}</div>}<div>{stop.address || 'Customer address missing'}</div></div>
-        <div className="gp-actions"><button type="button" className="gp-btn" onClick={() => onOpen(stop.id)}>Open #{stop.orderNumber}</button>{stop.address && <a className="gp-btn" href={directions([data.origin, stop.address].filter(Boolean))} target="_blank" rel="noreferrer">Directions</a>}</div>
+      {sorted.map(stop => <div key={stop.id + ':' + stop.day} className={"gp-map-stop gp-colored-ticket gp-appointment-view"+(preview.hover?.ticket.id===stop.id?" gp-calendar-ticket-highlight":"")} style={stop.appointment&&presentation?appointmentStyle(stop.appointment,presentation):stop.appearance} onMouseEnter={e=>{if(stop.appointment)preview.show(stop.appointment,e.currentTarget)}} onMouseLeave={preview.hide} onFocus={e=>{if(stop.appointment)preview.show(stop.appointment,e.currentTarget)}} onBlur={preview.hide}>
+        <div>{numbered && stop.address && <strong>Stop {stopNumbers.get(stop.address)}</strong>}{!stop.appointment&&<time dateTime={stop.scheduledStart}>{new Date(stop.scheduledStart).toLocaleTimeString(undefined, { timeZone: data.timezone, hour: 'numeric', minute: '2-digit' })}</time>}</div>
+        <div>{stop.appointment?<AppointmentSummary ticket={stop.appointment} settings={presentation}/>:<><strong>{stop.customer}</strong>{stop.pets.length > 0 && <div>{stop.pets.join(', ')}</div>}</>}<div>{stop.address || 'Customer address missing'}</div></div>
+        <div className="gp-actions"><button type="button" className="gp-btn" onClick={() => {preview.hide();onOpen(stop.id)}}>Open #{stop.orderNumber}</button>{stop.address && <a className="gp-btn" href={directions([data.origin, stop.address].filter(Boolean))} target="_blank" rel="noreferrer">Directions</a>}</div>
       </div>)}
     </>}
+    {preview.hover&&createPortal(<CalendarHover hover={preview.hover} fields={presentation?.hoverFields||[]} labels={presentation?.hoverLabels} arrivalPosition={presentation?.hoverArrivalPosition} details={preview.details}/>,document.body)}
   </section>;
 }

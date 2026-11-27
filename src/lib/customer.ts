@@ -69,7 +69,7 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
       tickets: {
         orderBy: [{ scheduledStart: "desc" }, { createdAt: "desc" }],
         take: 20,
-        include: { pets: { include: { pet: true } }, lines: true, payments: true },
+        include: { pets: { include: { pet: true } }, lines: {include:{assignedUser:{select:{displayName:true,firstName:true,lastName:true}}}}, assignments:{include:{user:{select:{displayName:true,firstName:true,lastName:true}}}}, location:{select:{timezone:true}}, payments: true },
       },
       communications: { orderBy: { createdAt: "desc" }, take: 30 },
     },
@@ -83,5 +83,5 @@ export async function getCustomerProfile(tenantId: string, customerId: string) {
     :Promise.resolve([]);
   const [referrals,memberships,visits]=await Promise.all([customerReferrals(tenantId,[customerId]),popupPetMemberships(db,tenantId,{customerId,pets:customer.pets.map(pet=>({pet}))}),olderVisits]);
   const lastServiceVisit=petId&&visits.length?latestSinglePetServiceVisit(petId,visits):undefined;
-  return {...customer,tagIds:await readCustomerTags(tenantId,customerId),notes:combinedCustomerNotes(customer),pets:memberships.pets.map((entry:any)=>entry.pet),...referrals.get(customerId),tickets:await customerStates(tenantId,customer.tickets.map(attendingPets)),lastServiceVisit};
+  return {...customer,tagIds:await readCustomerTags(tenantId,customerId),notes:combinedCustomerNotes(customer),pets:memberships.pets.map((entry:any)=>entry.pet),...referrals.get(customerId),tickets:await customerStates(tenantId,customer.tickets.map(({location,...ticket})=>({...attendingPets(ticket),appointmentTimezone:location.timezone}))),lastServiceVisit};
 }

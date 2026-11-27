@@ -1,0 +1,6 @@
+.gp-appointment-summary.gp-appointment-summary{display:flex!important;flex-direction:column;gap:1px;margin:0;min-width:0;max-width:100%;text-align:left;color:inherit;font-size:13px;line-height:1.3;font-weight:normal}
+.gp-appointment-summary .gp-appointment-summary-row{display:block;margin:0;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;font-size:inherit;line-height:inherit;font-weight:normal}
+.gp-appointment-summary .gp-appointment-detail{display:inline;margin:0;white-space:inherit;color:inherit;font-size:inherit;line-height:inherit;font-weight:inherit}
+.gp-appointment-summary b.gp-appointment-detail{font-weight:700}
+.gp-agenda-card>.gp-appointment-summary{grid-column:1 / -1}
+.gp-appointment-view.gp-appointment-view{border-radius:4px}

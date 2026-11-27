@@ -1,6 +1,7 @@
 import {customerStates} from '@/src/lib/appointment-customer-state';
 import {appointmentStyle} from '@/src/lib/calendar-presentation';
-import {workflowSettings} from '@/src/lib/workflow-settings';
+import {employeeAppearance} from '@/src/lib/appearance-settings';
+import {appointmentSummaryTicket} from '@/src/lib/appointment-preview';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/src/lib/db';
 import { platformSession } from '@/src/lib/platform-access';
@@ -59,8 +60,8 @@ async function mapAppointments(request: NextRequest) {
     where: { tenantId, locationId: location.id, status: { notIn: ['CANCELLED', 'NO_SHOW'] },
       OR: [{ scheduledStart: { gte: start, lt: end } }, { id: { in: indexedIds } }] },
     include: {
-      assignments: { select: { role: true, userId: true } }, lines: true,
-      pets: { select: { pet: { select: { id: true, name: true } } } },
+      assignments: { select: { role: true, userId: true, user:{select:{displayName:true,firstName:true,lastName:true}} } }, lines: {include:{assignedUser:{select:{displayName:true,firstName:true,lastName:true}}}},
+      pets: { select: { pet: { select: { id: true, name: true,breed:true,weightLbs:true } } } },
       customer: { select: { firstName: true, lastName: true, address1: true, address2: true, city: true, state: true, postalCode: true } }
     }
   });
@@ -71,7 +72,7 @@ async function mapAppointments(request: NextRequest) {
   const settings = new Map(rows.map(row => [row.settingKey, row.value]));
   const canSeeAll = allowedAll.includes(role);
   const all = canSeeAll && params.get('scope') !== 'mine';
-  const [presented,appearance]=await Promise.all([customerStates(tenantId,tickets),workflowSettings(tenantId)]);
+  const [presented,appearance]=await Promise.all([customerStates(tenantId,tickets),employeeAppearance(tenantId,session.user)]);
   const appointments = presented.flatMap(ticket => {
     const ticketPlans = settings.get(plannedSettingKey(ticket.id)) as { items?: any[] } | undefined;
     const full = { ...ticket, plannedAssignments: ticketPlans?.items || [], lineStarts: (settings.get(lineStartsKey(ticket.id)) || {}) as Record<string, string> };
@@ -91,7 +92,7 @@ async function mapAppointments(request: NextRequest) {
     if (!days.size) days.set(zonedParts(visible.scheduledStart, timezone).date, []);
     return [...days].map(([day, group]) => ({
       day, id: visible.id, orderNumber: visible.orderNumber, scheduledStart: group[0]?.start || visible.scheduledStart,
-      customer: [c.firstName, c.lastName].filter(Boolean).join(' '), pets: group.map(visit => visit.name), address: address(c), appearance:appointmentStyle(full,appearance),
+      customer: [c.firstName, c.lastName].filter(Boolean).join(' '), pets: group.map(visit => visit.name), address: address(c), appearance:appointmentStyle(full,appearance),appointment:appointmentSummaryTicket(full,timezone),
     }));
   }).sort((a, b) => +a.scheduledStart - +b.scheduledStart);
   const setting = await db.tenantSetting.findUnique({ where: { tenantId_settingKey: { tenantId, settingKey: routeKey(locationId, id) } } });

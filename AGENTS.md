@@ -141,5 +141,9 @@
 
 ## Calendar and POS Display Corrections — November 27, 2026
 - Planned and actual employee searches in POS float above the ticket; opening or filtering choices must not expand rows or move the form. Preserve assignment handlers, permissions and keyboard access.
-- Calendar appearance exposes arrival order on appointment cards. Hover details can place arrival order beside scheduled time with equal emphasis, preserving saved field visibility and ordering choices.
+- Calendar appearance exposes arrival order on appointments. Hover details can place arrival order beside scheduled time with equal emphasis, preserving saved field visibility and ordering choices.
 - POS Daycare summary recognizes daycare service lines, including package items and imported Daycare names with punctuation. This display correction does not add charges or alter recorded daycare attendance.
+
+## Shared Appointment Display — November 27, 2026
+- User-facing terminology is Appointment, never Calendar Card. Appointment Appearance must let staff choose displayed details, arrange their lines/order and bold emphasis, with a live preview; color controls alone do not satisfy this requirement.
+- Calendar, List, Tickets and other appointment summaries share detail rendering, saved appearance and the same full-family hover popup. Preserve per-dog calendar placement, existing history filters/compact choices, and the stable POS form. Changing the viewing module must not rewrite appointment data or its appearance.

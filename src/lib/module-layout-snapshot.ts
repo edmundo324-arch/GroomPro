@@ -1,7 +1,7 @@
 import {ticketWorkspace} from './pos-layout';
 import {workflowSettings} from './workflow-settings';
 import {saveLayoutVersion} from './visual-layout-store';
-export const calendarAppearanceKeys=['showCalendarArrivalOrder','hoverArrivalPosition','hoverFields','hoverLabels','statusStyles'] as const;
+export const calendarAppearanceKeys=['appointmentDisplay','showCalendarArrivalOrder','hoverArrivalPosition','hoverFields','hoverLabels','statusStyles'] as const;
 export async function moduleLayoutSnapshot(tx:any,tenantId:string,module:string,workflow?:any){
  const rows=await tx.tenantSetting.findMany({where:{tenantId,settingKey:{in:['MODULE_LAYOUT:'+module+':desktop','MODULE_LAYOUT:'+module+':phone']}}});
  const snapshot:any={desktop:rows.find((r:any)=>r.settingKey.endsWith(':desktop'))?.value||{controls:{}},phone:rows.find((r:any)=>r.settingKey.endsWith(':phone'))?.value||{controls:{}}};

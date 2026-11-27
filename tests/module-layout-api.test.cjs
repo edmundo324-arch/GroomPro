@@ -4,7 +4,7 @@ const {ticketWorkspace}=require('../src/lib/pos-layout.ts');
 const {NextRequest}=require('next/server');
 test('module layout API enforces authority, isolates businesses, versions saves and restores appearance without business-rule changes',async()=>{
  const original=Module._load,rows=new Map(),audits=[];let role='ADMIN',writes=0;
- const defaults={timingMode:'CONCURRENT',taxRate:8.25,showInactivePets:false,showCalendarArrivalOrder:true,hoverArrivalPosition:'TIME',posLayout:ticketWorkspace(null),hoverFields:['time','pet'],hoverLabels:false,statusStyles:{'OPEN|VIP':{color:'#123456'}}};
+ const defaults={appointmentDisplay:{fields:[{key:'pet.name',row:0,bold:true}]},timingMode:'CONCURRENT',taxRate:8.25,showInactivePets:false,showCalendarArrivalOrder:true,hoverArrivalPosition:'TIME',posLayout:ticketWorkspace(null),hoverFields:['time','pet'],hoverLabels:false,statusStyles:{'OPEN|VIP':{color:'#123456'}}};
  const key=(tenant,setting)=>tenant+'|'+setting;
  const tx={$queryRaw:async()=>[],tenantSetting:{
   findMany:async({where})=>[...rows.values()].filter(r=>r.tenantId===where.tenantId&&(where.settingKey.in?where.settingKey.in.includes(r.settingKey):r.settingKey.startsWith(where.settingKey.startsWith))),
@@ -23,8 +23,8 @@ test('module layout API enforces authority, isolates businesses, versions saves 
  // A different business never receives this layout or its history.
  const foreign=await GET(new NextRequest('http://localhost/api/module-layouts?module=Calendar',{headers:{'x-tenant-id':'other',cookie:'groompro_session=session'}}));const foreignData=await foreign.json();assert.deepEqual(foreignData.layouts,{});assert.deepEqual(foreignData.history,[]);
  // Change appearance and record it, then restore the original visual snapshot.
- const changed={...defaults,timingMode:'SEQUENTIAL',showCalendarArrivalOrder:false,hoverArrivalPosition:'DETAILS',statusStyles:{'OPEN|VIP':{color:'#abcdef'}},hoverFields:['customer']};rows.set(key('business','WORKFLOW'),{tenantId:'business',settingKey:'WORKFLOW',value:changed});await save({date:{label:'Newest'}});
- r=await save({date:{label:'Date'}},{restoreId:initialId});assert.equal(r.status,200);const restored=rows.get(key('business','WORKFLOW')).value;assert.deepEqual(restored.statusStyles,defaults.statusStyles);assert.deepEqual(restored.hoverFields,defaults.hoverFields);assert.equal(restored.timingMode,'SEQUENTIAL');assert.equal(restored.taxRate,8.25);assert.equal(restored.showCalendarArrivalOrder,true);assert.equal(restored.hoverArrivalPosition,'TIME');
+ const changed={...defaults,appointmentDisplay:{fields:[{key:'time',row:0,bold:true}]},timingMode:'SEQUENTIAL',showCalendarArrivalOrder:false,hoverArrivalPosition:'DETAILS',statusStyles:{'OPEN|VIP':{color:'#abcdef'}},hoverFields:['customer']};rows.set(key('business','WORKFLOW'),{tenantId:'business',settingKey:'WORKFLOW',value:changed});await save({date:{label:'Newest'}});
+ r=await save({date:{label:'Date'}},{restoreId:initialId});assert.equal(r.status,200);const restored=rows.get(key('business','WORKFLOW')).value;assert.deepEqual(restored.statusStyles,defaults.statusStyles);assert.deepEqual(restored.hoverFields,defaults.hoverFields);assert.equal(restored.timingMode,'SEQUENTIAL');assert.equal(restored.taxRate,8.25);assert.equal(restored.showCalendarArrivalOrder,true);assert.equal(restored.hoverArrivalPosition,'TIME');assert.deepEqual(restored.appointmentDisplay,defaults.appointmentDisplay);
  for(let n=0;n<5;n++)assert.equal((await save({date:{label:'Version '+n}})).status,200);
  const history=rows.get(key('business','LAYOUT_HISTORY:MODULE:Calendar')).value;assert.equal(history.length,5);assert.equal(new Set(history.map(v=>v.id)).size,5);assert.ok(audits.every(a=>a.tenantId==='business'));assert.ok([...rows.values()].every(row=>row.tenantId==='business'));
 });

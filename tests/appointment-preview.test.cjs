@@ -1,0 +1,24 @@
+require('./load-ts.cjs');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+const {appointmentPreviewTicket,appointmentSummaryTicket}=require('../src/lib/appointment-preview.ts');
+const ticket={id:'visit',tenantId:'business',customerId:'family',orderNumber:590,status:'CHECKED_IN',scheduledStart:'2026-11-27T15:00:00Z',arrivalPriority:2,durationMin:90,checkedInAt:'2026-11-27T14:55:00Z',customer:{id:'family',firstName:'Maria',lastName:'Example',email:'hidden@example.test',phones:[],privateSecret:'PRIVATE'},pets:[{pet:{id:'a',name:'Gizmo',breed:'Poodle',weightLbs:10,notes:'Go gently',groomingNotes:'Old trim',todaysGroomingNotes:'Today trim',vaccinations:[],privateSecret:'PRIVATE'}},{pet:{id:'b',name:'Bella',breed:'Beagle',weightLbs:20,vaccinations:[]}}],lines:[{id:'a1',petId:'a',role:'GROOM',packageId:'groom',packageName:'Grooming',description:'Haircut',totalCents:8000,commissionCents:4000,assignedUser:{firstName:'Abby',lastName:'Employee',pinHash:'PRIVATE'}},{id:'b1',petId:'b',role:'BATH',description:'Full Wash',totalCents:6000}],assignments:[{user:{firstName:'Abby',lastName:'Employee',pinHash:'PRIVATE'}}],payments:[{paymentType:'CASH',amount:'140',privateSecret:'PRIVATE'}]};
+
+test('shared preview carries the complete family while only exposing rendering fields',()=>{
+ const hidden=appointmentPreviewTicket(ticket,['time','pet.name','package'],'America/Chicago');
+ assert.deepEqual(hidden.pets.map(p=>p.pet.name),['Gizmo','Bella']);assert.equal(hidden.appointmentTimezone,'America/Chicago');assert.equal(hidden.arrivalPriority,2);
+ const text=JSON.stringify(hidden);assert.doesNotMatch(text,/PRIVATE|hidden@example|commissionCents|payments|pinHash|Go gently|Today trim/);
+ const shown=appointmentPreviewTicket(ticket,['pet.notes','notes','todayNotes']);assert.equal(shown.pets[0].pet.notes,'Go gently');assert.equal(shown.pets[0].pet.todaysGroomingNotes,'Today trim');assert.equal(shown.pets[0].pet.groomingNotes,'Old trim');
+});
+
+test('map summary preserves shared detail and appearance inputs without unrelated record data',()=>{
+ const summary=appointmentSummaryTicket(ticket,'America/Chicago');assert.equal(summary.durationMin,90);assert.equal(summary.arrivalPriority,2);assert.equal(summary.previewStage,'CHECKED_IN');assert.equal(summary.lines[0].assignedUser.firstName,'Abby');assert.doesNotMatch(JSON.stringify(summary),/PRIVATE|hidden@example|commissionCents|payments|pinHash|Go gently/);
+});
+
+test('preview endpoint keeps business/location boundaries and returns safe family data and selected details',async()=>{
+ let found=ticket,query,policy,notesQuery;const db={ticket:{findFirst:async q=>{query=q;return found}},groomingNote:{findMany:async q=>{notesQuery=q;return[{petId:'a',instructions:{body:'Todays coat'}}]}},location:{findFirst:async q=>{assert.deepEqual(q.where,{id:'shop',tenantId:'business'});return{timezone:'America/Chicago'}}}};
+ const deps={'@/src/lib/popup-pet-memberships':{},'@/src/lib/appointment-pets':require('../src/lib/appointment-pets.ts'),'@/src/lib/appointment-preview':{appointmentPreviewTicket},'@/src/lib/grooming-notes-rules':require('../src/lib/grooming-notes-rules.ts'),'@/src/lib/request-policy':{withRequestPolicy:(fn,options)=>{policy=options;return fn}},'@/src/lib/appearance-settings':{employeeAppearance:async()=>({hoverFields:['time','customer','pet.name','pet.notes','todayNotes','package','ticket.arrivalPriority']})},'@/src/lib/platform-access':{platformSession:async()=>({user:{id:'employee'}})},'@/src/lib/calendar-hover-details':require('../src/lib/calendar-hover-details.ts'),'next/server':{NextResponse:{json:Response.json}},'@/src/lib/db':{db},'@/src/lib/request-location':{requestLocation:async()=> 'shop'}};
+ const exports={};new Function('require','exports',ts.transpileModule(fs.readFileSync('app/api/calendar/details/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(name=>{assert.ok(name in deps,name);return deps[name]},exports);
+ const request={headers:{get:()=> 'business'},nextUrl:new URL('http://test/api/calendar/details?id=visit')};const response=await exports.GET(request),body=await response.json();
+ assert.equal(response.status,200);assert.deepEqual(policy,{feature:'CALENDAR'});assert.deepEqual(query.where,{id:'visit',tenantId:'business',locationId:'shop'});assert.deepEqual(notesQuery.where,{tenantId:'business',ticketId:'visit'});assert.deepEqual(body.ticket.pets.map(p=>p.pet.id),['a','b']);assert.equal(body.ticket.pets[0].pet.todaysGroomingNotes,'Todays coat');assert.ok(body.details.some(d=>d.key==='pet.notes'&&d.petId==='a'));assert.doesNotMatch(JSON.stringify(body),/PRIVATE|hidden@example|commissionCents|pinHash/);
+ found=null;assert.equal((await exports.GET(request)).status,404);
+});
