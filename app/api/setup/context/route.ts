@@ -1,3 +1,4 @@
+import { databaseFailure } from '@/src/lib/database-failure';
 import {requestBusinessHost} from '@/src/lib/business-host';
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
@@ -27,8 +28,10 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.json({setupRequired:false,setupSecretConfigured,tenant},{headers});
     response.cookies.set(businessCookie,tenant.id,{...contextCookieOptions(),maxAge:60*60*24*30});
     return response;
-  } catch {
-    return NextResponse.json({error:"GroomPro could not connect to its business database. Check the deployment logs."},{status:503,headers});
+  } catch (error) {
+    const diagnostic = databaseFailure(error);
+    console.error("Business lookup failed.", diagnostic);
+    return NextResponse.json({diagnostic,error:"GroomPro could not connect to its business database. Check the deployment logs."},{status:503,headers});
   }
 }
 

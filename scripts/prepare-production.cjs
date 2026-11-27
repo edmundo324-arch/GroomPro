@@ -16,6 +16,9 @@ async function waitForInstall() {
   for (;;) {
     try {
       for (const name of ['@next/env', 'next/dist/bin/next', '@prisma/client', '.prisma/client/default']) require.resolve(name);
+      // The placeholder client also resolves during npm install. Only the generated
+      // client has our schema. Probe without loading the placeholder into Node's cache.
+      require.resolve('.prisma/client/schema.prisma');
       return;
     } catch (error) {
       if (error.code !== 'MODULE_NOT_FOUND' || Date.now() >= deadline) throw error;
