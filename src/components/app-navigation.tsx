@@ -4,6 +4,7 @@ import {requestEmployeePin} from '../lib/employee-fetch';
 import {useFittingTabs} from './fitting-tabs';
 import {NavigationTools} from './navigation-tools';
 import {usePreferenceScope} from './floating-editor-window';
+import {QuickClock} from './quick-clock';
 import {RecoverWindows} from './window-recovery';
 
 const moduleIcons:Record<string,string>={
@@ -32,6 +33,7 @@ function ModuleLabel({name}:{name:string}){
 export function AppNavigation<T extends string>({modules,active,onSelect,onCalendarView,onRequests,role}:{
  role?:string;modules:T[];active:T;onSelect:(value:T)=>void;onCalendarView?:(view:'Day'|'Week'|'Map')=>void;onRequests?:()=>void
 }){
+ const [clockOpen,setClockOpen]=useState(false);
  const [open,setOpen]=useState(false);
  const scope=usePreferenceScope(),[order,setOrder]=useState<string[]>([]);
 
@@ -43,6 +45,7 @@ export function AppNavigation<T extends string>({modules,active,onSelect,onCalen
  const calendarShortcuts=Boolean(onCalendarView&&modules.some(value=>value==='Calendar'));
  const navigationModules=calendarShortcuts?modules.filter(module=>module!=='Calendar'):modules;
  const defaultItems=[
+  {key:'Quick Clock In/Out',label:'Quick Clock In/Out',current:clockOpen,select:()=>setClockOpen(true)},
   ...(calendarShortcuts?(['Map','Day','Week'] as const).map(view=>({key:view,label:view,current:false,select:()=>onCalendarView?.(view)})):[]),
   ...[...navigationModules.filter(module=>module==='Tickets'),...navigationModules.filter(module=>module!=='Tickets')]
    .map(module=>({key:module,label:module,current:active===module,select:()=>onSelect(module)})),
@@ -80,6 +83,7 @@ export function AppNavigation<T extends string>({modules,active,onSelect,onCalen
    {overflow.length>0&&<button ref={more} type="button" className="gp-module gp-header-more" aria-label="More modules"
     aria-expanded={open} aria-controls="groompro-module-menu" onClick={()=>setOpen(value=>!value)}>⋯</button>}
   </nav>
+  {clockOpen&&<QuickClock locationId={scope?.split(':')[1]} onClose={()=>setClockOpen(false)}/>}
   <RecoverWindows/><NavigationTools items={items} order={order} onOrder={reorder} onSelect={value=>{if(modules.includes(value as T))onSelect(value as T)}} role={role}/>
   <nav id="groompro-module-menu" aria-label="More GroomPro modules" className="gp-header-overflow" hidden={!open||!overflow.length}>
    {overflow.map(item=><button type="button" key={item.key} className={'gp-module'+(item.current?' active':'')}

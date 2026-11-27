@@ -8,7 +8,7 @@ const localInput=(iso?:string)=>{if(!iso)return '';const d=new Date(iso);return 
 export function TimeClock(){
  const [data,setData]=useState<any>({employees:[],locations:[],clocks:{},employeeId:'',canManage:false}),[employeeId,setEmployeeId]=useState(''),[locationId,setLocationId]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[correction,setCorrection]=useState<ClockShift|null>(null),[reason,setReason]=useState('');
  async function load(){const r=await employeeFetch('/api/time-clock',{cache:'no-store'}),d=await r.json();if(!r.ok)throw Error(d.error);setData(d);setEmployeeId(old=>old||d.employeeId);setLocationId(old=>old||d.employees.find((e:any)=>e.id===d.employeeId)?.locationId||(d.locations.length===1?d.locations[0].id:''));}
- useEffect(()=>{void load().catch(e=>setMessage(e.message))},[]);
+ useEffect(()=>{const refresh=()=>{void load().catch(e=>setMessage(e.message))};refresh();window.addEventListener('groompro:time-clock-changed',refresh);return()=>window.removeEventListener('groompro:time-clock-changed',refresh)},[]);
  const own=data.clocks[data.employeeId]||emptyClock(),clock=data.clocks[employeeId]||emptyClock(),active=own.shifts.find((s:ClockShift)=>!s.end);
  async function send(action:string){if(busy)return;setBusy(true);setMessage('');try{
   if(!locationId)throw Error('Choose the shop where you are working.');

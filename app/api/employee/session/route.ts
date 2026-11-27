@@ -59,15 +59,17 @@ async function signIn(request: NextRequest) {
   const { tenantId, deviceId, sessionId } = await getContext(request);
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
 
-  let body: { platformOnly?: boolean; pin?: string; automatic?: boolean; mode?: string; requestHash?: string };
+  let body: { platformOnly?: boolean; pin?: string; automatic?: boolean; mode?: string; action?: string; requestHash?: string };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   const pin = String(body.pin || "");
   if (!/^\d{3,10}$/.test(pin)) return NextResponse.json({ error: "PIN must contain 3–10 digits." }, { status: 400 });
 
   if(!await allowPinAttempt(tenantId))return NextResponse.json({error:"Too many PIN attempts. Wait a minute and try again."},{status:429});
-  const users = (await db.user.findMany({ where: { tenantId, active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] })).filter(candidate=>hasUsablePinHash(candidate.pinHash)&&(!body.platformOnly||isPlatformRole(candidate.role)));
-  const user = (await Promise.all(users.map(async (candidate) => (await verifyPin(pin, candidate.pinHash)) ? candidate : null))).find(Boolean);
-  if(!user&&businessId(tenantId)&&body.mode!=='APPROVAL'){
+  const users = (await db.user.findMany({ where: { tenantId, active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] })).filter(candidate=>hasUsablePinHash(candidate.pinHash)&&(body.mode==='QUICK_CLOCK'||!body.platformOnly||isPlatformRole(candidate.role)));
+  const matches = (await Promise.all(users.map(async candidate => await verifyPin(pin,candidate.pinHash) ? candidate : null))).filter(candidate => candidate !== null);
+  if(body.mode==='QUICK_CLOCK' && matches.length>1)return NextResponse.json({error:'More than one employee uses this PIN. Ask a manager to give each employee a unique PIN.'},{status:409});
+  const user = matches[0];
+  if(!user&&businessId(tenantId)&&body.mode!=='APPROVAL'&&body.mode!=='QUICK_CLOCK'){
     if(body.automatic)return NextResponse.json({pending:true,message:'Press Continue to verify this PIN.'},{status:202});
     const match=await verifyBusinessOperatorPin(db,tenantId,pin);
     if(match){
@@ -80,6 +82,11 @@ async function signIn(request: NextRequest) {
   if(!isPlatformRole(user.role)&&!await deviceApproved(tenantId,deviceId,request.cookies.get(deviceApprovalCookie)?.value||''))return NextResponse.json({deviceVerificationRequired:true,error:'The owner needs to verify this device by email before employee PINs can be used.'},{status:401});
   const restriction=await platformRestriction(tenantId,user.id);
   if(restriction&&!isPlatformRole(user.role))return NextResponse.json({error:restriction},{status:403});
+  if(body.mode==='QUICK_CLOCK'){
+    if(body.action!=='IN'&&body.action!=='OUT')return NextResponse.json({error:'Choose Clock In or Clock Out.'},{status:400});
+    const {recordQuickPunch}=await import('@/src/lib/quick-punch');
+    return recordQuickPunch(request,tenantId,user,body.action);
+  }
   if(body.automatic){
     // Old records must be upgraded explicitly; do not recognize a prefix of another PIN.
     if(users.some(candidate=>!Array.isArray(candidate.pinPrefixHashes)))return NextResponse.json({pending:true,message:'An older PIN record needs verification. Press Continue to sign in securely.'},{status:202});
