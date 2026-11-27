@@ -19,7 +19,7 @@ export const calendarHoverFields:Record<string,string>={
   "ticket.checkedInAt": "Ticket — checked In At",
   "ticket.pickupAt": "Ticket — pickup At",
   "ticket.pickupCompletedAt": "Ticket — pickup Completed At",
-  "ticket.arrivalPriority": "Ticket — arrival Priority",
+  "ticket.arrivalPriority": "Ticket — Arrival Order",
   "ticket.tipCents": "Ticket — tip ($)",
   "ticket.salesTaxCents": "Ticket — sales Tax ($)",
   "ticket.totalCents": "Ticket — total ($)",

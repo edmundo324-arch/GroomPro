@@ -28,6 +28,7 @@
 .gp-appointment-hover.gp-human-hover{max-height:none;overflow:visible;box-sizing:border-box;padding:10px 12px;font-size:13px;line-height:1.4;overflow-wrap:anywhere}
 .gp-human-hover header{display:grid;gap:3px;border-bottom:2px solid #dce6ed;padding-bottom:7px}
 .gp-human-hover .gp-hover-time{font-size:16px}
+.gp-human-hover .gp-hover-time-row{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
 .gp-human-hover .gp-hover-facts{display:flex;flex-wrap:wrap;gap:2px 0;align-items:baseline}
 .gp-human-hover .gp-hover-facts:empty{display:none}
 .gp-human-hover .gp-hover-facts>span:not(:first-child)::before{content:" · ";white-space:pre;color:#6a7b88}

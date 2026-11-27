@@ -6,16 +6,18 @@ import {HoverDetail,hoverValue} from '../lib/calendar-hover-details';
 import {popupFields} from '../lib/calendar-popup-layout';
 import {petVipStatus} from '../lib/pet-vip-status';
 import {PetVipBadge} from './pet-vip-badge';
-export function CalendarHover({hover,fields,labels,details,onOpen,onClose}:{onOpen?:()=>void;onClose?:()=>void;hover:any;fields:string[];labels?:boolean;details:HoverDetail[]}){
+export function CalendarHover({hover,fields,labels,details,onOpen,onClose,arrivalPosition='TIME'}:{onOpen?:()=>void;onClose?:()=>void;hover:any;fields:string[];labels?:boolean;arrivalPosition?:string;details:HoverDetail[]}){
  const ref=useRef<HTMLElement>(null),[top,setTop]=useState(hover.y);
  useLayoutEffect(()=>{if(ref.current)setTop(Math.max(8,Math.min(hover.y,window.innerHeight-ref.current.getBoundingClientRect().height-8)))},[hover.y,details,fields]);
  const chosen=popupFields(fields),selected=new Set(chosen),rank=new Map(chosen.map((key,index)=>[key,index]));
  const ordered=(items:HoverDetail[])=>items.slice().sort((a,b)=>(rank.get(a.key)??chosen.length)-(rank.get(b.key)??chosen.length));
  const show=(items:HoverDetail[],omit:string[]=[])=>{const seen=new Set<string>();return ordered(items).filter(d=>!omit.includes(d.key)&&!seen.has(d.key+':'+d.value)&&!!seen.add(d.key+':'+d.value)).map((d,i)=><span key={d.key+':'+i}>{labels?<><b>{d.label}:</b> </>:null}{d.value}</span>)};
  const t=hover.ticket;
+ const arrival=selected.has('ticket.arrivalPriority')?(details.find(d=>d.key==='ticket.arrivalPriority')?.value||t.arrivalPriority):null;
+ const showArrivalAtTime=arrivalPosition!=='DETAILS'&&Number(arrival)>0;
  const primary=new Set(['pet.name','pet.weightLbs','pet.breed','pet.vipEligible','pet.notes','pet.groomingNotes']);
  return <aside ref={ref} role={hover.touch?"dialog":"tooltip"} aria-label={hover.touch?"Appointment preview":undefined} className="gp-appointment-hover gp-human-hover" style={{left:hover.x,top,width:hover.width,maxWidth:hover.width}}>
- <header>{hover.touch&&<div className="gp-touch-preview-actions"><button type="button" className="gp-btn" onClick={onOpen}>Open</button><DismissButton label="Close appointment preview" onClick={onClose}/></div>}{selected.has('time')&&<strong className="gp-hover-time">{t.scheduledStart?new Date(t.scheduledStart).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Unscheduled'}</strong>}{selected.has('customer')&&<strong>{t.customer.firstName} {t.customer.lastName}</strong>}<div className="gp-hover-facts">{show(details.filter(d=>d.key.startsWith('customer.')&&d.key!=='customer.vipStatus'),selected.has('customer')?['customer.firstName','customer.lastName']:[])}</div><div className="gp-hover-facts">{show(details.filter(d=>!d.petId&&!d.lineId&&!d.key.startsWith('customer.')))}</div></header>
+ <header>{hover.touch&&<div className="gp-touch-preview-actions"><button type="button" className="gp-btn" onClick={onOpen}>Open</button><DismissButton label="Close appointment preview" onClick={onClose}/></div>}{(selected.has('time')||showArrivalAtTime)&&<div className="gp-hover-time-row">{selected.has('time')&&<strong className="gp-hover-time">{t.scheduledStart?new Date(t.scheduledStart).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Unscheduled'}</strong>}{showArrivalAtTime&&<strong className="gp-hover-time">Order {arrival}</strong>}</div>}{selected.has('customer')&&<strong>{t.customer.firstName} {t.customer.lastName}</strong>}<div className="gp-hover-facts">{show(details.filter(d=>d.key.startsWith('customer.')&&d.key!=='customer.vipStatus'),selected.has('customer')?['customer.firstName','customer.lastName']:[])}</div><div className="gp-hover-facts">{show(details.filter(d=>!d.petId&&!d.lineId&&!d.key.startsWith('customer.')),showArrivalAtTime?['ticket.arrivalPriority']:[])}</div></header>
  {t.pets.map(({pet}:any,i:number)=>{
   const petDetails=details.filter(d=>d.petId===pet.id&&!d.lineId);
   const value=(key:string,fallback:any)=>petDetails.find(d=>d.key===key)?.value||hoverValue(key,fallback);

@@ -138,3 +138,8 @@
 
 ## Current-Site Master Administration — November 26, 2026
 - Master Administration is also available within the current site's blue menu for Platform Owners and Developers. Reuse the same business, subscription, feature and permission controls as the separate administration deployment. Keep normal business modules and Settings paths intact; remove the administration area when the platform session ends or changes to a non-platform employee. This does not activate subdomain routing or change the current deployment role.
+
+## Calendar and POS Display Corrections — November 27, 2026
+- Planned and actual employee searches in POS float above the ticket; opening or filtering choices must not expand rows or move the form. Preserve assignment handlers, permissions and keyboard access.
+- Calendar appearance exposes arrival order on appointment cards. Hover details can place arrival order beside scheduled time with equal emphasis, preserving saved field visibility and ordering choices.
+- POS Daycare summary recognizes daycare service lines, including package items and imported Daycare names with punctuation. This display correction does not add charges or alter recorded daycare attendance.

@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 require.extensions['.tsx']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
 const {CalendarHover}=require('../src/components/calendar-hover.tsx');const {calendarPopupSample:sample}=require('../src/lib/calendar-popup-sample.ts');
 const {buildHoverDetails}=require('../src/lib/calendar-hover-details.ts');const {popupFields,additionalPopupFields,movePopupField}=require('../src/lib/calendar-popup-layout.ts');const {hoverChoiceSelected,updateHoverChoice}=require('../src/lib/calendar-hover-fields.ts');const {petVipStatus}=require('../src/lib/pet-vip-status.ts');const {popupPetMemberships}=require('../src/lib/popup-pet-memberships.ts');
-const render=(fields,ticket=sample,labels=false)=>renderToStaticMarkup(React.createElement(CalendarHover,{hover:{ticket,x:0,y:0,width:320},fields,labels,details:buildHoverDetails(ticket,fields)}));
+const render=(fields,ticket=sample,labels=false,arrivalPosition)=>renderToStaticMarkup(React.createElement(CalendarHover,{hover:{ticket,x:0,y:0,width:320},fields,labels,arrivalPosition,details:buildHoverDetails(ticket,fields)}));
 const firstPet=html=>html.slice(html.indexOf('<section'),html.indexOf('</section>'));
 function inOrder(html,values){let previous=-1;for(const value of values){const index=html.indexOf(value);assert.ok(index>previous,'Expected '+value+' after preceding field');previous=index;}}
 test('identity and grooming blocks stay in the specified order regardless of selection order',()=>{const fields=['pet.notes','pet.color','todayNotes','package','pet.vipEligible','pet.breed','pet.weightLbs','pet.name'];for(const labels of [true,false]){const html=firstPet(render(fields,sample,labels));inOrder(html,['Bella','10 lb','Morkie','VIP eligible','Medium Groom','#5 Body','Permanent: handle gently','Tan and silver']);}});
@@ -12,3 +12,22 @@ test('legacy customer VIP selection displays self-contained pet statuses in each
 test('additional detail ordering changes only its own section and retains core fields',()=>{const fields=['pet.name','pet.weightLbs','pet.color','customer.email','pet.medicalNotes','pet.notes'];const moved=movePopupField(fields,'pet.medicalNotes','pet.color');assert.deepEqual(additionalPopupFields(moved,'pet'),['pet.medicalNotes','pet.color']);assert.ok(moved.includes('pet.name')&&moved.includes('pet.weightLbs')&&moved.includes('pet.notes'));assert.deepEqual(movePopupField(fields,'pet.name','pet.color'),fields);assert.deepEqual(movePopupField(fields,'pet.color','customer.email'),fields);const html=firstPet(render(moved));inOrder(html,['Bella','10 lb','Permanent: handle gently','Sensitive skin','Tan and silver']);});
 test('usual notes remain reorderable extras after the fixed permanent-notes block',()=>{const fields=['notes','pet.notes','pet.color'];assert.deepEqual(additionalPopupFields(fields,'pet'),['notes','pet.color']);inOrder(firstPet(render(fields)),['Permanent: handle gently','Usual haircut','Tan and silver']);});
 test('membership lookup is tenant/customer scoped and marks only the enrolled pet',async()=>{let scope;const client={$queryRaw:async(strings,...values)=>{scope=values;return[{petId:'max'},{petId:'unrelated'}]}};const result=await popupPetMemberships(client,'tenant',sample);assert.deepEqual(scope,['tenant',sample.customer.id]);assert.equal(result.pets[0].pet.vipMember,false);assert.equal(result.pets[1].pet.vipMember,true);assert.equal(sample.pets[1].pet.vipMember,true);});
+
+test('arrival order shares the bold scheduled-time row without duplicating ticket details',()=>{
+ const fields=['ticket.arrivalPriority','customer','ticket.daycareStatus','time'];
+ const html=render(fields),row=html.match(/<div class="gp-hover-time-row">(.*?)<\/div>/)[1];
+ assert.match(row,/<strong class="gp-hover-time">[^<]+<\/strong><strong class="gp-hover-time">Order 3<\/strong>/);
+ assert.equal((html.match(/Order 3/g)||[]).length,1);
+ assert.doesNotMatch(html,/>3<\/span>/);
+ assert.match(render(fields,sample,false,'DETAILS'),/>3<\/span>/);
+ assert.doesNotMatch(render(fields,sample,false,'DETAILS'),/Order 3/);
+ assert.doesNotMatch(render(['time']),/Order 3/);
+ assert.doesNotMatch(render(fields,{...sample,arrivalPriority:null}),/Order /);
+ assert.match(render(['ticket.arrivalPriority']),/Order 3/);
+});
+test('arrival display fixture uses the actual popup component and CSS',()=>{
+ if(!process.env.GROOMPRO_ARRIVAL_PREVIEW)return;
+ const css=['app/globals.css','app/calendar-search.css'].map(f=>fs.readFileSync(f,'utf8')).join('\n');
+ const html=render(['time','ticket.arrivalPriority','customer','pet.name','pet.weightLbs','pet.breed','package']);
+ fs.writeFileSync(process.env.GROOMPRO_ARRIVAL_PREVIEW,'<!doctype html><html><meta charset="utf-8"><style>'+css+'body{font-family:Arial;background:#eef3f7;padding:32px}.gp-appointment-hover{position:relative!important;left:auto!important;top:auto!important}</style><body><h2>Calendar Appointment Preview</h2>'+html+'</body></html>');
+});
