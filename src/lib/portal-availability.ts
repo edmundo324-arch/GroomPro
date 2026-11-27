@@ -1,4 +1,5 @@
 import {employeeLocationContext} from './employee-shift-location';
+import {loadEmployeeArrivalCapacity} from './employee-arrival-capacity';
 import {selectedOnlineClasses,acceptsOnlineClasses,onlineClassKey} from './online-booking-classes';
 import {db} from './db';
 import {employeeOnlineKey} from './online-booking-resources';
@@ -39,10 +40,11 @@ export async function portalAvailability(tenantId:string,locationId:string,date:
   client.$queryRaw`SELECT id,userId AS resourceId,dayOfWeek,startTime,endTime FROM EmployeeSchedule WHERE tenantId=${tenantId} AND active=1`,
   client.$queryRaw`SELECT s.assetId AS resourceId,s.dayOfWeek,s.startTime,s.endTime FROM BookingAssetSchedule s JOIN BookingAsset a ON a.id=s.assetId WHERE a.tenantId=${tenantId} AND a.locationId=${locationId} AND s.active=1`,
   client.scheduleOverride.findMany({where:{tenantId,date}}),calendarBlocks(tenantId,locationId,client),
-  client.$queryRaw`SELECT t.id,t.customerId,t.scheduledStart,t.durationMin,t.bookingAssetId,a.userId,l.assignedUserId FROM Ticket t LEFT JOIN TicketAssignment a ON a.ticketId=t.id LEFT JOIN TicketLine l ON l.ticketId=t.id WHERE t.tenantId=${tenantId} AND (t.locationId=${locationId} OR t.customerId=${customerId||''} OR a.userId IS NOT NULL OR l.assignedUserId IS NOT NULL) AND t.status NOT IN ('CANCELLED','CLOSED','NO_SHOW') AND t.scheduledStart<${dayEnd} AND DATE_ADD(t.scheduledStart,INTERVAL t.durationMin MINUTE)>${dayStart}`
+  client.$queryRaw`SELECT t.id,t.locationId,t.customerId,t.scheduledStart,t.durationMin,t.bookingAssetId,a.userId,l.assignedUserId FROM Ticket t LEFT JOIN TicketAssignment a ON a.ticketId=t.id LEFT JOIN TicketLine l ON l.ticketId=t.id WHERE t.tenantId=${tenantId} AND (t.locationId=${locationId} OR t.customerId=${customerId||''} OR a.userId IS NOT NULL OR l.assignedUserId IS NOT NULL) AND t.status NOT IN ('CANCELLED','CLOSED','NO_SHOW') AND t.scheduledStart<${dayEnd} AND DATE_ADD(t.scheduledStart,INTERVAL t.durationMin MINUTE)>${dayStart}`
  ]);
  const shiftLocations=await employeeLocationContext(client,tenantId);
  const resources=[...employees.filter((e:any)=>opted.some((o:any)=>o.settingKey===employeeOnlineKey(e.id)&&o.value===true)).map((e:any)=>({id:e.id,kind:'employee',name:e.displayName||[e.firstName,e.lastName].filter(Boolean).join(' ')})),...assets.map((a:any)=>({id:a.id,kind:'asset',name:a.name}))];
+ const capacity=await loadEmployeeArrivalCapacity(client,tenantId,resources.filter((r:any)=>r.kind==='employee').map((r:any)=>r.id),dayStart,dayEnd);
  const classRows=requiredClasses.length?await client.tenantSetting.findMany({where:{tenantId,settingKey:{in:resources.map((r:any)=>onlineClassKey(r.kind,r.id))}}}):[];
  const resourceClasses=new Map<string,string[]>(classRows.map((r:any)=>[r.settingKey,r.value.classIds]));
  const special=hours.specialHours.find(h=>h.date===date),weekday=new Date(date+'T12:00:00Z').getUTCDay(),effective=special?hours.hours.map(h=>h.day===weekday?{...h,...special}:h):hours.hours;
@@ -59,7 +61,10 @@ export async function portalAvailability(tenantId:string,locationId:string,date:
    const windows=override?(override.dayOff?[]:[override]):(resource.kind==='employee'?shifts:assetShifts).filter((s:any)=>s.resourceId===resource.id&&Number(s.dayOfWeek)===weekday&&(resource.kind!=='employee'||shiftLocations.shift(s.id,assigned)===locationId));
    if(!windows.some((w:any)=>w.startTime&&w.endTime&&a.time>=w.startTime&&b.time<=w.endTime))return false;
    if(blocks.some(block=>block.resourceKind===resource.kind&&block.resourceId===resource.id&&+new Date(block.start)<+end&&+new Date(block.end)>+start))return false;
-   return !busy.some((row:any)=>overlap(row)&&(resource.kind==='asset'?row.bookingAssetId===resource.id:row.userId===resource.id||row.assignedUserId===resource.id));
+   if(resource.kind==='asset')return !busy.some((row:any)=>overlap(row)&&row.bookingAssetId===resource.id);
+   if(capacity.reservations.some(other=>other.employeeId===resource.id&&other.locationId!==locationId&&other.end>other.start&&other.start<+end&&other.end>+start))return false;
+   if(capacity.configured(resource.id))return capacity.allows({ticketId:'new-online-appointment',employeeId:resource.id,locationId,start:+start,end:+end});
+   return !busy.some((row:any)=>overlap(row)&&(row.userId===resource.id||row.assignedUserId===resource.id));
   });
  }
  return {zone,available};

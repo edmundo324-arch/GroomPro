@@ -1,3 +1,4 @@
+import {enforceTicketArrivalLimit,readTicketArrivalReservations} from '@/src/lib/employee-arrival-validation';
 import {assignmentApproval} from '@/src/lib/calendar-assignment-approval';
 import {recordAttendanceMove,attendanceDecisionDetails} from '@/src/lib/attendance-move';
 import {moveGroomingNotes} from '@/src/lib/grooming-notes-store';
@@ -18,8 +19,10 @@ import {checkCustomerBookingRules} from '@/src/lib/booking-rules';
 async function move(r:NextRequest){const tenantId=r.headers.get('x-tenant-id')||r.cookies.get('groompro_tenant')?.value||process.env.GROOMPRO_DEV_TENANT_ID||'',sid=r.cookies.get('groompro_session')?.value;const session=sid?await getActiveEmployeeSession(tenantId,sid):null;if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  try{const b=await r.json(),locationId=await requestLocation(r,tenantId),start=new Date(b.scheduledStart);if(!b.ticketId||!b.petId||!Number.isFinite(+start))throw Error('Choose a dog and a valid appointment time.');if(!locationId)throw Error('Select a location.');const hours=await locationHours(tenantId,locationId);
  const result=await db.$transaction(async tx=>{
+  await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
   await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${String(b.ticketId)} AND tenantId=${tenantId} FOR UPDATE`;
   const ticket=await tx.ticket.findFirst({where:{id:b.ticketId,tenantId,locationId},include:{pets:true,lines:{include:{service:true},orderBy:{sortOrder:'asc'}},assignments:true}});if(!ticket||['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status))throw Error('Choose an open appointment.');if(!ticket.lines.some(l=>l.petId===b.petId))throw Error('This dog is not on the appointment.');if(responsibleEmployee(ticket.lines,b.petId))throw Error('This dog has an actual employee assignment. Change it in POS or Whiteboard.');
+  const priorArrivals=await readTicketArrivalReservations(tx,tenantId,ticket.id);
   const lineStarts=await readLineStarts(tx,tenantId,ticket.id),live={...ticket,lineStarts},previous=petSchedule(live,b.petId);
   if(b.expectedStart&&+new Date(b.expectedStart)!==+previous.start)throw Error('This dog’s time changed elsewhere. Refresh before moving.');
   const message=await appointmentHoursError(tenantId,locationId,start,previous.durationMin);if(message)throw Error(message);
@@ -36,6 +39,7 @@ async function move(r:NextRequest){const tenantId=r.headers.get('x-tenant-id')||
   if(!sameDay)await moveGroomingNotes(tx,tenantId,ticket.id,ticket.timingMode==='CONCURRENT'?new Date(bounds.scheduledStart):start,ticket.timingMode==='CONCURRENT'?undefined:b.petId);
   await recordAttendanceMove(tx,ticket,new Date(bounds.scheduledStart),r,session.user.id);
   const updated=await tx.ticket.update({where:{id:ticket.id},data:bounds});
+  await enforceTicketArrivalLimit(tx,tenantId,ticket.id,message=>approvedScheduling(r,message),priorArrivals);
   await tx.ticketScheduleHistory.create({data:{tenantId,ticketId:ticket.id,actorUserId:session.user.id,changeType:'MOVED',previousStart:ticket.scheduledStart,newStart:new Date(bounds.scheduledStart)}});
   await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:'MOVE_PET',summary:'Moved one dog’s planned Calendar placement.',details:{petId:b.petId,employeeId,previousStart:previous.start.toISOString(),newStart:start.toISOString(),timingMode:ticket.timingMode}}});return {ticket:updated};
  });return NextResponse.json(result);

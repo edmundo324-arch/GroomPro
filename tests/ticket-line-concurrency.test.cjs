@@ -12,7 +12,7 @@ function fixture(options={}){
  let locked=false,current=copy(original);const writes=[],audits=[],availability=[],hours=[],timing=[],groomers=[];
  const checkLock=()=>assert.equal(locked,true,'Ticket details must be checked after obtaining its lock');
  const tx={
-  $queryRaw:async(strings,...values)=>{assert.match(strings.join('?'),/SELECT id FROM Ticket WHERE id=\? AND tenantId=\? FOR UPDATE/);assert.deepEqual(values,['ticket','shop']);locked=true;current=copy(synced);return [{id:'ticket'}]},
+  $queryRaw:async(strings,...values)=>{if(strings.join('?').includes('FROM Tenant')){assert.deepEqual(values,['shop']);return []}assert.match(strings.join('?'),/SELECT id FROM Ticket WHERE id=\? AND tenantId=\? FOR UPDATE/);assert.deepEqual(values,['ticket','shop']);locked=true;current=copy(synced);return [{id:'ticket'}]},
   ticketLine:{
    findFirst:async({where})=>{checkLock();assert.equal(where.id,'line');assert.equal(where.ticketId,'ticket');assert.equal(where.ticket.tenantId,'shop');return options.deleted?null:copy(current)},
    findMany:async({where})=>{checkLock();assert.equal(where.ticketId,'ticket');return [copy(current),copy(sibling)]},
@@ -26,6 +26,7 @@ function fixture(options={}){
  const dependencies={
   'next/server':{NextResponse:{json:(body,options)=>({body,status:options?.status||200})}},
   '@/src/lib/db':{db},
+  '@/src/lib/employee-arrival-validation':{readTicketArrivalReservations:async()=>[],enforceTicketArrivalLimit:async()=>{}},
   '@/src/lib/employee-session':{getActiveEmployeeSession:async()=>({user:{id:'staff'}})},
   '@/src/lib/request-policy':{withRequestPolicy:handler=>handler},
   '@/src/lib/scheduling-warning':warnings,

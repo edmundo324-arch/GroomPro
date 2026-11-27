@@ -1,3 +1,4 @@
+import {enforceTicketArrivalLimit} from '@/src/lib/employee-arrival-validation';
 import {readPlannedPackages,checkPlannedPackages,writePlannedPackages} from '@/src/lib/planned-package-store';
 import {responsibleEmployee} from '@/src/lib/pet-scheduling';
 import {refreshRebookingDiscounts} from '@/src/lib/rebooking-discount-store';
@@ -107,6 +108,7 @@ export async function POST(request: NextRequest) {
       if(body.copyAssignments===true)await writePlannedPackages(tx,tenantId,ticket.id,copiedPlans,ticket);
       await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
       await ensureGroomingNotes(tx,ticket,session.user.id);
+      await enforceTicketArrivalLimit(tx,tenantId,ticket.id,message=>approvedScheduling(request,message));
       await queueInitialAttendanceRequest(tx,ticket);
       if(requestedOverride!=null){const settingKey='REBOOKING_DISCOUNT:'+ticket.id;await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value:{managerOverride:true}},update:{value:{managerOverride:true}}});}
       const result=await refreshRebookingDiscounts(tx,tenantId,ticket.id,session.user.id);
@@ -120,7 +122,7 @@ export async function POST(request: NextRequest) {
     await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: created.id, customerId: source.customerId, action: "REBOOK", summary: `Rebooked ticket #${source.orderNumber} as appointment #${orderNumber}.`, details: { sourceTicketId: source.id, scheduledStart: scheduledStart.toISOString(), groomerId, rebookingDiscountPct: discountPct, rebookingDiscountLabel: discountLabel, intervalWeeks: intervalWeeks } });
     return NextResponse.json({ ticket: created, warnings: rules.conflicts, rebookingDiscount: { pct: discountPct, label: discountLabel, intervalWeeks: intervalWeeks } });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to rebook appointment." }, { status: 400 });
+    return NextResponse.json({ ...warningDetails(error), error: error instanceof Error ? error.message : "Unable to rebook appointment." }, { status: warningDetails(error).schedulingWarning?409:400 });
   }
 }
 

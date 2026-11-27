@@ -5,10 +5,10 @@ import {employeeName} from "../lib/employee-name";
 import {useEffect,useState} from "react";
 
 import {ScheduleBoard} from "./schedule-board";
-import {EmployeeEditor} from "./employee-editor";
+import {EmployeeEditor,type EmployeeForm} from "./employee-editor";
 import {employeeFetch} from "@/src/lib/employee-fetch";
 
-type Employee={displayName?:string;id:string;firstName:string;lastName:string;role:string;jobTitle?:string|null;locationId:string|null;active:boolean};
+type Employee={arrivalLimit?:EmployeeForm['arrivalLimit'];displayName?:string;id:string;firstName:string;lastName:string;role:string;jobTitle?:string|null;locationId:string|null;active:boolean};
 
 type Shift={id:string;userId:string;dayOfWeek:number;startTime:string;endTime:string;active:boolean};
 
@@ -16,7 +16,7 @@ const days=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturda
 
 const roles=["ADMIN","MANAGER","FLOOR_MANAGER","FRONT","BACK","MASTER_GROOMER","GROOMER","SALES"];
 
-const blank={id:"",firstName:"",lastName:"",role:"FRONT",jobTitle:"",locationId:"",pin:"",active:true};
+const blank:EmployeeForm={id:"",firstName:"",lastName:"",role:"FRONT",jobTitle:"",locationId:"",pin:"",active:true};
 
 function clock(t:string){const[h,m]=t.split(":").map(Number);return `${h%12||12}:${String(m).padStart(2,"0")} ${h<12?"am":"pm"}`}
 
@@ -31,5 +31,5 @@ export function EmployeeWeek(){
 
  async function save(url:string,method:string,body:object){setBusy(true);setMessage('');try{const r=await employeeFetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||'Save failed.');setForm(null);setSelected(null);await load();setMessage('Saved.')}catch(e){const message=e instanceof Error?e.message:'Save failed.';setMessage(message);if(url==='/api/employees')window.dispatchEvent(new CustomEvent('groompro:save-error',{detail:{message}}))}finally{setBusy(false)}}
 
- return <section><div ref={navigationRef} className="gp-staff-week-toolbar gp-employee-navigation"><h2>Employee schedules</h2><button className="gp-btn primary" onClick={()=>setForm({...blank,locationId:locations.find(location=>/^main\b|groompro/i.test(location.name))?.id||locations[0]?.id||""})}>+ Add Employee</button></div>{message&&!form&&<p role="status">{message}</p>}{form&&<FloatingEditorWindow windowKey="employee" title={form.id?'Edit employee':'Add employee'} onClose={()=>setForm(null)} closeDisabled={busy}>{message&&<p role="status">{message}</p>}<EmployeeEditor key={form.id||'new'} initial={form} locations={locations} busy={busy} onSave={f=>save('/api/employees',f.id?'PATCH':'POST',f)} onCancel={()=>setForm(null)}/></FloatingEditorWindow>} {<ScheduleBoard kind="employee" resources={employees.map(e=>({id:e.id,name:e.displayName||employeeName(e),detail:e.jobTitle||e.role,active:e.active,slots:shifts.filter(s=>s.userId===e.id)}))} onReload={load} onEdit={id=>{const e=employees.find(e=>e.id===id)!;setForm({...blank,...e,jobTitle:e.jobTitle||'',locationId:e.locationId||'',pin:''})}}/>}</section>
+ return <section><div ref={navigationRef} className="gp-staff-week-toolbar gp-employee-navigation"><h2>Employee schedules</h2><button className="gp-btn primary" onClick={()=>setForm({...blank,locationId:locations.find(location=>/^main\b|groompro/i.test(location.name))?.id||locations[0]?.id||""})}>+ Add Employee</button></div>{message&&!form&&<p role="status">{message}</p>}{form&&<FloatingEditorWindow windowKey="employee" className="gp-employee-window" initialSize={{width:960,height:760}} title={form.id?'Edit Employee':'Add Employee'} onClose={()=>setForm(null)} closeDisabled={busy}>{message&&<p role="status">{message}</p>}<EmployeeEditor key={form.id||'new'} initial={form} locations={locations} busy={busy} onSave={f=>save('/api/employees',f.id?'PATCH':'POST',f)} onCancel={()=>setForm(null)}/></FloatingEditorWindow>} {<ScheduleBoard kind="employee" resources={employees.map(e=>({id:e.id,name:e.displayName||employeeName(e),detail:e.jobTitle||e.role,active:e.active,slots:shifts.filter(s=>s.userId===e.id)}))} onReload={load} onEdit={id=>{const e=employees.find(e=>e.id===id)!;setForm({...blank,...e,jobTitle:e.jobTitle||'',locationId:e.locationId||'',pin:''})}}/>}</section>
 }

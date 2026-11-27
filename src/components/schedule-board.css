@@ -12,3 +12,6 @@
 .gp-shift-editor .gp-shift-explanation{margin:10px 0;font-size:13px;line-height:1.35;min-height:2.7em;color:#526076}
 .gp-editor-window.gp-shift-editor .gp-editor-actions{justify-content:flex-start;width:auto;padding:10px 24px 2px 0}
 .gp-shift-editor :disabled{cursor:default}
+.gp-shift-editor>.gp-floating-head>.gp-floating-title{white-space:normal;line-height:1.2;font-size:18px}
+.gp-shift-editor .gp-shift-header-off{display:flex;align-items:center;gap:6px;flex:none;white-space:nowrap;font-size:15px;font-weight:600;margin:0}
+.gp-shift-editor .gp-shift-coverage-action{display:inline-flex;align-items:center;gap:4px}

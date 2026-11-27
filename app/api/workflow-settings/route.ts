@@ -18,13 +18,13 @@ async function handlePolicyPUT(r:NextRequest){
  const t=tenant(r),sid=r.cookies.get('groompro_session')?.value,session=t&&sid?await getActiveEmployeeSession(t,sid):null;
  if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  if(!['PLATFORM_OWNER','DEVELOPER','ADMIN'].includes(session.user.role))return NextResponse.json({error:'Manager access required.'},{status:403});
- try{const body=await r.json();if(body.salesTaxOnly&&(!Number.isFinite(body.taxRatePct)||body.taxRatePct<0||body.taxRatePct>100||typeof body.automaticNewTicketTax!=='boolean'))throw Error('Enter a tax percentage between 0 and 100.');const result=await db.$transaction(async tx=>{
+ try{const body=await r.json();if(body.scheduleEditorOnly&&!['LONG','ISO'].includes(body.scheduleEditorDateFormat))throw Error('Choose Month Day Year or YYYY-MM-DD for schedule dates.');if(body.salesTaxOnly&&(!Number.isFinite(body.taxRatePct)||body.taxRatePct<0||body.taxRatePct>100||typeof body.automaticNewTicketTax!=='boolean'))throw Error('Enter a tax percentage between 0 and 100.');const result=await db.$transaction(async tx=>{
   await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${t} FOR UPDATE`;
-  const previous=await workflowSettings(t,tx),value=validateWorkflow(body.salesTaxOnly?{...previous,posLayout:{...previous.posLayout,taxRatePct:body.taxRatePct,automaticNewTicketTax:body.automaticNewTicketTax}}:body.posLayoutOnly?{...previous,posLayout:body.posLayout}:body);
+  const previous=await workflowSettings(t,tx),value=validateWorkflow(body.scheduleEditorOnly?{...previous,scheduleEditorDateFormat:body.scheduleEditorDateFormat}:body.salesTaxOnly?{...previous,posLayout:{...previous.posLayout,taxRatePct:body.taxRatePct,automaticNewTicketTax:body.automaticNewTicketTax}}:body.posLayoutOnly?{...previous,posLayout:body.posLayout}:{...body,scheduleEditorDateFormat:body.scheduleEditorDateFormat??previous.scheduleEditorDateFormat});
   const previousPos=await moduleLayoutSnapshot(tx,t,'POS Ticket',previous),previousCalendar=await moduleLayoutSnapshot(tx,t,'Calendar',previous);
   preserveTicketSizes(value.posLayout,ticketWorkspace(previous.posLayout),isPlatformAdmin(session));
   const posLayoutHistory=JSON.stringify(value.posLayout)!==JSON.stringify(previous.posLayout)?await saveLayoutVersion(tx,t,'POS_LAYOUT',value.posLayout,previous.posLayout,session.user.id):(await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:t,settingKey:'LAYOUT_HISTORY:POS_LAYOUT'}}}))?.value||[];
-  const changedTickets=(body.posLayoutOnly||body.salesTaxOnly)?0:await applyBusinessTiming(tx,t,value.timingMode as 'SEQUENTIAL'|'CONCURRENT');
+  const changedTickets=(body.posLayoutOnly||body.salesTaxOnly||body.scheduleEditorOnly)?0:await applyBusinessTiming(tx,t,value.timingMode as 'SEQUENTIAL'|'CONCURRENT');
   await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId:t,settingKey:'WORKFLOW'}},create:{tenantId:t,settingKey:'WORKFLOW',value},update:{value}});
   if(!layoutEqual(previousPos.ticket,{desktop:value.posLayout.desktop,phone:value.posLayout.phone}))await recordModuleLayout(tx,t,'POS Ticket',previousPos,session.user.id);
   if(calendarAppearanceKeys.some(k=>!layoutEqual(previous[k],value[k])))await recordModuleLayout(tx,t,'Calendar',previousCalendar,session.user.id);

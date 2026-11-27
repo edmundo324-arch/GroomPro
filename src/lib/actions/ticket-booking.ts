@@ -1,3 +1,4 @@
+import {enforceTicketArrivalLimit,readTicketArrivalReservations} from '@/src/lib/employee-arrival-validation';
 import {refreshRebookingDiscounts} from '@/src/lib/rebooking-discount-store';
 import {vaccinationConcerns} from '@/src/lib/vaccination-policy';
 import {queueInitialAttendanceRequest} from '@/src/lib/appointment-message-acceptance';
@@ -123,6 +124,7 @@ export async function createTicket(request:NextRequest,portal?:PortalBookingCont
     if(planned.length)await writePlannedPackages(tx,tenantId,created.id,planned,created);
     await ensureGroomingNotes(tx,created,session?.user.id,body.groomingNotesDraft);
     if(lines.some(l=>l.role==='GROOM'&&l.assignedUserId))await syncActualGroomers(tx,created.id);
+    await enforceTicketArrivalLimit(tx,tenantId,created.id,source==='STAFF'?message=>approvedScheduling(request,message):undefined);
     if(scheduledStart)await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: created.id, actorUserId: session?.user.id, changeType: "CREATED", previousStart: null, newStart: scheduledStart } });
     if(draft)await tx.posDraft.update({where:{id:draft.id},data:{promotedAt:new Date()}});
     await queueInitialAttendanceRequest(tx,created);
@@ -168,6 +170,7 @@ export async function PATCH(request: NextRequest) {
     await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${ticket.id} AND tenantId=${tenantId} FOR UPDATE`;
     const live=await tx.ticket.findUnique({where:{id:ticket.id}});
+    const priorArrivals=await readTicketArrivalReservations(tx,tenantId,ticket.id);
     const currentRules=await checkCustomerBookingRules(tenantId,ticket.customerId,newStart,ticket.durationMin,ticket.pets.map(p=>p.petId),ticket.id,tx);
     const currentWarning=currentRules.conflicts.length?'Appointment spacing warning: '+currentRules.conflicts.map(c=>c.message).join('\n'):'';
     if(currentWarning&&!await approvedScheduling(request,currentWarning))throw schedulingException(currentWarning);
@@ -180,6 +183,7 @@ export async function PATCH(request: NextRequest) {
     await moveGroomingNotes(tx,tenantId,ticket.id,newStart);
     await recordAttendanceMove(tx,live,newStart,request,session.user.id);
     const changed = await tx.ticket.update({ where: { id: ticket.id }, data: { scheduledStart: newStart,...(body.bookingAssetId!==undefined?{bookingAssetId:body.bookingAssetId||null}:{}) } });
+    await enforceTicketArrivalLimit(tx,tenantId,ticket.id,message=>approvedScheduling(request,message),priorArrivals);
     await tx.ticketScheduleHistory.create({ data: { tenantId, ticketId: ticket.id, actorUserId: session.user.id, changeType: "MOVED", previousStart, newStart } });
     return changed;
   });

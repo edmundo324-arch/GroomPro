@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');require('./load-ts.cjs');
 const operating=require('../src/lib/operating-hours.ts'),coverage=require('../src/lib/calendar-coverage.ts');
-function fixture(){const date='2030-01-07',weekday=1;let busy=[],blocks=[],overrides=[];
+function fixture(){const date='2030-01-07',weekday=1;let busy=[],blocks=[],overrides=[],limits=new Map();
  const employees=[{id:'on',role:'FRONT',firstName:'Online'},{id:'off',role:'GROOMER',firstName:'Offline'}];
  const client={location:{findMany:async()=>[{id:'shop'}]},user:{findMany:async()=>employees},tenantSetting:{findMany:async()=>[{settingKey:'EMPLOYEE_AVAILABLE_ONLINE:on',value:true}]},scheduleOverride:{findMany:async()=>overrides},$queryRaw:async(parts)=>{
   const sql=parts.join('?');if(sql.includes('FROM BookingAsset WHERE'))return [{id:'van',name:'Mobile unit',category:'Tenant selected asset'}];
@@ -8,9 +8,9 @@ function fixture(){const date='2030-01-07',weekday=1;let busy=[],blocks=[],overr
   if(sql.includes('FROM BookingAssetSchedule'))return [{resourceId:'van',dayOfWeek:weekday,startTime:'08:00',endTime:'17:00'}];
   return busy;
  }};
- const dependencies={'./employee-shift-location':require('../src/lib/employee-shift-location.ts'),'./online-booking-classes':{onlineClassKey:(kind,id)=>'ONLINE_BOOKING_CLASSES:'+kind+':'+id,acceptsOnlineClasses:(resource,requirements)=>resource===null||requirements.every(r=>!r.length||r.some(id=>resource.includes(id)))},'./db':{db:client},'./online-booking-resources':{employeeOnlineKey:id=>'EMPLOYEE_AVAILABLE_ONLINE:'+id},'./calendar-blocks':{calendarBlocks:async()=>blocks},'./location-hours':{locationHours:async(tenantId,locationId,connection)=>{assert.equal(tenantId,'tenant');assert.equal(locationId,'shop');assert.equal(connection,client);return {timezone:'UTC',specialHours:[],hours:operating.defaultHours()}}},'./operating-hours':operating,'./calendar-coverage':coverage,'./calendar-presentation':{},'./pos-lines':{},'./ticket-timing':{},'./workflow-settings':{},'./portal-policy-store':{}};
+ const dependencies={'./employee-arrival-capacity':{loadEmployeeArrivalCapacity:async()=>require('../src/lib/employee-arrival-capacity.ts').createEmployeeArrivalCapacity(limits,busy.flatMap((row,index)=>[...new Set([row.userId,row.assignedUserId].filter(Boolean))].map(employeeId=>({ticketId:row.id||'existing-'+index,employeeId,locationId:row.locationId||'shop',start:+new Date(row.scheduledStart),end:+new Date(row.scheduledStart)+row.durationMin*60000}))))},'./employee-shift-location':require('../src/lib/employee-shift-location.ts'),'./online-booking-classes':{onlineClassKey:(kind,id)=>'ONLINE_BOOKING_CLASSES:'+kind+':'+id,acceptsOnlineClasses:(resource,requirements)=>resource===null||requirements.every(r=>!r.length||r.some(id=>resource.includes(id)))},'./db':{db:client},'./online-booking-resources':{employeeOnlineKey:id=>'EMPLOYEE_AVAILABLE_ONLINE:'+id},'./calendar-blocks':{calendarBlocks:async()=>blocks},'./location-hours':{locationHours:async(tenantId,locationId,connection)=>{assert.equal(tenantId,'tenant');assert.equal(locationId,'shop');assert.equal(connection,client);return {timezone:'UTC',specialHours:[],hours:operating.defaultHours()}}},'./operating-hours':operating,'./calendar-coverage':coverage,'./calendar-presentation':{},'./pos-lines':{},'./ticket-timing':{},'./workflow-settings':{},'./portal-policy-store':{}};
  const js=ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname,'../src/lib/portal-availability.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,exports={};new Function('require','exports',js)(key=>dependencies[key],exports);
- return {date,client,available:exports.portalAvailability,blocked:v=>blocks=v,busy:v=>busy=v,overrides:v=>overrides=v};}
+ return {date,client,limit:(id,value)=>limits.set(id,value),available:exports.portalAvailability,blocked:v=>blocks=v,busy:v=>busy=v,overrides:v=>overrides=v};}
 test('tenant online selections and their schedules determine availability',async()=>{
  const f=fixture(),a=await f.available('tenant','shop',f.date,60,'GR',f.client);
  assert.deepEqual(a.available(new Date(f.date+'T09:00:00Z')).map(r=>r.id),['on','van']);
@@ -62,4 +62,35 @@ test('an already-booked employee is unavailable across shops without exposing th
  f.busy([{locationId:'other',scheduledStart:f.date+'T09:00:00Z',durationMin:60,userId:'on',customerId:'private-other-customer'}]);
  const a=await f.available('tenant','shop',f.date,60,'GR',f.client,'customer');assert.deepEqual(a.available(new Date(f.date+'T09:00:00Z'),'customer').map(r=>r.id),['van']);assert.match(query,/OR a.userId IS NOT NULL OR l.assignedUserId IS NOT NULL/);
  assert.equal(JSON.stringify(a.available(new Date(f.date+'T09:00:00Z'),'customer')).includes('private-other-customer'),false);
+});
+
+
+test('configured employee arrival limits count one family, permit continuing work, and reset after the interval',async()=>{
+ const f=fixture();f.limit('on',{maxAppointments:2,intervalMinutes:30});
+ const first={id:'family-1',locationId:'shop',scheduledStart:f.date+'T09:00:00Z',durationMin:120,userId:'on',customerId:'family-1'};
+ f.busy([first,{...first,assignedUserId:'on'}]);
+ let a=await f.available('tenant','shop',f.date,60,'GR',f.client,'new-customer');
+ assert.ok(a.available(new Date(f.date+'T09:00:00Z'),'new-customer').some(r=>r.id==='on'),'Two dogs from one family consume one arrival');
+ f.busy([first,{...first,id:'family-2',customerId:'family-2'}]);
+ a=await f.available('tenant','shop',f.date,60,'GR',f.client,'new-customer');
+ assert.deepEqual(a.available(new Date(f.date+'T09:00:00Z'),'new-customer').map(r=>r.id),['van']);
+ assert.ok(a.available(new Date(f.date+'T09:30:00Z'),'new-customer').some(r=>r.id==='on'),'Earlier grooming may continue after the arrival window');
+});
+
+test('arrival limits preserve cross-shop work conflicts, customer overlap, asset exclusivity, and time blocks',async()=>{
+ const f=fixture();f.limit('on',{maxAppointments:3,intervalMinutes:30});
+ f.busy([{id:'elsewhere',locationId:'other',scheduledStart:f.date+'T09:00:00Z',durationMin:120,userId:'on'}]);
+ let a=await f.available('tenant','shop',f.date,60,'GR',f.client,'customer');
+ assert.deepEqual(a.available(new Date(f.date+'T09:30:00Z'),'customer').map(r=>r.id),['van']);
+ f.busy([{id:'mine',locationId:'shop',scheduledStart:f.date+'T09:00:00Z',durationMin:120,userId:'on',customerId:'customer'}]);
+ a=await f.available('tenant','shop',f.date,60,'GR',f.client,'customer');assert.deepEqual(a.available(new Date(f.date+'T09:30:00Z'),'customer'),[]);
+ f.busy([{id:'asset',locationId:'shop',scheduledStart:f.date+'T09:00:00Z',durationMin:120,bookingAssetId:'van'}]);
+ f.blocked([{resourceKind:'employee',resourceId:'on',start:f.date+'T09:00:00Z',end:f.date+'T10:00:00Z'}]);
+ a=await f.available('tenant','shop',f.date,60,'GR',f.client,'customer');assert.deepEqual(a.available(new Date(f.date+'T09:30:00Z'),'customer'),[]);
+});
+
+test('a completed zero-duration reservation does not block work at another shop',async()=>{
+ const f=fixture();f.limit('on',{maxAppointments:2,intervalMinutes:30});
+ f.busy([{id:'finished',locationId:'other',scheduledStart:f.date+'T09:00:00Z',durationMin:0,userId:'on'}]);
+ const a=await f.available('tenant','shop',f.date,60,'GR',f.client,'customer');assert.ok(a.available(new Date(f.date+'T08:30:00Z'),'customer').some(r=>r.id==='on'));
 });

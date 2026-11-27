@@ -28,6 +28,7 @@ const sections: Record<string, [label: string, description: string, keywords: st
   'workflow/ticket-layout': ['POS ticket layout', 'Arrange the existing ticket controls and tabs for desktop and phone.', 'ticket tabs mobile placement'],
   'workflow/profiles': ['Customer / Pet profiles', 'Choose whether Show Inactive starts checked for pets.', 'inactive pets visibility'],
   'workflow/booking': ['Booking rules', 'Set appointment timing and nearby appointment warnings.', 'same time add up time default appointment timing rebook scheduling warning warning days missing veterinarian'],
+  'workflow/schedule-editor': ['Schedule Editor', 'Choose Month Day Year or YYYY-MM-DD for schedule editor dates.', 'schedule employee date format military ISO month day year header day off unavailable'],
   'workflow/calendar-preferences': ['Calendar lanes and devices', 'Set lane order and how employee column widths are remembered.', 'column width fit all 100 px 100 pixels unassigned other reorder employees assets device preferences'],
   'workflow/business-hours-rule': ['Business hours rule', 'Choose whether appointments must start during business hours.', 'outside business hours warning opening closing'],
   'workflow/whiteboard': ['Whiteboard', 'Choose whether the bather also handles prep or drying.', 'prep bath dry assignment bath team bather also prepares bather also dries'],
@@ -53,7 +54,7 @@ const sections: Record<string, [label: string, description: string, keywords: st
   'administration/subscription': ['Subscription', 'View plans and included features. Developers and Owners can configure plans.', 'upgrade plan pricing texting calling'],
 };
 
-const businessOnly = new Set(['ticket-layout', 'profiles', 'booking', 'calendar-preferences', 'business-hours-rule', 'whiteboard', 'authorization', 'billing']);
+const businessOnly = new Set(['ticket-layout', 'schedule-editor', 'profiles', 'booking', 'calendar-preferences', 'business-hours-rule', 'whiteboard', 'authorization', 'billing']);
 const importPath = ['data', 'imports'];
 const ticketPath = ['workflow', 'ticket-layout'];
 export const settingsSearchEntries: SettingsSearchEntry[] = [

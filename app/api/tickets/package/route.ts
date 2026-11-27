@@ -1,3 +1,4 @@
+import {enforceTicketArrivalLimit,readTicketArrivalReservations} from '@/src/lib/employee-arrival-validation';
 import {attendanceDecisionDetails} from '@/src/lib/attendance-move';
 import {offlineLineId} from '@/src/lib/offline-transaction';
 import {ticketTiming} from '@/src/lib/line-time-store';
@@ -19,8 +20,9 @@ async function handlePolicyPOST(r:NextRequest){
  const tenantId=r.headers.get('x-tenant-id')||process.env.GROOMPRO_DEV_TENANT_ID||'',sid=r.cookies.get('groompro_session')?.value;
  const session=tenantId&&sid?await getActiveEmployeeSession(tenantId,sid):null;if(!session)return NextResponse.json({error:'Employee PIN is required.'},{status:401});
  try{const b=await r.json();if(typeof b.present!=='boolean'||!b.packageId||!b.petId||!b.ticketId)throw Error('Ticket, dog, package and desired selection are required.');
- const result=await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${b.ticketId} AND tenantId=${tenantId} FOR UPDATE`;
+ const result=await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${b.ticketId} AND tenantId=${tenantId} FOR UPDATE`;
  const ticket=await tx.ticket.findFirst({where:{id:b.ticketId,tenantId},include:{pets:true,lines:{include:{service:true}}}});if(!ticket||['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status))throw Error('Choose an open ticket.');
+ const previousArrivals=!ticket.checkedInAt?await readTicketArrivalReservations(tx,tenantId,ticket.id):undefined;
  const pet=await tx.pet.findFirst({where:{id:b.petId,tenantId,customerId:ticket.customerId,active:true}});if(!pet)throw Error('Choose a dog belonging to this customer.');
  const packages=await tx.package.findMany({where:{tenantId},include:{items:{include:{service:true}}}});ticket.lines=identifyPackageLines(ticket.lines,packages);
  const existing=packageMembersForPet(ticket.lines,b.petId,b.packageId);
@@ -34,10 +36,10 @@ async function handlePolicyPOST(r:NextRequest){
  if(!b.present)await tx.ticketLine.deleteMany({where:{ticketId:ticket.id,id:{in:existing.map(l=>l.id)}}});
  for(const [index,line] of addition.lines.entries())await tx.ticketLine.create({data:{...line,id:offlineLineId(index),ticketId:ticket.id,sortOrder:remaining.length+line.sortOrder}});
  await syncAppointmentPets(tx,ticket,[...remaining,...addition.lines]);
- await tx.ticket.update({where:{id:ticket.id},data:await ticketTiming(tx,ticket,await tx.ticketLine.findMany({where:{ticketId:ticket.id},include:{service:true},orderBy:{sortOrder:'asc'}}),{request:r,userId:session.user.id})});return{changed:true};});
+ await tx.ticket.update({where:{id:ticket.id},data:await ticketTiming(tx,ticket,await tx.ticketLine.findMany({where:{ticketId:ticket.id},include:{service:true},orderBy:{sortOrder:'asc'}}),{request:r,userId:session.user.id})});if(previousArrivals!==undefined)await enforceTicketArrivalLimit(tx,tenantId,ticket.id,message=>approvedScheduling(r,message),previousArrivals);return{changed:true};});
  if(result.changed)await writeAudit({tenantId,actorUserId:session.user.id,entityType:'TICKET',entityId:b.ticketId,action:b.present?'ADD_PACKAGE':'REMOVE_PACKAGE',summary:b.present?'Added pet package.':'Removed pet package.',details:{petId:b.petId,packageId:b.packageId}});
  return NextResponse.json(result);
- }catch(e){return NextResponse.json({...warningDetails(e),...attendanceDecisionDetails(e),error:e instanceof Error?e.message:'Package could not update.'},{status:attendanceDecisionDetails(e).attendanceDecision?409:400})}
+ }catch(e){return NextResponse.json({...warningDetails(e),...attendanceDecisionDetails(e),error:e instanceof Error?e.message:'Package could not update.'},{status:attendanceDecisionDetails(e).attendanceDecision||warningDetails(e).schedulingWarning?409:400})}
 }
 
 export const POST=withRequestPolicy(handlePolicyPOST, {feature:'TICKETS'});

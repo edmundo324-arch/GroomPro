@@ -1,4 +1,7 @@
 import {Prisma} from '@prisma/client';
+import {loadEmployeeArrivalCapacity,type ArrivalReservation} from '@/src/lib/employee-arrival-capacity';
+import {calendarAssignmentPlans} from '@/src/lib/calendar-assignment-recovery';
+import {calendarPlanApproved} from '@/src/lib/planned-package-rules';
 import {NextRequest,NextResponse} from 'next/server';
 import {platformSession} from '@/src/lib/platform-access';
 import {hidePlatformOwners,withRequestPolicy} from '@/src/lib/request-policy';
@@ -11,6 +14,7 @@ import {coverageManagerRoles,coverageQualified,coverageRanges,type CoverageRange
 import {localToInstant,zonedParts} from '@/src/lib/operating-hours';
 import {dateKey,parseDate,shiftDate} from '@/src/lib/schedule-dates';
 import {calendarBlocks} from '@/src/lib/calendar-blocks';
+import {employeeLocationContext} from '@/src/lib/employee-shift-location';
 import {lineStartsKey} from '@/src/lib/line-time-store';
 import {lineSchedule,lineTimeKey,petSchedule,responsibleEmployee} from '@/src/lib/pet-scheduling';
 import {isRequestLine,petServiceType,petServiceTypesKey} from '@/src/lib/calendar-presentation';
@@ -42,7 +46,7 @@ async function review(request:NextRequest){
   const start=localToInstant(first+'T00:00',zone),end=through?localToInstant(through+'T00:00',zone):undefined;
   const apply=request.method==='PUT';
   const result=await db.$transaction(async tx=>{
-   if(apply)await tx.$queryRaw`SELECT id FROM Location WHERE id=${locationId} AND tenantId=${tenantId} FOR UPDATE`;
+   if(apply){await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;await tx.$queryRaw`SELECT id FROM Location WHERE id=${locationId} AND tenantId=${tenantId} FOR UPDATE`;}
    const policy=ticketWorkspace((await workflowSettings(tenantId,tx)).posLayout);
    if(!sickId&&!policy.coverageRanges.includes(range))throw Error('This coverage range is disabled in Settings.');
    const indexed=await tx.tenantSetting.findMany({where:{tenantId,settingKey:{gte:'CALENDAR_DATE:'+locationId+':'+first,lt:'CALENDAR_DATE:'+locationId+':'+(through||'9999')}},select:{value:true}});
@@ -50,13 +54,16 @@ async function review(request:NextRequest){
    const [tickets,employees,shifts,overrides,blocks]=await Promise.all([
     tx.ticket.findMany({where:{tenantId,locationId,status:{in:[...activeStatuses]},OR:[{scheduledStart:{gte:new Date(+start-86400000),lt:end}},{id:{in:indexedIds}}]},include:{pets:{include:{pet:{select:{id:true,name:true}}}},lines:{include:{service:{select:{name:true,code:true,category:true,durationMin:true,customFields:true}}},orderBy:{sortOrder:'asc'}},assignments:true},orderBy:[{scheduledStart:'asc'},{id:'asc'}]}),
     tx.user.findMany({where:{tenantId,...(await hidePlatformOwners(request,tenantId)?{role:{not:'PLATFORM_OWNER' as const}}:{}),active:true,OR:[{locationId},{locationId:null}]},orderBy:[{lastName:'asc'},{firstName:'asc'},{id:'asc'}]}),
-    tx.$queryRaw<{userId:string;dayOfWeek:number;startTime:string;endTime:string}[]>`SELECT userId,dayOfWeek,startTime,endTime FROM EmployeeSchedule WHERE tenantId=${tenantId} AND active=1`,
+    tx.$queryRaw<{id:string;userId:string;dayOfWeek:number;startTime:string;endTime:string}[]>`SELECT id,userId,dayOfWeek,startTime,endTime FROM EmployeeSchedule WHERE tenantId=${tenantId} AND active=1`,
     tx.scheduleOverride.findMany({where:{tenantId,resourceKind:'employee',date:{gte:shiftDate(first,-1),lt:through}}}),
     calendarBlocks(tenantId,locationId,tx)
    ]);
    const rows=await tx.tenantSetting.findMany({where:{tenantId,settingKey:{in:tickets.flatMap(t=>[plannedSettingKey(t.id),lineStartsKey(t.id),petServiceTypesKey(t.id)])}}});
    const settings=new Map(rows.map(row=>[row.settingKey,row.value]));
-   const employeeIds=new Set(employees.map(e=>e.id));
+   const employeeIds=new Set(employees.map(e=>e.id)),shiftLocations=await employeeLocationContext(tx,tenantId);
+   const capacityEnd=end||new Date(Math.max(+start+86400000,...tickets.map(t=>+(t.scheduledStart||start)+Math.max(1,t.durationMin)*60000)));
+   const capacity=await loadEmployeeArrivalCapacity(tx,tenantId,[...employeeIds],new Date(+start-86400000),capacityEnd);
+   const pendingArrivals:ArrivalReservation[]=[];
    const slots=new Map<string,Array<{start:number;end:number}>>();
    const reserve=(id:string,from:number,to:number)=>slots.set(id,[...(slots.get(id)||[]),{start:from,end:to}]);
    const working=(id:string,from:number,to:number)=>{
@@ -64,16 +71,17 @@ async function review(request:NextRequest){
     const a=zonedParts(new Date(from),zone),b=zonedParts(new Date(to),zone);
     if(a.date!==b.date)return false;
     const special=overrides.find(o=>o.resourceId===id&&o.date===a.date);
-    const hours=special?(special.dayOff?[]:[special]):shifts.filter(s=>s.userId===id&&Number(s.dayOfWeek)===parseDate(a.date).getDay());
+    const assigned=employees.find(e=>e.id===id)?.locationId;
+    const hours=special?(special.dayOff||shiftLocations.date(id,a.date,assigned)!==locationId?[]:[special]):shifts.filter(s=>s.userId===id&&Number(s.dayOfWeek)===parseDate(a.date).getDay()&&shiftLocations.shift(s.id,assigned)===locationId);
     return hours.some(h=>h.startTime&&h.endTime&&a.time>=h.startTime&&b.time<=h.endTime)
       &&!blocks.some(block=>block.resourceKind==='employee'&&block.resourceId===id&&+new Date(block.start)<to&&+new Date(block.end)>from);
    };
-   const candidates:Array<{row:Proposal;from:number;to:number;serviceCategories:string[]}>=[];
+   const candidates:Array<{row:Proposal;from:number;to:number;arrival:number;serviceCategories:string[]}>=[];
    for(const ticket of tickets){
     const plans=(settings.get(plannedSettingKey(ticket.id)) as {items?:PlannedPackage[]})?.items||[];
     const legacy=plans.length?'':ticket.assignments.find(a=>a.role==='PLANNED_GROOMER')?.userId||ticket.assignments.find(a=>a.role==='GROOMER')?.userId||'';
     const full={...ticket,lineStarts:(settings.get(lineStartsKey(ticket.id))||{}) as Record<string,string>,petServiceTypes:settings.get(petServiceTypesKey(ticket.id))};
-    const starts=lineSchedule(full);
+    const starts=lineSchedule(full),approvedPlans=calendarAssignmentPlans(tenantId,full,plans);
     for(const line of ticket.lines){
      if(!line.assignedUserId||!starts[lineTimeKey(line)])continue;
      const from=+new Date(starts[lineTimeKey(line)]);
@@ -89,19 +97,25 @@ async function review(request:NextRequest){
       const time=petSchedule({...full,lineStarts:starts,lines},petId),from=+time.start,to=from+time.durationMin*60000;
       if(!Number.isFinite(from))continue;
       const userId=actual?.assignedUserId||plannedFor(ticket.lines,plans,petId,key,legacy);
-      if(userId&&working(userId,from,to)){reserve(userId,from,to);continue;}
+      if(userId&&(working(userId,from,to)||userId!==sickId&&employeeIds.has(userId)&&calendarPlanApproved(approvedPlans,petId,key,userId))){reserve(userId,from,to);continue;}
       if(actual||ticket.checkedInAt||!['OPEN','CONFIRMED'].includes(ticket.status)||ticket.bookingAssetId||from<+start||range==='upcoming'&&from<Date.now()||end&&from>=+end||sickId&&userId!==sickId)continue;
       const type=petServiceType({...full,lines},petId),serviceCategories=[...new Set(lines.map(l=>l.service?.category||'').filter(Boolean))];
-      candidates.push({row:{ticketId:ticket.id,petId,...(key?{packageKey:key}:{}),pet:entry.pet.name,type,start:time.start.toISOString(),employeeId:'',employee:''},from,to,serviceCategories});
+      candidates.push({row:{ticketId:ticket.id,petId,...(key?{packageKey:key}:{}),pet:entry.pet.name,type,start:time.start.toISOString(),employeeId:'',employee:''},from,to,arrival:+(ticket.scheduledStart||time.start),serviceCategories});
      }
     }
    }
    candidates.sort((a,b)=>a.from-b.from);
-   const proposals:Proposal[]=candidates.map(({row,from,to,serviceCategories})=>{
+   const proposals:Proposal[]=candidates.map(({row,from,to,arrival,serviceCategories})=>{
     const qualified=employees.filter(employee=>employee.id!==sickId&&(row.type?coverageQualified(employee,row.type):serviceCategories.length>0&&serviceCategories.every(category=>coverageQualified(employee,category))));
-    const available=qualified.find(employee=>working(employee.id,from,to)&&!(slots.get(employee.id)||[]).some(slot=>slot.start<to&&slot.end>from));
-    if(!available)return {...row,reason:qualified.length?'No qualified employee is free at this time.':'No matching employee qualification.'};
-    reserve(available.id,from,to);
+    const reservation=(employeeId:string):ArrivalReservation=>({ticketId:row.ticketId,employeeId,locationId,start:arrival,end:Math.max(to,arrival+60000)});
+    const eligible=qualified.filter(employee=>working(employee.id,from,to)&&!capacity.reservations.some(other=>other.employeeId===employee.id&&other.locationId!==locationId&&other.end>other.start&&other.start<to&&other.end>from));
+    const available=eligible.find(employee=>capacity.configured(employee.id)?capacity.allows(reservation(employee.id),pendingArrivals):!(slots.get(employee.id)||[]).some(slot=>slot.start<to&&slot.end>from));
+    if(!available){
+     const limits=eligible.map(employee=>capacity.configured(employee.id)?capacity.reason(reservation(employee.id),pendingArrivals):null);
+     const limited=limits.length>0&&limits.every(reason=>reason?.startsWith('Employee arrival limit reached:'));
+     return {...row,reason:limited?(limits.length===1?limits[0]!:'The scheduled employees have reached their family-arrival limits for this time.'):qualified.length?'No qualified employee is free at this time.':'No matching employee qualification.'};
+    }
+    reserve(available.id,from,to);pendingArrivals.push(reservation(available.id));
     return {...row,employeeId:available.id,employee:employeeName(available)};
    });
    if(!apply)return {proposals,timezone:zone};
