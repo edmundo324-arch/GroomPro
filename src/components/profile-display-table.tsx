@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import { useEffect, useState, type ReactNode } from 'react';
 import { employeeFetch } from '../lib/employee-fetch';
 import type { ProfileColumn } from '../lib/profile-display-fields';
@@ -54,7 +55,7 @@ export function ProfileDisplayPreferences({ endpoint, title, fields, options, on
       {draft && <div className="gp-actions"><button type="button" className="gp-btn primary" onClick={() => void save()}>Save display fields</button>
         <button type="button" className="gp-btn" onClick={() => setDraft(undefined)}>Cancel</button></div>}
     </fieldset>
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert">{helpfulError(error)}</p>}
   </details>;
 }
 

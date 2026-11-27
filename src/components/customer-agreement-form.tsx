@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {CustomerHelpfulHints} from './help-popup';
 import type {PublicHintSettings} from '../lib/public-hint-settings';
 import {useEffect,useRef,useState,type PointerEvent} from 'react';
@@ -56,7 +57,7 @@ export function DogPhoto({dog,request,save}:{dog:AgreementPet;request:Requester;
  }
  return <div>{image&&<img src={image} alt={String(dog.name)+' on file'}/>}
   <label>{image?'Replace dog photo':'Add dog photo'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);}}/></label>
-  {error&&<p role="alert">{error}</p>}</div>;
+  {error&&<p role="alert">{helpfulError(error)}</p>}</div>;
 }
 function downloadPdf(result:Result){
  const bytes=Uint8Array.from(atob(result.pdf),v=>v.charCodeAt(0));

@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {useEffect,useRef,useState} from 'react';
 import {employeeFetch} from '../lib/employee-fetch';
 import {HelpPopup} from './help-popup';
@@ -9,6 +10,6 @@ export function TicketConfirmationRequest({ticketId,onEditCustomer}:{ticketId:st
  return <div className="gp-ticket-confirmation-request" style={{padding:'4px 10px'}}>
   {notice?.bouncedEmail&&<div role="alert">An email to <strong>{notice.bouncedEmail}</strong> bounced. Please check and correct this customer’s email at your earliest convenience. <button type="button" className="gp-btn" onClick={()=>onEditCustomer(notice.customerId)}>Fix email</button></div>}
   <button type="button" className="gp-btn" disabled={!ticketId||!notice?.canRequest||busy} onClick={send}>Send confirmation request</button><HelpPopup label="Send confirmation request">Ask the customer to confirm this appointment now, outside the normal schedule. The saved schedule and their reminder choices stay unchanged. Confirmed or cancelled appointments do not receive another request.</HelpPopup>
-  <span role="status">{message}</span>
+  <span role="status">{helpfulError(message)}</span>
  </div>;
 }

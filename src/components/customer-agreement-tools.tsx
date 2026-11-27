@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {useEffect,useId,useRef,useState,type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
 import {reconcileForm} from '../lib/form-hydration';
@@ -30,7 +31,7 @@ async function call(path:string,method='GET',body?:object){
 function AgreementLocation({value,onChange}:{value:string;onChange:(id:string)=>void}){
  const [locations,setLocations]=useState<{id:string;name:string}[]>([]),[error,setError]=useState('');
  useEffect(()=>{let live=true;call('?locations=1').then(data=>{if(!live)return;setLocations(data.locations);if(data.locations.length===1)onChange(data.locations[0].id)}).catch(e=>{if(live)setError(e.message)});return()=>{live=false}},[]);
- return <div>{locations.length>1&&<label>Shop location <select value={value} onChange={e=>onChange(e.target.value)}><option value="">Choose shop location</option>{locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}</select></label>}<HelpPopup label="Shop location">New customers who complete this form belong to this shop’s customer-sharing group. Existing customers keep their current assignment.</HelpPopup>{error&&<p role="alert">{error}</p>}</div>;
+ return <div>{locations.length>1&&<label>Shop location <select value={value} onChange={e=>onChange(e.target.value)}><option value="">Choose shop location</option>{locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}</select></label>}<HelpPopup label="Shop location">New customers who complete this form belong to this shop’s customer-sharing group. Existing customers keep their current assignment.</HelpPopup>{error&&<p role="alert">{helpfulError(error)}</p>}</div>;
 }
 function AgreementHelp({label,children}:{label:string;children:ReactNode}){
  return <HelpPopup label={label}>{children}</HelpPopup>;
@@ -159,13 +160,13 @@ export function CustomerAgreementTools({customerId}:{customerId?:string}){
     <button type="button" className="gp-btn" onClick={()=>void navigator.clipboard.writeText(path).catch(()=>setError('Select the link above and copy it.'))}>Copy link</button>
     <a className="gp-btn" href={path} target="_blank" rel="noreferrer">Open form</a>
    </div>}
-   {error&&<p role="alert">{error}<DismissButton label="Dismiss agreement error" onClick={()=>setError('')}/></p>}
+   {error&&<p role="alert">{helpfulError(error)}<DismissButton label="Dismiss agreement error" onClick={()=>setError('')}/></p>}
    {!!context?.documents?.length&&<section><h3>Signed copies</h3>{context.documents.map(doc=><p key={doc.id}>
     <a href={endpoint+'?document='+encodeURIComponent(doc.id)}>{doc.title} · {new Date(doc.signedAt).toLocaleDateString()}</a>
     {' · '}{doc.sentCopy?'Email accepted':'Email pending or unavailable'}
    </p>)}</section>}
   </div>}
-   {setup&&createPortal(<FloatingEditorWindow windowKey="agreement-settings" title="Agreement Settings" onClose={closeSettings} className="gp-paper-editor" style={{zIndex:80}}>{error&&<p role="alert">{error}<DismissButton label="Dismiss agreement error" onClick={()=>setError('')}/></p>}<AgreementSettings tenantId={context?.tenantId||''} available={!!context?.config} initial={context?.config||emptyAgreement} onClose={closeSettings} onSaved={config=>setContext(old=>old?{...old,config}:old)}/></FloatingEditorWindow>,document.body)}
+   {setup&&createPortal(<FloatingEditorWindow windowKey="agreement-settings" title="Agreement Settings" onClose={closeSettings} className="gp-paper-editor" style={{zIndex:80}}>{error&&<p role="alert">{helpfulError(error)}<DismissButton label="Dismiss agreement error" onClick={()=>setError('')}/></p>}<AgreementSettings tenantId={context?.tenantId||''} available={!!context?.config} initial={context?.config||emptyAgreement} onClose={closeSettings} onSaved={config=>setContext(old=>old?{...old,config}:old)}/></FloatingEditorWindow>,document.body)}
  </div>;
 }
 export function createCustomerAgreement(input:object){

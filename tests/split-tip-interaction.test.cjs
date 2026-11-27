@@ -8,6 +8,7 @@ function harness(){
  const api={};new Function('require','exports',ts.transpileModule(fs.readFileSync('src/components/ticket-tips.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText)(id=>{
  if(id==='react')return react;if(id==='react/jsx-runtime')return require(id);if(id.endsWith('.css'))return {};
  if(id==='../lib/employee-fetch')return {employeeFetch:async(url,options)=>{if(!options)return Response.json(data);const body=JSON.parse(options.body);posts.push(body);return Response.json({tipCents:body.tipCents,allocation:{revision:1,shares:body.shares}})}};
+ if(id==='../lib/human-communication')return require('../src/lib/human-communication.ts');
  if(id==='../lib/ticket-tips')return require('../src/lib/ticket-tips.ts');if(id==='./currency-input')return {CurrencyInput};if(id==='./floating-editor-window')return {FloatingEditorWindow};throw Error(id);
  },api);
  const props={ticketId:'t',locationId:'shop',initialTipCents:4000,onTipChange:n=>linked=n,onClose:()=>closed++,onSaved:async n=>saved=n};

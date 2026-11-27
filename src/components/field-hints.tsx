@@ -17,7 +17,7 @@ export function FieldHints({enabled,customer=false}:{enabled:boolean;customer?:b
    const element=target.closest<HTMLElement>('label,.gp-label,.gp-pos-account-link,input[aria-label],select[aria-label],textarea[aria-label]');
    if(!element||element.querySelector('.gp-help-trigger')||element.closest('label')?.querySelector('.gp-help-trigger')){setHint(null);return;}
    const field=describe(element);if(!field){setHint(null);return;}
-   timer=setTimeout(()=>{const latest=describe(element);if(!latest||(!latest.help&&!latest.relatedPath))return;const position=sideHintPlacement(targetsBox(hintTargets(element)),{width:window.innerWidth,height:window.innerHeight});setHint({...latest,...position})},event.type==='pointerover'?500:0);
+   timer=setTimeout(()=>{const latest=describe(element);if(!latest||(!latest.help.trim()&&!latest.relatedPath?.trim())){setHint(null);return;}const position=sideHintPlacement(targetsBox(hintTargets(element)),{width:window.innerWidth,height:window.innerHeight});setHint({...latest,...position})},event.type==='pointerover'?500:0);
   };
   const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){clearTimeout(timer);setHint(null)}};
   const leave=(e:PointerEvent)=>{if(!e.relatedTarget){clearTimeout(timer);setHint(null)}};

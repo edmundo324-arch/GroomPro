@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {OnlineBookingClassSettings} from './online-booking-class-settings';
 import {PortalBrandingSettings} from './portal-branding-settings';
 import {PortalLinkTools} from './portal-link-tools';
@@ -25,6 +26,6 @@ export function PortalSettings({feeCents}:{feeCents:number}){
  <p>Preview: {cancellationWarning(policy,'Your business',feeCents)}</p>
  <button type="button" className="gp-btn" onClick={()=>change({...policy,warning:defaultCancellationWarning})}>Restore default wording</button> <button type="button" className="gp-btn primary" onClick={()=>void save()}>Save portal rules</button>
  <p>Cancellation-request colors are under Settings → Calendar & Workflow → Appointment Appearance → Cancellation requested · shop review.</p>
- {message&&<p role="status">{message}</p>}
+ {message&&<p role="status">{helpfulError(message)}</p>}
  </fieldset>;
 }

@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import { useEffect, useState } from 'react';
 import { employeeFetch } from '../lib/employee-fetch';
 import { calendarPreferencePolicy } from '../lib/calendar-preferences';
@@ -44,7 +45,7 @@ export function CalendarPreferenceSettings({ value, onChange }: { value: any; on
   }
   return <fieldset className="gp-workflow-section">
     <legend>Calendar lanes and device settings</legend>
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert">{helpfulError(error)}</p>}
     <label><input type="checkbox" checked={policy.remember} onChange={e => onChange({ ...value, calendarPreferences: { ...policy, remember: e.target.checked } })}/> Remember each employee’s Calendar width on each device</label>
     <p>Narrow windows, phones and tablets start at 100 px. Full-width desktop windows start at Fit all. A matching rule sets the starting width and can turn remembering off for that group.</p>
     {policy.rules.map((item, index) => {

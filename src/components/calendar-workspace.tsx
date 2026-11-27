@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {DismissButton} from './dismiss-button';
 import {CalendarCoverage} from './calendar-coverage';
 import {coverageManagerRoles} from '../lib/calendar-coverage';
@@ -326,7 +327,7 @@ export function CalendarWorkspace({activeTicketId,onSlot,onNewTicket,onOpenTicke
  {coverageOpen&&<CalendarCoverage date={dateInput(date)} ranges={workspace.coverageRanges} onClose={()=>setCoverageOpen(false)} onApplied={count=>{setCoverageOpen(false);setCoverageMessage(count+' planned '+(count===1?'assignment':'assignments')+' updated.')}}/>}
  {coverageMessage&&<div role="status" className="gp-form-success">{coverageMessage} <DismissButton label="Dismiss coverage result" onClick={()=>setCoverageMessage('')}/></div>}
  {pushMessage&&<div role="status" className="gp-form-success">{pushMessage}</div>}{pushError&&<div role="alert" className="gp-form-error">{pushError}</div>}
- {error&&<div role="alert" className="gp-form-error">{error} <button className="gp-btn" onClick={()=>setReload(v=>v+1)}>Retry</button></div>}{mapOpen?<CalendarMap date={dateInput(date)} throughDate={view==="Week"?dateInput(weekThrough):dateInput(date)} onOpen={onOpenTicket}/>:dayList?<div className="gp-calendar-agenda">
+ {error&&<div role="alert" className="gp-form-error">{helpfulError(error)} <button className="gp-btn" onClick={()=>setReload(v=>v+1)}>Retry</button></div>}{mapOpen?<CalendarMap date={dateInput(date)} throughDate={view==="Week"?dateInput(weekThrough):dateInput(date)} onOpen={onOpenTicket}/>:dayList?<div className="gp-calendar-agenda">
  {agenda.length===0&&<p>No appointments for this {view.toLowerCase()}.</p>}
  {agenda.map(({ticket},index)=><button type="button" key={ticket.id+':'+(ticket.calendarPetId||index)} className={'gp-agenda-card gp-appointment-view'+((activeTicketId||hover?.ticket.id)===ticket.id?' gp-calendar-ticket-highlight':'')} style={cardStyle(ticket)} onPointerDown={e=>touchDown(e,ticket)} onPointerMove={touchMotion} onPointerUp={finishTouch} onPointerCancel={finishTouch} onContextMenu={e=>appointmentMenu(e,ticket)} onPointerEnter={e=>{if(e.pointerType==='mouse')showHover(ticket,e.currentTarget)}} onPointerLeave={e=>{if(e.pointerType==='mouse')setHover(null)}} onFocus={e=>{if(pointerKind.current==='mouse')showHover(ticket,e.currentTarget)}} onBlur={()=>setHover(current=>current?.touch?current:null)} onClick={()=>openAppointment(ticket)}>
   {view==='Week'&&ticket.scheduledStart&&<time>{new Date(ticket.scheduledStart).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}</time>}{renderCard(ticket)}

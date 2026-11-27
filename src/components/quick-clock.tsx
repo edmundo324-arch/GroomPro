@@ -1,5 +1,6 @@
 'use client';
 import {useRef,useState} from 'react';
+import {helpfulError} from '../lib/human-communication';
 import {createPortal} from 'react-dom';
 import {FloatingEditorWindow} from './floating-editor-window';
 
@@ -9,7 +10,7 @@ export function QuickClock({locationId,onClose}:{locationId?:string;onClose:()=>
  const pending=useRef(false);
  async function punch(action:'IN'|'OUT'){
   if(pending.current)return;
-  if(!/^\d{3,10}$/.test(pin)){setMessage('Enter your 3–10 digit employee PIN.');return;}
+  if(!/^\d{3,10}$/.test(pin)){setMessage('Enter your 3â€“10 digit employee PIN.');return;}
   pending.current=true;setBusy(true);setMessage('');
   try{
    const path='/api/employee/session'+(shop?'?locationId='+encodeURIComponent(shop):'');
@@ -27,7 +28,7 @@ export function QuickClock({locationId,onClose}:{locationId?:string;onClose:()=>
    {shops.length>0&&<label>Shop Location <select value={shop} onChange={e=>setShop(e.target.value)}><option value="">Choose Location</option>{shops.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}</select></label>}
    <label>Employee PIN <input type="password" inputMode="numeric" autoComplete="off" maxLength={10} value={pin} disabled={busy} onChange={e=>{setPin(e.target.value);setMessage('')}}/></label>
    <p><button type="button" disabled={busy} onClick={()=>punch('IN')}>Clock In</button> <button type="button" disabled={busy} onClick={()=>punch('OUT')}>Clock Out</button></p>
-   <div role="status">{message}</div>
+   <div role="status">{helpfulError(message)}</div>
   </div>
  </FloatingEditorWindow>,document.body);
 }

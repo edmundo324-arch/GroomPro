@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {useEffect,useState} from 'react';
 import {employeeFetch} from '../lib/employee-fetch';
 export function Pet123Settings(){
@@ -17,5 +18,5 @@ export function Pet123Settings(){
  <label><input type="checkbox" disabled={busy||c.revoked} checked={c.readEnabled} onChange={e=>act({action:'READ',id:c.id,enabled:e.target.checked})}/>Read from 123Pet</label><p>Writing: {c.writeEnabled?'Enabled':'Disabled - compatibility verification required'}</p>{c.writeEnabled&&<button disabled={busy} onClick={()=>act({action:'WRITE',id:c.id,enabled:false})}>Disable writing</button>}<button disabled={busy||c.revoked} onClick={()=>act({action:'REVOKE',id:c.id})}>{c.revoked?'Disconnected':'Disconnect this connector'}</button></div>)}
  <details><summary>Add a connection</summary><div style={{display:'grid',gap:8,maxWidth:500,marginTop:8}}><label>Connection name<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label><label>Environment<select value={form.environment} onChange={e=>setForm({...form,environment:e.target.value,initialSource:e.target.value==='PRODUCTION'?'123PET':form.initialSource})}><option value="TEST">Test</option><option value="PRODUCTION">Production</option></select></label><label>Initial data source<select value={form.initialSource} onChange={e=>setForm({...form,initialSource:e.target.value})}><option value="123PET">123Pet to GroomPro (tenant migration)</option>{form.environment==='TEST'&&<option value="GROOMPRO_DEMO">This GroomPro site to 123Pet (demo)</option>}</select></label><label>SQL Server<input value={form.server} onChange={e=>setForm({...form,server:e.target.value})}/></label><label>Database<input value={form.database} onChange={e=>setForm({...form,database:e.target.value})}/></label><button disabled={busy||!form.server.trim()} onClick={()=>act({action:'CREATE',...form})}>Create connector credential</button></div></details>
  {token&&<div><p>This credential is shown once. Enter it in the Windows connector setup for this GroomPro site.</p><input aria-label="New connector credential" type="password" value={token} readOnly/><button onClick={async()=>{try{await navigator.clipboard.writeText(token);setMessage('Credential copied.')}catch{setMessage('Select and copy the credential manually.')}}}>Copy credential</button><button onClick={()=>setToken('')}>Hide credential</button></div>}
- {message&&<p role="status">{message}</p>}</section>;
+ {message&&<p role="status">{helpfulError(message)}</p>}</section>;
 }

@@ -1,4 +1,5 @@
 'use client';
+import {helpfulError} from '../lib/human-communication';
 import {SearchableSelect} from './searchable-select';
 import {useEffect,useRef,useState} from 'react';
 import {BusinessLibrary} from './business-library';
@@ -20,6 +21,6 @@ export function MessageTemplatePicker({customerId,channel,onInsert}:{customerId:
  <div><button type="button" className="gp-btn" disabled={!customerId||!templateId||busy} onClick={insert}>Insert Saved Message</button><HelpPopup label="Insert Saved Message">Add the selected template to the message below, using this customer's details and the appointment you selected. Your existing text stays in place. Review it before sending. To change the reusable wording, open Messaging → Message Templates.</HelpPopup></div>
  </div>
  <p>Review the wording below before sending. Inserting a saved message does not send it.</p>
- <details open={libraryOpen} onToggle={e=>{setLibraryOpen(e.currentTarget.open);if(e.currentTarget.open)setLibraryLoaded(true)}}><summary className="gp-label" data-help-name="Message Templates" data-help-path="Messaging → Message Templates" data-help="Create or edit reusable text and email messages here. Owners and managers can save changes; existing staff permissions still apply. Saving a template does not send it to customers.">Message Templates</summary>{libraryLoaded&&<BusinessLibrary kind="message-templates" moduleName="Messaging"/>}</details>
- {error&&<p role="alert">{error}</p>}</fieldset>;
+ <details open={libraryOpen} onToggle={e=>{setLibraryOpen(e.currentTarget.open);if(e.currentTarget.open)setLibraryLoaded(true)}}><summary className="gp-label" data-help-name="Message Templates" data-help-path="Messaging → Message Templates" data-related-path="Messaging → Message Templates" data-help="Create or edit reusable text and email messages here. Owners and managers can save changes; existing staff permissions still apply. Saving a template does not send it to customers.">Message Templates</summary>{libraryLoaded&&<BusinessLibrary kind="message-templates" moduleName="Messaging"/>}</details>
+ {error&&<p role="alert">{helpfulError(error)}</p>}</fieldset>;
 }

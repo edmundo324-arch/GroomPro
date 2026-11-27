@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {useEffect,useRef,useState} from 'react';
 import {HelpPopup} from './help-popup';
 type Preferences={revision:string;appointmentEmail:boolean;appointmentSms:boolean};
@@ -12,5 +13,5 @@ export function PortalMessagePreferences({request}:{request:(action:string,field
  return <section><h2>Appointment message choices</h2><p>Choose how the shop sends appointment confirmations and reminders. These choices update your existing customer profile.</p>
  <label><input type="checkbox" checked={choices.appointmentEmail} onChange={e=>{edited.current.appointmentEmail++;setChoices({...choices,appointmentEmail:e.target.checked});setMessage('')}}/>Appointment emails <HelpPopup label="Appointment emails">Receive appointment confirmations and reminders by email. Turning this off does not stop a receipt or agreement copy you request from the shop.</HelpPopup></label>
  <label><input type="checkbox" checked={choices.appointmentSms} onChange={e=>{edited.current.appointmentSms++;setChoices({...choices,appointmentSms:e.target.checked});setMessage('')}}/>Appointment texts <HelpPopup label="Appointment texts">Receive appointment confirmations and reminders by text. If texts are blocked or your number needs correction, contact the shop; turning this on does not override those restrictions.</HelpPopup></label>
- <button type="button" onClick={()=>void save()}>Save message choices</button><button type="button" onClick={()=>void review()}>Review saved choices</button><p>You can choose reminder times under Your appointments. Turning a channel off stops automatic appointment messages through that channel.</p>{message&&<p role="status">{message}</p>}</section>;
+ <button type="button" onClick={()=>void save()}>Save message choices</button><button type="button" onClick={()=>void review()}>Review saved choices</button><p>You can choose reminder times under Your appointments. Turning a channel off stops automatic appointment messages through that channel.</p>{message&&<p role="status">{helpfulError(message)}</p>}</section>;
 }

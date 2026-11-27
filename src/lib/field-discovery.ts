@@ -42,10 +42,11 @@ export function describeField(element:HTMLElement){
  const contextHelp=name==='Status'&&appearance?'Choose the appointment stage whose colors you want to edit. This does not change an appointment’s status.':
   name==='Status'&&/pos|ticket/i.test(window||module)?'Set the stage this appointment has reached. Its appearance follows this business’s configured colors.':
   name==='Service type'&&appearance?'Choose the service type whose appointment colors you want to edit, such as GR, FW or FFT.':undefined;
- const help=element.dataset.help||control?.getAttribute('data-help')||accountHelp||contextHelp||(['Primary','SMS','Call','Show Inactive'].includes(name)&&!customerContext?undefined:purpose[name])||known?.help||fieldPurposes[control?.getAttribute('aria-label')||'']||fieldPurposes[name]||control?.getAttribute('title')||element.getAttribute('title')||'';
- const relatedPath=element.dataset.relatedPath||element.closest<HTMLElement>('[data-related-path]')?.dataset.relatedPath||
+ const ownerLabel=element.matches('input,select,textarea')?(element as HTMLInputElement).labels?.[0]:undefined;
+ const help=element.dataset.help||ownerLabel?.dataset.help||control?.getAttribute('data-help')||accountHelp||contextHelp||(['Primary','SMS','Call','Show Inactive'].includes(name)&&!customerContext?undefined:purpose[name])||known?.help||fieldPurposes[control?.getAttribute('aria-label')||'']||fieldPurposes[name]||(ownerLabel&&fieldPurposes[fieldLabel(ownerLabel)])||control?.getAttribute('title')||element.getAttribute('title')||'';
+ const relatedPath=element.dataset.relatedPath||control?.getAttribute('data-related-path')||ownerLabel?.dataset.relatedPath||element.closest<HTMLElement>('[data-related-path]')?.dataset.relatedPath||
   (known?.path.startsWith('Customer Profile →')&&element.closest('.gp-pos-window')?known.path:'');
- return {relatedPath,name:element.dataset.helpName||known?.name||name,aliases:[name,...(known?.aliases||[])],path:element.dataset.helpPath||known?.path||path,help,element,module};
+ return {relatedPath,name:element.dataset.helpName||known?.name||name,aliases:[name,...(known?.aliases||[])],path:element.dataset.helpPath||known?.path||path,help:help.trim().toLowerCase()===name.toLowerCase()?'':help,element,module};
 }
 export function discoverFields(){
  const seen=new Set<string>();

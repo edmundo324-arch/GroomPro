@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {preparedImportLabels} from '../lib/settings-search';
 import {useRef,useState,useEffect} from 'react';
 import {readImportResponse} from '../lib/import/response';
@@ -31,7 +32,7 @@ export function CustomerImport(){
  <div><button type="button" className="gp-btn primary" disabled={busy} data-settings-target="import-files" onClick={()=>fileInput.current?.click()}>{preparedImportLabels.upload}</button><input ref={fileInput} type="file" aria-label="Related import files" multiple hidden style={{display:'none'}} disabled={busy} accept=".csv,.tsv,.txt,.xlsx,.xls,.json,.xml,.zip,.sqlite,.db,.sql,.png,.jpg,.jpeg,.pdf,.webp,.gif,.docx" onChange={e=>{void upload(e.currentTarget.files);e.currentTarget.value=''}}/></div>
  {selectedNames.length>0&&<div style={{overflowWrap:'anywhere'}}>Selected: {selectedNames.join(', ')}</div>}
  <p role="status" aria-live="polite" style={{margin:0}}>{uploadMessage||'Choose your files to see a preview here. Nothing is imported until you validate and execute.'}</p>
- {error&&<p role="alert" style={{margin:0,color:'#a32222',whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{error}</p>}
+ {error&&<p role="alert" style={{margin:0,color:'#a32222',whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{helpfulError(error)}</p>}
  </div>
  {!!datasets.length&&<>{locations.length>1&&<label>Shop receiving imported customers<select value={locationId} onChange={e=>{setLocationId(e.target.value);invalidate()}}><option value="">Choose shop</option>{locations.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></label>}<label>Source namespace<input value={source} onChange={e=>{setSource(e.target.value);invalidate()}}/></label><small>Use the same namespace for reimports from this source.</small><label>Behavior<select value={mode} onChange={e=>{setMode(e.target.value);invalidate()}}><option value="NEW">Insert new; keep existing matches unchanged</option><option value="MATCH">Match existing only</option><option value="UPDATE">Insert new and update reviewed mapped fields</option></select></label><input aria-label="Filter source fields" placeholder="Find source field" value={query} onChange={e=>setQuery(e.target.value)}/>
  <p>To make imported services and packages available for future bookings, include their catalog files in Choose Related Files. Choose SERVICE or PACKAGE and review the proposed matches before committing. Package Items use serviceId, quantity and role; link appointment lines using packageId. Existing packages can be matched without replacing their contents.</p>

@@ -1,3 +1,4 @@
+import {deliveryMessage} from '@/src/lib/human-communication';
 import {pickupCallAction,pickupContactAction,recordedPickupContact,pickupContactMethods} from '@/src/lib/pickup-call';
 import {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/src/lib/db';
@@ -38,7 +39,7 @@ export async function GET(r:NextRequest){
   const eligible=policy.enabled&&policy.pickupEnabled&&policy.channels.includes('SMS')&&!!settings.activeSince&&!!policy.publicOrigin&&texting&&t.customer.active&&t.customer.appointmentSms!==false&&!t.customer.invalidSmsNumber&&t.customer.phones.length>0;
   const cancellation=(await db.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId:c.tenantId,settingKey:'PICKUP_TEXT_CANCELLED:'+t.id}}}))?.value as any;
   const cancelled=cancellation?.readyAt===t.pickupAt?.toISOString();
-  const state=contact?'Customer Contacted — '+pickupContactMethods[contact.method]+' @ '+new Date(contact.contactedAt).toLocaleString('en-US',{timeZone:locations.find(l=>l.id===locationId)?.timezone||'UTC'}):called?'Customer Called':sent?.sentAt?'Sent':sent?'Text request '+sent.deliveryStatus.toLowerCase().replaceAll('_',' '):cancelled?'Queued pickup text cancelled':eligible?'Pickup text is queued; earliest send time: '+new Date(scheduledFor).toLocaleTimeString('en-US',{timeZone:locations.find(l=>l.id===locationId)?.timezone||'UTC',hour:'numeric',minute:'2-digit'}):'Review texting settings or the customer’s contact details before expecting an automatic pickup text.';
+  const state=contact?'Customer Contacted — '+pickupContactMethods[contact.method]+' @ '+new Date(contact.contactedAt).toLocaleString('en-US',{timeZone:locations.find(l=>l.id===locationId)?.timezone||'UTC'}):called?'Customer Called':sent?deliveryMessage(sent.deliveryStatus):cancelled?'Queued pickup text cancelled':eligible?'Pickup text is queued; earliest send time: '+new Date(scheduledFor).toLocaleTimeString('en-US',{timeZone:locations.find(l=>l.id===locationId)?.timezone||'UTC',hour:'numeric',minute:'2-digit'}):'Review texting settings or the customer’s contact details before expecting an automatic pickup text.';
   return {ticketId:t.id,number:t.orderNumber,pets:t.pets.map(p=>p.pet.name).join(', '),readyAt:t.pickupAt,scheduledFor,state,cancelled,sent:!!sent,contacted:!!contact||!!called||!!sent?.sentAt};
  }));
  return reply({enabled,locationId,locations,notices:notices.filter(Boolean),snoozeMinutes:policy.pickupNoticeSnoozeMinutes??5});

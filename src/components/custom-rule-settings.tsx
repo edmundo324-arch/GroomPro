@@ -1,5 +1,6 @@
 "use client";
 
+import {helpfulError} from '../lib/human-communication';
 import './custom-rule-settings.css';
 
 import {useEffect,useState} from 'react';
@@ -104,6 +105,6 @@ function RuleEditor({onClose}:{onClose:()=>void}){
  <button type="button" className="gp-btn primary" onClick={save}>Save draft</button></fieldset>
 
  <section aria-label="Recent rule activity"><h3>Recent rule activity<HelpPopup label="Recent rule activity">Shows up to 100 recent rule actions available at this shop. Accepted or queued messages are with the delivery provider; they are not proof the customer received them. A last failed attempt records what happened at that time; a later successful action may also appear. Retry is available for confirmed delivery failures on the current rule version. GroomPro checks whether the message is still needed; uncertain delivery is never retried here. Reopen this window to retrieve the latest results.</HelpPopup></h3><table><thead><tr><th>Recorded</th><th>Rule</th><th>Action</th><th>Result</th></tr></thead><tbody>{history.map(row=><tr key={row.id}><td>{new Date(row.at).toLocaleString()}</td><td>{rules.find(r=>r.id===row.ruleId)?.name||'Rule unavailable'}</td><td>{row.action}</td><td>{row.result}{row.canRetry&&<button type="button" className="gp-btn" disabled={busy} onClick={()=>void retry(row.id)}>Retry failed message</button>}</td></tr>)}</tbody></table>{!history.length&&<p>No rule activity is available for this shop yet.</p>}</section>
- <div role="status" aria-live="polite">{message}</div></div></FloatingEditorWindow>
+ <div role="status" aria-live="polite">{helpfulError(message)}</div></div></FloatingEditorWindow>
 
 }

@@ -34,5 +34,9 @@ test('Find directions are independent of the search location and field explanati
   assert.equal(field.relatedPath,label.dataset.relatedPath);
   assert.equal(field.help,'Choose how services run.');
   assert.equal(field.path,'Current form → Timing');
+  const input=label.querySelector('select');
+  label.dataset.help='Choose how services run on this ticket.';
+  assert.equal(describeField(input).help,label.dataset.help);
+  assert.equal(describeField(input).relatedPath,label.dataset.relatedPath);
  }finally{global.document=old;}
 });

@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import { useEffect, useState } from 'react';
 import { employeeFetch } from '../lib/employee-fetch';
 import { zonedParts } from '../lib/operating-hours';
@@ -24,7 +25,7 @@ export function VisitHistory({ id, timezone, date, current }: { id?: string; tim
     .sort((a, b) => +new Date(a.at) - +new Date(b.at));
   return <section aria-label="This visit">
     <h3>This Visit</h3>
-    {error && <p role="status">{error}</p>}
+    {error && <p role="status">{helpfulError(error)}</p>}
     {!history.length && <p>No visit activity recorded.</p>}
     {history.map(({ label, at }, index) => {
       const time = new Date(at);

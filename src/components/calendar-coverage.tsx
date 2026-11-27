@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {useEffect,useState} from 'react';
 import {employeeFetch} from '../lib/employee-fetch';
 import {coverageRanges,type CoverageRange} from '../lib/calendar-coverage';
@@ -33,7 +34,7 @@ export function CalendarCoverage({date,employeeId,ranges,onClose,onApplied}:{dat
   <header className="gp-pos-picker-title"><h2>{employeeId?'Find Coverage':'Assign Unassigned'}</h2><DismissButton label="Dismiss coverage review" disabled={busy} onClick={onClose}/></header>
   {!employeeId&&<label>Range <select value={range} onChange={e=>setRange(e.target.value as CoverageRange)} disabled={busy}>{ranges.map(key=><option key={key} value={key}>{coverageRanges[key]}</option>)}</select></label>}
   {busy&&<p role="status">Checking coverage…</p>}
-  {error&&<p role="alert">{error} <button type="button" className="gp-btn" onClick={()=>setRevision(v=>v+1)}>Review again</button></p>}
+  {error&&<p role="alert">{helpfulError(error)} <button type="button" className="gp-btn" onClick={()=>setRevision(v=>v+1)}>Review again</button></p>}
   {plan&&<><p>{plan.proposals.length?count+' ready to assign · '+(plan.proposals.length-count)+' need review':'No unassigned appointments in this range.'}</p>
    <ul>{plan.proposals.map(p=><li key={p.ticketId+':'+p.petId+':'+(p.packageKey||'')}><strong>{p.pet}</strong>{p.type?' · '+p.type:''} · {new Date(p.start).toLocaleString(undefined,{timeZone:plan.timezone,month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})} · {p.employee||p.reason}</li>)}</ul>
    <button type="button" className="gp-btn primary" disabled={!count||busy} onClick={()=>void apply()}>Apply {count} {count===1?'assignment':'assignments'}</button>

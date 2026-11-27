@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import { useEffect, useState } from 'react';
 import { employeeFetch } from '../lib/employee-fetch';
 import {createPortal} from 'react-dom';
@@ -111,7 +112,7 @@ export function CalendarMap({ date, throughDate = date, onOpen }: { date: string
       {data?.canSeeAll && <button type="button" className="gp-btn" aria-pressed={data.all} onClick={() => setScope('all')}>All appointments</button>}
     </div>
 
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert">{helpfulError(error)}</p>}
     {data && <>
       <div className="gp-map-controls">
         <span><strong>Start</strong> {data.origin || 'Shop address missing'}</span>

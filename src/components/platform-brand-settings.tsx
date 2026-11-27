@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import { useEffect, useState } from 'react';
 import { employeeFetch } from '../lib/employee-fetch';
 
@@ -36,6 +37,6 @@ export function PlatformBrandSettings() {
     <h2 data-settings-target="product-name" tabIndex={-1}>Product name</h2>
     <label>Displayed name<input required maxLength={60} value={name} onChange={e => setName(e.target.value)}/></label>
     <button type="submit" className="gp-btn primary" disabled={busy}>Save name</button>
-    {message && <p role="status">{message}</p>}
+    {message && <p role="status">{helpfulError(message)}</p>}
   </form>;
 }

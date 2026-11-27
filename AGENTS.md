@@ -77,6 +77,8 @@
 
 
 ## Universal human-friendly communication standard
+- A hint explains the purpose or consequence. A separate Find direction points to a verified related module or setting. Preserve field search indexing independently. Never fill a hint with its own location, a repeated label, or a guessed purpose.
+- Review changes on the screens where staff and customers read them, including narrow screens. Verify the underlying action and the source of names and dates. Check that errors give a useful next step, warnings support the decision, and confirmations describe only a verified result.
 - All hints, field help, errors, warnings, confirmations, notifications, generated messages and customer communications must sound like a knowledgeable grooming coworker. Explain purpose, useful action or what happens next; never merely describe a checkbox, dropdown or other control.
 - Employee-facing wording is direct and feature-focused. Customer-facing wording may explain a relevant benefit, without inventing outcomes or adding sales claims. Keep both short, natural and specific.
 - Use names, dates, appointments and membership information only from the appropriate current record. Format dates in the business/location time zone when available. Do not claim that saving, sending, delivery or another action succeeded unless its result confirms that claim.

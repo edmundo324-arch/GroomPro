@@ -1,4 +1,5 @@
 "use client";
+import {helpfulError} from '../lib/human-communication';
 import {useEffect, useRef, useState} from 'react';
 import {
   businessChoices, teamChoices, recordChoices, bookingChoices, serviceChoices, goalChoices,
@@ -112,7 +113,7 @@ export function SalesQuestionnaire() {
       </>}
       {step === 2 && <fieldset><legend>Which Services Do You Offer?</legend><p>Choose all that apply, including services you plan to add.</p>{choices('services', serviceChoices)}</fieldset>}
       {step === 3 && <fieldset><legend>What Would You Most Like to Improve?</legend><p>Choose up to three. Select your biggest priority first.</p>{choices('goals', goalChoices)}<p role="status" className="gp-tour-selection-count">{answers.goals.length} of 3 Selected{answers.goals.length === 3 ? ' — uncheck a choice to select a different one.' : ''}</p></fieldset>}
-      {error && <p ref={errorMessage} tabIndex={-1} role="alert" className="gp-tour-error">{error}</p>}
+      {error && <p ref={errorMessage} tabIndex={-1} role="alert" className="gp-tour-error">{helpfulError(error)}</p>}
       <div className="gp-tour-actions">
         {step > 0 && <button type="button" onClick={() => {setStep(step - 1); setError(''); focusHeading();}}>Back</button>}
         <button type="submit" className="gp-tour-primary">{step === steps.length - 1 ? 'Build My Tour & Lessons' : 'Next'}</button>

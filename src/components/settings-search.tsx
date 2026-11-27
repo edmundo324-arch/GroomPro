@@ -1,5 +1,6 @@
 'use client';
 
+import {helpfulError} from '../lib/human-communication';
 import {createContext,useEffect,useId,useRef,useState} from 'react';
 import {findSettings,settingsBreadcrumb,type SettingsSearchEntry} from '../lib/settings-search';
 
@@ -46,7 +47,7 @@ export function SettingsSearch({role,children}:{role?:string;children:React.Reac
           placeholder="Search Settings" value={query} onFocus={()=>setOpen(true)} onClick={()=>setOpen(true)}
           onChange={event=>{setQuery(event.target.value);setMessage("");setOpen(true)}}/>
       </div>
-      {message&&<p className="gp-settings-finder-message" role="status">{message}</p>}{show&&<div className="gp-settings-finder-results" id={id}>
+      {message&&<p className="gp-settings-finder-message" role="status">{helpfulError(message)}</p>}{show&&<div className="gp-settings-finder-results" id={id}>
         {matches.length?<ul ref={results}>{matches.map(entry=><li key={entry.title}>
           <button type="button" onClick={()=>go(entry)}>
             <strong>{entry.title}</strong>

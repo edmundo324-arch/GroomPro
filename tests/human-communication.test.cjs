@@ -35,3 +35,11 @@ test('customer report cards retain tenant-written content without inventing serv
  const empty=reportCardText({...ticket,lines:[]});
  assert.match(empty,/Gizmo’s visit/);assert.doesNotMatch(empty,/recorded|completed|ready for pickup/i);
 });
+
+test('browser and database errors give a next step without exposing internal details',()=>{
+ for(const raw of ["Failed to execute 'json' on 'Response': Unexpected end of JSON input",'Unexpected token < in JSON at position 0','TypeError: b.$transaction is not a function',"Cannot read properties of undefined (reading 'id')"]){
+  assert.match(helpfulError(raw),/check|Reopen/i);
+  assert.doesNotMatch(helpfulError(raw),/json|transaction|undefined/i);
+ }
+ assert.equal(helpfulError('Gizmo’s appointment has been confirmed.'),'Gizmo’s appointment has been confirmed.');
+});
