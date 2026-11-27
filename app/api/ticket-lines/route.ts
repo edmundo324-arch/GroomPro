@@ -95,27 +95,39 @@ async function handlePolicyPATCH(request: NextRequest) {
   if (!line) return NextResponse.json({ error: "Ticket line could not be found." }, { status: 404 });
   if(line.description==="Customer Account Balance")return NextResponse.json({error:"Manage this balance through the customer account."},{status:409});
   if(["CLOSED","CANCELLED","NO_SHOW"].includes(line.ticket.status))return NextResponse.json({error:"This ticket is closed."},{status:409});
-  if (body.petId !== undefined && body.petId !== null) {
-    const ticketPet = await db.ticketPet.findFirst({ where: { ticketId: line.ticketId, petId: body.petId } });
-    if (!ticketPet) return NextResponse.json({ error: "The selected dog is not on this ticket." }, { status: 400 });
-  }
   if (body.role && !ROLES.has(body.role)) return NextResponse.json({ error: "Invalid ticket line role." }, { status: 400 });
-  if (body.role && BASE_ROLES.has(line.role) && body.role !== line.role) return NextResponse.json({ error: "The three package workflow roles stay fixed: Prepping, Bathing, Grooming." }, { status: 400 });
-  const assignedUser = body.assignedUserId ? await db.user.findFirst({ where: { id: body.assignedUserId, tenantId, active: true } }) : null;
-  if (body.assignedUserId && !assignedUser) return NextResponse.json({ error: "Assigned employee could not be found." }, { status: 404 });
-  if(body.assignedUserId&&line.ticket.scheduledStart&&!await employeeAvailable(tenantId,body.assignedUserId,line.ticket.locationId,line.ticket.scheduledStart,line.ticket.durationMin))if(!await approvedScheduling(request,'This employee is unavailable for this appointment.'))return NextResponse.json(schedulingWarning('This employee is unavailable for this appointment.'),{status:409});
   for(const key of ['quantity','unitPriceCents','discountCents','sortOrder','durationMin'] as const){const v=body[key];if(v!==undefined&&(!Number.isInteger(v)||v<(key==='quantity'?1:0)||v>2147483647))return NextResponse.json({error:'Enter valid whole-number quantities and amounts.'},{status:400})}
-  const quantity = body.quantity === undefined ? line.quantity : Math.max(1, Number(body.quantity) || 1);
-  const unitPriceCents = body.unitPriceCents === undefined ? line.unitPriceCents : Math.max(0, Number(body.unitPriceCents) || 0);
-  const discountCents = body.discountCents === undefined ? line.discountCents : Math.max(0, Number(body.discountCents) || 0);
-  const totalCents = Math.max(0, unitPriceCents * quantity - discountCents);
-  const commissionPct = line.commissionPct == null ? null : Number(line.commissionPct);
-  const commissionCents = commissionPct == null ? 0 : Math.round(totalCents * commissionPct / 100);
-  const siblings=await db.ticketLine.findMany({where:{ticketId:line.ticketId},include:{service:true}});const durationMin=ticketDuration(siblings.map(l=>l.id===line.id?{...l,quantity,durationMin:body.durationMin??l.durationMin}:l),line.ticket.timingMode);
-  if(line.ticket.scheduledStart){const error=await appointmentHoursError(tenantId,line.ticket.locationId,line.ticket.scheduledStart,durationMin);if(error&&!await approvedScheduling(request,error))return NextResponse.json(schedulingWarning(error),{status:409})}
-  let changed;try{changed = await db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${line.ticketId} AND tenantId=${tenantId} FOR UPDATE`;const changed=await tx.ticketLine.update({ where: { id: line.id }, data: {...(body.assignedUserId!==undefined?{assignmentUnavailable:false}:{}),durationMin:body.durationMin??line.durationMin, petId: body.petId === undefined ? line.petId : body.petId, role: body.role || line.role, assignedUserId: body.assignedUserId === undefined ? line.assignedUserId : assignedUser?.id || null, assignedAt: body.assignedUserId === undefined ? line.assignedAt : assignedUser ? new Date() : null, quantity, unitPriceCents, discountCents, totalCents, commissionCents, sortOrder: body.sortOrder === undefined ? line.sortOrder : Number(body.sortOrder) }, include: { pet: true, service: true, product: true, assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}} } });
-  await tx.ticket.update({where:{id:line.ticketId},data:await ticketTiming(tx,line.ticket,await tx.ticketLine.findMany({where:{ticketId:line.ticketId},include:{service:true},orderBy:{sortOrder:'asc'}}),{request,userId:session.user.id} )});if((body.assignedUserId!==undefined||body.role!==undefined)&&(changed.role==='GROOM'||line.role==='GROOM'))await syncActualGroomers(tx,line.ticketId);return changed});}catch(error){if(attendanceDecisionDetails(error).attendanceDecision)return NextResponse.json({...attendanceDecisionDetails(error),error:(error as Error).message},{status:409});throw error;}
-  await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: line.ticketId, customerId: line.ticket.customerId, action: "EDIT_LINE", summary: `Updated ${line.description} on ticket #${line.ticket.orderNumber}.`, details: { lineId: line.id, before: { petId: line.petId, role: line.role, assignedUserId: line.assignedUserId, quantity: line.quantity, unitPriceCents: line.unitPriceCents, discountCents: line.discountCents }, after: { petId: changed.petId, role: changed.role, assignedUserId: changed.assignedUserId, quantity: changed.quantity, unitPriceCents: changed.unitPriceCents, discountCents: changed.discountCents } } });
+  const editError=(message:string,status:number)=>Object.assign(new Error(message),{lineEditStatus:status});
+  let outcome;try{outcome = await db.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM Ticket WHERE id=${line.ticketId} AND tenantId=${tenantId} FOR UPDATE`;
+    // Catalog sync and other staff edits may have committed while this request
+    // waited. Omitted fields must come from the locked ticket's current line.
+    const current=await tx.ticketLine.findFirst({where:{id:line.id,ticketId:line.ticketId,ticket:{tenantId}},include:{ticket:true,service:true,pet:true}});
+    if(!current)throw editError('Ticket line could not be found.',404);
+    if(current.description==='Customer Account Balance')throw editError('Manage this balance through the customer account.',409);
+    if(['CLOSED','CANCELLED','NO_SHOW'].includes(current.ticket.status))throw editError('This ticket is closed.',409);
+    if(body.petId!==undefined&&body.petId!==null&&!await tx.ticketPet.findFirst({where:{ticketId:current.ticketId,petId:body.petId}}))throw editError('The selected dog is not on this ticket.',400);
+    if(body.role&&BASE_ROLES.has(current.role)&&body.role!==current.role)throw editError('The three package workflow roles stay fixed: Prepping, Bathing, Grooming.',400);
+    const assignedUser=body.assignedUserId?await tx.user.findFirst({where:{id:body.assignedUserId,tenantId,active:true}}):null;
+    if(body.assignedUserId&&!assignedUser)throw editError('Assigned employee could not be found.',404);
+    const quantity=body.quantity??current.quantity,unitPriceCents=body.unitPriceCents??current.unitPriceCents,discountCents=body.discountCents??current.discountCents;
+    const totalCents=Math.max(0,unitPriceCents*quantity-discountCents),commissionPct=current.commissionPct==null?null:Number(current.commissionPct);
+    const commissionCents=commissionPct==null?0:Math.round(totalCents*commissionPct/100);
+    const siblings=await tx.ticketLine.findMany({where:{ticketId:current.ticketId},include:{service:true}});
+    const durationMin=ticketDuration(siblings.map(l=>l.id===current.id?{...l,quantity,durationMin:body.durationMin??l.durationMin}:l),current.ticket.timingMode);
+    if(current.ticket.scheduledStart){
+      const message='This employee is unavailable for this appointment.';
+      if(body.assignedUserId&&!await employeeAvailable(tenantId,body.assignedUserId,current.ticket.locationId,current.ticket.scheduledStart,durationMin)&&!await approvedScheduling(request,message))throw schedulingException(message);
+      const error=await appointmentHoursError(tenantId,current.ticket.locationId,current.ticket.scheduledStart,durationMin);
+      if(error&&!await approvedScheduling(request,error))throw Object.assign(schedulingException(error),{lineEditStatus:409});
+    }
+    const changed=await tx.ticketLine.update({where:{id:current.id},data:{...(body.assignedUserId!==undefined?{assignmentUnavailable:false}:{}),durationMin:body.durationMin??current.durationMin,petId:body.petId===undefined?current.petId:body.petId,role:body.role||current.role,assignedUserId:body.assignedUserId===undefined?current.assignedUserId:assignedUser?.id||null,assignedAt:body.assignedUserId===undefined?current.assignedAt:assignedUser?new Date():null,quantity,unitPriceCents,discountCents,totalCents,commissionCents,sortOrder:body.sortOrder??current.sortOrder},include:{pet:true,service:true,product:true,assignedUser:{select:{id:true,firstName:true,lastName:true,role:true,active:true}}}});
+    await tx.ticket.update({where:{id:current.ticketId},data:await ticketTiming(tx,current.ticket,await tx.ticketLine.findMany({where:{ticketId:current.ticketId},include:{service:true},orderBy:{sortOrder:'asc'}}),{request,userId:session.user.id})});
+    if((body.assignedUserId!==undefined||body.role!==undefined)&&(changed.role==='GROOM'||current.role==='GROOM'))await syncActualGroomers(tx,current.ticketId);
+    return {changed,previous:current};
+  });}catch(error){const status=(error as {lineEditStatus?:number}).lineEditStatus;if(status||warningDetails(error).schedulingWarning||attendanceDecisionDetails(error).attendanceDecision)return NextResponse.json({...warningDetails(error),...attendanceDecisionDetails(error),error:(error as Error).message},{status:status||409});throw error;}
+  const {changed,previous}=outcome;
+  await writeAudit({ tenantId, actorUserId: session.user.id, entityType: "TICKET", entityId: previous.ticketId, customerId: previous.ticket.customerId, action: "EDIT_LINE", summary: `Updated ${previous.description} on ticket #${previous.ticket.orderNumber}.`, details: { lineId: previous.id, before: { petId: previous.petId, role: previous.role, assignedUserId: previous.assignedUserId, quantity: previous.quantity, unitPriceCents: previous.unitPriceCents, discountCents: previous.discountCents }, after: { petId: changed.petId, role: changed.role, assignedUserId: changed.assignedUserId, quantity: changed.quantity, unitPriceCents: changed.unitPriceCents, discountCents: changed.discountCents } } });
   return NextResponse.json({ line: changed });
 }
 

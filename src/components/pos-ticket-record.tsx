@@ -146,6 +146,21 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  return date+'T'+time;
  });setRebookStart(current=>current||wallTime(x,d.ticket.location?.timezone||"America/Chicago"))}}catch(e){if(mounted.current&&sequence===loadSequence.current)setReadError(e instanceof Error?e.message:"Ticket could not be loaded.")}}
  async function loadGroomers(){try{const r=await employeeFetch("/api/employees");if(r.ok){const d=await r.json();setGroomers((d.employees||[]).filter((e:any)=>e.active&&["GROOMER","MASTER_GROOMER","BACK"].includes(e.role)))}}catch{}}
+ const catalogReload=useRef<()=>Promise<void>>(async()=>{});
+ catalogReload.current=async()=>{await Promise.all([load(savedId.current),loadCheckout(savedId.current,true)])};
+ useEffect(()=>{
+  let stopped=false,timer:ReturnType<typeof setTimeout>|undefined;
+  const refresh=async()=>{
+   if(stopped)return;
+   // A catalog refresh must not discard an employee's pending or failed edit.
+   if(writes.current||operationRunning.current||activeActions.current.size||plannedWrites.current.size||failedPlans.current.size||failedEdits.current.size||packageQueues.current.size||packageIntents.current.size){timer=setTimeout(()=>void refresh(),500);return;}
+   const version=revision.current;await catalogReload.current();
+   if(!stopped&&version!==revision.current)timer=setTimeout(()=>void refresh(),500);
+  };
+  const changed=(event:Event)=>{if(!(event as CustomEvent).detail?.ticketIds?.includes(savedId.current))return;clearTimeout(timer);void refresh()};
+  window.addEventListener('groompro:catalog-synced',changed);
+  return()=>{stopped=true;clearTimeout(timer);window.removeEventListener('groompro:catalog-synced',changed)};
+ },[ticketId]);
  const [receiptEmail,setReceiptEmail]=useState<{url:string;email:string;revision:string;requestId:string}|null>(null),[receiptEmailBusy,setReceiptEmailBusy]=useState(false),[receiptEmailNotice,setReceiptEmailNotice]=useState('');
  async function prepareReceiptEmail(){
   if(!ticketId)return;
@@ -162,7 +177,7 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
   try{const response=await employeeFetch('/api/tickets/receipt?ticketId='+encodeURIComponent(ticketId)+'&locationId='+encodeURIComponent(ticket.locationId||ticket.location?.id||'')),result=await response.json();if(!response.ok)throw Error(result.error||'The receipt could not be opened.');if(!preview.closed){preview.document.open();preview.document.write(result.html);preview.document.close();}}
   catch(error){preview.close();setError((error as Error).message);}
  }
- async function loadCheckout(id=ticketId){if(!id||writes.current)return;const version=revision.current,sequence=++checkoutSequence.current;try{const r=await employeeFetch(`/api/tickets/checkout?ticketId=${id}`);if(r.ok){const d=await r.json();if(!mounted.current||version!==revision.current||writes.current||sequence!==checkoutSequence.current)return;setCheckout(d);setAccount(d.account||account);if(!checkout){if(!tipManual.current)setTip(String(d.tipCents||0));if(!taxManual.current)setTax(String(d.salesTaxCents||0));}if(!paymentManual.current&&d.dueCents>0)setPaymentAmount(current=>current||String(d.dueCents))}}catch{}}
+ async function loadCheckout(id=ticketId,refreshPaymentAmount=false){if(!id||writes.current)return;const version=revision.current,sequence=++checkoutSequence.current;try{const r=await employeeFetch(`/api/tickets/checkout?ticketId=${id}`);if(r.ok){const d=await r.json();if(!mounted.current||version!==revision.current||writes.current||sequence!==checkoutSequence.current)return;setCheckout(d);setAccount(d.account||account);if(!checkout){if(!tipManual.current)setTip(String(d.tipCents||0));if(!taxManual.current)setTax(String(d.salesTaxCents||0));}if(!paymentManual.current&&(d.dueCents>0||refreshPaymentAmount))setPaymentAmount(current=>refreshPaymentAmount?String(Math.max(0,d.dueCents)):current||String(d.dueCents))}}catch{}}
  useEffect(()=>{let alive=true;async function initialize(){const existingRead=initialTicketId?Promise.all([load(initialTicketId),loadCheckout(initialTicketId)]):Promise.resolve();try{const r=await employeeFetch(initialTicketId?`/api/pos-drafts?id=${initialTicketId}`:'/api/pos-drafts',initialTicketId?undefined:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestKey:draftKey.current})});const d=await r.json();if(!r.ok)throw Error(d.error);if(!alive)return;const row=d.draft||d.drafts?.[0];if(row){draftRef.current=row;setDraft(row);setTicketId('');savedId.current='';const p=row.payload||{};setTicket({...emptyTicket(),...(p.ticket||{}),lines:(p.ticket?.lines||[]).map((l:any)=>({...l,clientKey:l.clientKey||crypto.randomUUID()})),timingMode:defaultTiming.current||p.ticket?.timingMode||'SEQUENTIAL',createdAt:row.createdAt});if(p.newStart&&!editedStart.current.date&&!editedStart.current.time&&!pendingSelection.current)setNewStart(p.newStart);if(p.groomerId)setGroomerId(p.groomerId);if(p.tax!==undefined&&!taxManual.current){setTax(p.tax);restoredTax.current=true;}if(p.tip&&!tipManual.current)setTip(p.tip);if(p.customerPets)setCustomerPets(p.customerPets);if(p.ticket?.customer?.id){
  const id=encodeURIComponent(p.ticket.customer.id);
  const choice=customerChoiceVersion.current;

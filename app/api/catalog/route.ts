@@ -1,10 +1,12 @@
 import {recordStockCount} from '@/src/lib/stock-history';
 import {offlineCreateId} from '@/src/lib/offline-transaction';
 import {catalogVersion} from '@/src/lib/catalog-version';
+import {catalogSyncScope,emptyCatalogSync} from '@/src/lib/catalog-sync';
+import {catalogRecord,retainLegacyServiceSnapshots,syncCatalogAppointments} from '@/src/lib/catalog-sync-store';
+import {vipSyncChoices,syncVipPlanMembers} from '@/src/lib/vip-plan-sync';
 import {serviceIsCurrentOffer,serviceIsPromoting,servicePromotionFields} from '@/src/lib/service-promotion';
 import {withRequestPolicy,catalogFeature} from '@/src/lib/request-policy';
 import {loadBreeds} from '@/src/lib/breed-store';
-import {writeAudit} from '@/src/lib/audit';
 import {NextRequest,NextResponse} from "next/server";
 import {randomUUID} from "node:crypto";
 import {db} from "@/src/lib/db";
@@ -21,7 +23,7 @@ async function handlePolicyGET(r:NextRequest){
  db.tenantSetting.findMany({where:{tenantId,settingKey:{startsWith:prefix}}}),
  offerHistory?db.$queryRaw<{serviceId:string}[]>`SELECT DISTINCT l.serviceId FROM TicketLine l JOIN Service s ON s.id=l.serviceId JOIN Ticket t ON t.id=l.ticketId WHERE s.tenantId=${tenantId} AND t.tenantId=${tenantId} AND l.sourceKey=CONCAT('offer-today:',l.serviceId)`:Promise.resolve([])]);
  const usedOfferIds=new Set(usedOffers.map(line=>line.serviceId));
- return NextResponse.json({breeds:await loadBreeds(db,tenantId),services:offerHistory?services.map(service=>({...service,previousOfferRecorded:usedOfferIds.has(service.id)})):services,products,packages:packages.map(p=>({...p,priceCents:p.basePriceCents,_offlineVersion:catalogVersion(p)})),plans:plans.map(p=>({...p.value as object,id:p.settingKey.slice(prefix.length)}))},{headers:{"Cache-Control":"no-store"}});
+ return NextResponse.json({breeds:await loadBreeds(db,tenantId),services:services.map(service=>({...service,_catalogVersion:catalogVersion(service),...(offerHistory?{previousOfferRecorded:usedOfferIds.has(service.id)}:{})})),products,packages:packages.map(p=>({...p,priceCents:p.basePriceCents,_offlineVersion:catalogVersion(p),_catalogVersion:catalogVersion(p)})),plans:plans.map(p=>({...p.value as object,id:p.settingKey.slice(prefix.length),_catalogVersion:catalogVersion(p.value)}))},{headers:{"Cache-Control":"no-store"}});
  }catch(error){console.error("Catalog load",error);return NextResponse.json({error:"Unable to load the catalog. Please retry."},{status:503})}
 }
 async function save(r:NextRequest){
@@ -31,11 +33,19 @@ async function save(r:NextRequest){
  if(!['PLATFORM_OWNER','DEVELOPER','ADMIN','MANAGER'].includes(session.user.role))return NextResponse.json({error:"An administrator or manager must sign in to edit the catalog."},{status:403});
  try{
  const body=await r.json(),data=catalogInput(body),id=r.method==="PATCH"?String(body.id||""):(offlineCreateId()||randomUUID());
+ const applyTo=catalogSyncScope(body.applyTo);
+ const vip=vipSyncChoices(body),updateMembers=vip.updateVipBenefits||vip.updateVipPrice;
+ if(updateMembers&&(r.method!=='PATCH'||data.kind!=='plans'))throw Error('Choose an existing VIP plan before updating current members.');
+ if(applyTo!=='NONE'&&(r.method!=='PATCH'||!['services','packages'].includes(data.kind)))throw Error('Choose an existing service or package before updating appointments.');
  if(data.groomingRules){const breeds=await loadBreeds(db,tenantId);if([...(data.groomingRules.breedIds||[]),...(data.groomingRules.excludedBreedIds||[])].some(id=>!breeds.some(b=>b.id===id)))throw Error('Choose breeds from this business’s dictionary.');}
  if(!id)return NextResponse.json({error:"Select an item to edit."},{status:400});
  const common={name:data.name,description:data.description,active:data.active};
- const item=await db.$transaction(async tx=>{
+ const result=await db.$transaction(async tx=>{
  await tx.$queryRaw`SELECT id FROM Tenant WHERE id=${tenantId} FOR UPDATE`;
+ const before=r.method==='PATCH'?await catalogRecord(tx,tenantId,data.kind,id):null;
+ if((applyTo!=='NONE'||updateMembers)&&(!before||!body.catalogVersion||body.catalogVersion!==catalogVersion(before)))throw Error('This catalog item changed while you were editing. Your edits are still here; reopen the item to review the latest version before applying updates.');
+ if(before&&data.kind==='services')await retainLegacyServiceSnapshots(tx,tenantId,before,data);
+ const writeItem=async()=>{
  if(data.kind==="services"){
  const previous=await tx.service.findFirst({where:{id,tenantId}});
  const categoryConfig=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'SERVICE_CATEGORIES'}}});
@@ -73,7 +83,14 @@ async function save(r:NextRequest){
  const prior=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey}}});
  const value={...(prior?.value as any||{}),...common,...(data.minimumWeightLbs!==undefined?{minimumWeightLbs:data.minimumWeightLbs}:{}),...(data.maximumWeightLbs!==undefined?{maximumWeightLbs:data.maximumWeightLbs}:{}),...(data.groomingRules!==undefined?{groomingRules:data.groomingRules}:{}),priceCents:data.priceCents,items:data.items,billingDay:data.billingDay,billingDaySecond:data.billingDaySecond};
  await tx.tenantSetting.upsert({where:{tenantId_settingKey:{tenantId,settingKey}},create:{tenantId,settingKey,value},update:{value}});return{id,...value};
- });await writeAudit({tenantId,actorUserId:session.user.id,entityType:"TENANT",entityId:tenantId,action:"CATALOG_"+(r.method==="POST"?"CREATE":"EDIT"),summary:`Updated ${data.kind}: ${data.name}.`,details:{kind:data.kind,itemId:id}});return NextResponse.json({item},{status:r.method==="POST"?201:200});
+ };
+ const item=await writeItem();
+ const after=applyTo!=='NONE'||updateMembers?await catalogRecord(tx,tenantId,data.kind,id):null;
+ const sync=applyTo!=='NONE'?await syncCatalogAppointments(tx,tenantId,session.user.id,{kind:data.kind as 'services'|'packages',before,after},applyTo):emptyCatalogSync();
+ if(updateMembers)Object.assign(sync,await syncVipPlanMembers(tx,tenantId,session.user.id,id,before,after,vip));
+ await tx.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'TENANT',entityId:tenantId,action:'CATALOG_'+(r.method==='POST'?'CREATE':'EDIT'),summary:`Updated ${data.kind}: ${data.name}.`,details:{kind:data.kind,itemId:id,applyTo,...vip,updatedAppointments:sync.updated,unchangedAppointments:sync.unchanged,review:sync.review}}});
+ return {item,sync};
+ },{timeout:120000,isolationLevel:'ReadCommitted'});return NextResponse.json(result,{status:r.method==="POST"?201:200});
  }catch(error){return NextResponse.json({error:error instanceof Error?error.message:"Unable to save catalog item."},{status:400})}
 }
 const handlePolicyPOST=save;const handlePolicyPATCH=save;

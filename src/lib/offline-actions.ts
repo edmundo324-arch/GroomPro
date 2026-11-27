@@ -26,7 +26,7 @@ export function offlineAction(url: URL, method: string, body: any): { create?: O
   if(['/api/employee-schedules','/api/booking-assets/schedules','/api/schedule-overrides'].includes(path)&&['PUT','DELETE'].includes(method))return {target:{entity:'schedules',id:'all'}};
   if(path==='/api/staff-tasks'&&method==='POST'&&['SAVE','COMPLETE','REOPEN'].includes(body.action))return {};
   if(path==='/api/time-clock'&&method==='POST'&&['IN','OUT','BREAK_START','BREAK_END','CORRECT'].includes(body.action))return {};
-  if(path==='/api/catalog'&&['services','packages'].includes(body.kind)){const entity=body.kind==='services'?'service':'package';return method==='POST'?{create:entity}:method==='PATCH'?target(entity,body.id):null;}
+  if(path==='/api/catalog'&&['services','packages'].includes(body.kind)){if(body.applyTo&&body.applyTo!=='NONE')return null;const entity=body.kind==='services'?'service':'package';return method==='POST'?{create:entity}:method==='PATCH'?target(entity,body.id):null;}
   if (path === '/api/customers' && method === 'POST') return { create: 'customer' };
   const customer = /^\/api\/customers\/([^/]+)$/.exec(path);
   if (customer && method === 'PATCH' && !['account', 'rewards', 'location-access', 'payment-methods'].includes(customer[1])) return target('customer', customer[1]);

@@ -12,7 +12,7 @@ export async function recordFirstBillingCommission(tx:any,tenantId:string,paymen
  const existing=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:key}});if(existing)return existing.value;
  const source=await tx.ticketLine.findFirst({where:{sourceKey:'MEMBERSHIP_START:'+payment.membershipId,ticket:{tenantId}},include:{assignedUser:true}});
  if(!source?.assignedUser||!source.assignedUser.compensationRules)return null;
- const snapshot=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'MEMBERSHIP_PLAN:'+payment.membershipId}}});
+ const snapshot=await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'MEMBERSHIP_ENROLLMENT_PLAN:'+payment.membershipId}}})||await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'MEMBERSHIP_PLAN:'+payment.membershipId}}});
  const plan=snapshot?.value as any;
  const ids=(plan?.items||[]).map((i:any)=>i.serviceId);
  const services=await tx.service.findMany({where:{tenantId,id:{in:ids}},select:{id:true,code:true,category:true}});

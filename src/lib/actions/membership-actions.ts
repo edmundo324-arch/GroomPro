@@ -17,8 +17,10 @@ function addDays(date: Date, days: number) { const d = new Date(date); d.setDate
 
 
 async function withBillingSchedules(tenantId:string,memberships:any[]){
- const rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:memberships.map(m=>'MEMBERSHIP_BILLING:'+m.id)}}});
- return memberships.map(m=>({...m,billingSchedule:rows.find(r=>r.settingKey==='MEMBERSHIP_BILLING:'+m.id)?.value||{cadence:'MONTHLY',days:[m.billingDay,m.billingDaySecond].filter(Boolean)}}));
+ const rows=await db.tenantSetting.findMany({where:{tenantId,settingKey:{in:memberships.flatMap(m=>['MEMBERSHIP_BILLING:'+m.id,'MEMBERSHIP_PLAN:'+m.id])}}});
+ const serviceIds=[...new Set<string>(rows.filter(r=>r.settingKey.startsWith('MEMBERSHIP_PLAN:')).flatMap(r=>((r.value as any)?.items||[]).map((i:any)=>i.serviceId)))];
+ const services=serviceIds.length?await db.service.findMany({where:{tenantId,id:{in:serviceIds}},select:{id:true,name:true}}):[];
+ return memberships.map(m=>{const plan=rows.find(r=>r.settingKey==='MEMBERSHIP_PLAN:'+m.id)?.value as any;return {...m,billingSchedule:rows.find(r=>r.settingKey==='MEMBERSHIP_BILLING:'+m.id)?.value||{cadence:'MONTHLY',days:[m.billingDay,m.billingDaySecond].filter(Boolean)},planSnapshot:plan?{...plan,items:(plan.items||[]).map((i:any)=>({...i,serviceName:services.find(s=>s.id===i.serviceId)?.name||'Service No Longer Available'}))}:null}});
 }
 export async function GET(request: NextRequest) {
   const tenantId=tenantFrom(request); const customerId=request.nextUrl.searchParams.get("customerId"); const petId=request.nextUrl.searchParams.get("petId");
