@@ -9,6 +9,12 @@ function main() {
   process.env.NODE_ENV = development ? 'development' : 'production';
   loadEnvironment();
   validateDeployment();
+  // Use the installed Alpine engine even when Next loads a route from a bundled directory.
+  if (!process.env.PRISMA_QUERY_ENGINE_LIBRARY && process.platform === 'linux' &&
+      process.arch === 'x64' && process.versions.openssl.startsWith('3.') &&
+      !process.report.getReport().header.glibcVersionRuntime) {
+    process.env.PRISMA_QUERY_ENGINE_LIBRARY = require.resolve('.prisma/client/libquery_engine-linux-musl-openssl-3.0.x.so.node');
+  }
   if(siteRole()!=='sales')process.env.DATABASE_URL = databaseUrl();
   let child;
   let stopScheduler=()=>{};
