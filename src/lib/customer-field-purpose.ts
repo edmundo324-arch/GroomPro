@@ -43,5 +43,5 @@ export function describeCustomerField(element:HTMLElement){
  const control=element.matches('input,select,textarea')?element:element.querySelector('input,select,textarea');
  const help=element.dataset.customerHelp||control?.getAttribute('data-customer-help')||customerFieldPurposes[name];
  if(!help)return null;
- return {name,aliases:[name],path:'',help,element,module:'Customer form'};
+ return {name,aliases:[name],relatedPath:'',path:'',help,element,module:'Customer form'};
 }

@@ -23,3 +23,16 @@ test('field-specific guidance wins and an unknown field does not invent a busine
  assert.equal(describeField(pair('Unreviewed field','Unreviewed control',null).label).help,'');
  }finally{global.document=old;}
 });
+
+test('Find directions are independent of the search location and field explanation',()=>{
+ const old=global.document;global.document={querySelector:()=>null};
+ try{
+  const {label}=pair('Timing','Appointment timing','Choose how services run.');
+  assert.equal(describeField(label).relatedPath,'');
+  label.dataset.relatedPath='Settings → Calendar & Workflow → Booking Rules → Default Appointment Timing';
+  const field=describeField(label);
+  assert.equal(field.relatedPath,label.dataset.relatedPath);
+  assert.equal(field.help,'Choose how services run.');
+  assert.equal(field.path,'Current form → Timing');
+ }finally{global.document=old;}
+});

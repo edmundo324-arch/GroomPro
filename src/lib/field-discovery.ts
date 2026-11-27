@@ -43,7 +43,9 @@ export function describeField(element:HTMLElement){
   name==='Status'&&/pos|ticket/i.test(window||module)?'Set the stage this appointment has reached. Its appearance follows this business’s configured colors.':
   name==='Service type'&&appearance?'Choose the service type whose appointment colors you want to edit, such as GR, FW or FFT.':undefined;
  const help=element.dataset.help||control?.getAttribute('data-help')||accountHelp||contextHelp||(['Primary','SMS','Call','Show Inactive'].includes(name)&&!customerContext?undefined:purpose[name])||known?.help||fieldPurposes[control?.getAttribute('aria-label')||'']||fieldPurposes[name]||control?.getAttribute('title')||element.getAttribute('title')||'';
- return {name:element.dataset.helpName||known?.name||name,aliases:[name,...(known?.aliases||[])],path:element.dataset.helpPath||known?.path||path,help,element,module};
+ const relatedPath=element.dataset.relatedPath||element.closest<HTMLElement>('[data-related-path]')?.dataset.relatedPath||
+  (known?.path.startsWith('Customer Profile →')&&element.closest('.gp-pos-window')?known.path:'');
+ return {relatedPath,name:element.dataset.helpName||known?.name||name,aliases:[name,...(known?.aliases||[])],path:element.dataset.helpPath||known?.path||path,help,element,module};
 }
 export function discoverFields(){
  const seen=new Set<string>();

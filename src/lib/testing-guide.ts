@@ -11,8 +11,8 @@ export const guideItems:GuideItem[]=[
     "id": "02",
     "section": "START HERE — EVERYDAY SHOP WORK",
     "title": "Complete forms and clear hints",
-    "steps": "Open a new POS ticket before choosing a customer. Open a customer and pet editor. Open a question-mark hint, then dismiss it with Escape.",
-    "expected": "the established form structure appears before its information arrives. Opening an editable form does not select an input automatically; PIN authorization is the exception. Hints explain the field, keep it visible and disappear when dismissed. Test your highlight color under Settings → Calendar & Workflow → Helpful hints, then refresh."
+    "steps": "Open a new POS ticket before choosing a customer. Open a customer and pet editor. Open a question-mark hint, then dismiss it with Escape. On POS, hover over Timing and Order. Follow each Find direction in Settings.",
+    "expected": "the established form structure appears before its information arrives. Opening an editable form does not select an input automatically; PIN authorization is the exception. Hints explain the field, keep it visible and disappear when dismissed. Timing points to Booking Rules → Default Appointment Timing. Order points to Appointment Appearance → Appointment Details → Arrival Order. Test your highlight color under Settings → Calendar & Workflow → Helpful hints, then refresh."
   },
   {
     "id": "03",
