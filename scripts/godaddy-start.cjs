@@ -29,15 +29,19 @@ function main() {
       done(code ?? 1);
     });
   }
-  const startSite = code => {
+  const serve = code => {
     if (code !== 0) { process.exitCode = code; return; }
     launch([require.resolve('next/dist/bin/next'), development ? 'dev' : 'start', '-H', '0.0.0.0', '-p', process.env.PORT || '3000'], code => { stopScheduler();process.exitCode = code; });
     if(!development&&runsSchedulers()){const options={port:process.env.PORT||'3000',token:process.env.GROOMPRO_SCHEDULER_TOKEN},stopMessages=startAppointmentScheduler(options),stopReports=startReportScheduler(options);stopScheduler=()=>{stopMessages();stopReports();};}
+  };
+  const startSite = code => {
+    if (code !== 0 || development) return serve(code);
+    launch([require.resolve('./prepare-production.cjs')], serve);
   };
   if(['sales','admin'].includes(siteRole()))startSite(0);
   else launch([require.resolve('./bootstrap-godaddy.cjs')], startSite);
 }
 if (require.main === module) {
-  try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
+  require('./prepare-production.cjs').waitForInstall().then(main).catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 module.exports = { main };

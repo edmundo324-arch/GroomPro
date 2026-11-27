@@ -8,8 +8,7 @@ The server binds to `0.0.0.0` and the host-provided `PORT`.
 GoDaddy preview logs previously showed `npm run dev`. That script now uses the
 same bootstrap gate before running Next in development mode, so preview cannot
 bypass database initialization. Local development also needs configured MySQL.
-GoDaddy must run the build before the start command; a static-only deployment
-cannot serve the GroomPro database APIs.
+Production startup can rebuild missing site files. A Node server is required for the GroomPro database APIs.
 
 Configure the intended preview or published environment with either all of
 `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` and optional `DB_PORT` (3306),
@@ -27,19 +26,13 @@ the one serving the app.
 
 ## Dependency recovery before builds
 
-`npm run build` runs `prebuild` first: `npm ci --include=dev --no-audit --no-fund`.
-This replaces the build workspace's dependency folder using the committed lockfile
-before Prisma generation and Next compilation. It prevents an incomplete restored
-dependency folder from being reused (for example, Next's compiler exists but
-`next/package.json` is missing). No dependency versions are upgraded by this step.
-Use `npm run build`, not a direct `next build`, so the recovery step runs. Do not
-run installation and compilation concurrently or build inside a serving runtime.
-A production build now needs registry access and may take longer during installation.
-
-Verification: an isolated workspace containing an incomplete Next directory was
-repaired by the actual prebuild command. Next 15.5.25 resolved its package metadata
-from its webpack configuration and completed a minimal production build. The
-GoDaddy environment itself was not available for direct verification.
+The hosting build runs a clean installation from the lockfile, generates Prisma
+and the SQL bundle, then compiles the production site. Startup waits for the
+hosting installation and checks for the production files before opening the site.
+If those files are missing from the runtime, startup recreates them using the
+installed dependencies. Build and startup coordinate in the same checkout so
+only one process prepares the site at a time. Allow time for compilation during
+a cold start. Automatic sending starts only after production preparation succeeds.
 
 ## Schema lifecycle
 
