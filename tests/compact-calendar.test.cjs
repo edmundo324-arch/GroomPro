@@ -34,7 +34,8 @@ test('Calendar renders date/search/clear and overflow without the redundant head
  for(const label of ['Calendar date','Search calendar','Calendar options','To Whiteboard','Time Block','Clear','Install GroomPro'])assert.ok(html.includes(label),label);
  assert.doesNotMatch(html,/>Refresh</);assert.doesNotMatch(html,/>New POS Ticket</);assert.doesNotMatch(html,/<h1/);
 });
-test('installed launch uses a stable root without preview tokens and supplies valid PNG icons',()=>{
- const manifest=require('../app/manifest.ts').default();assert.equal(manifest.display,'standalone');assert.equal(manifest.start_url,'/');assert.equal(manifest.scope,'/');
+test('installed launch uses a stable root without preview tokens and supplies valid PNG icons',async()=>{
+ const response=require('../app/manifest.webmanifest/route.ts').GET();assert.equal(response.headers.get('content-type'),'application/manifest+json');
+ const manifest=await response.json();assert.equal(manifest.id,'/');assert.equal(manifest.display,'standalone');assert.equal(manifest.start_url,'/');assert.equal(manifest.scope,'/');
  for(const size of [192,512]){const icon=manifest.icons.find(i=>i.sizes===`${size}x${size}`),bytes=fs.readFileSync('public'+icon.src);assert.equal(bytes.readUInt32BE(16),size);assert.equal(bytes.readUInt32BE(20),size);}
 });

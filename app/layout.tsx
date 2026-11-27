@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import {installPromptBootstrap} from '../src/lib/app-install';
 import "./globals.css";
 import "./calendar-search.css";
 import "./responsive.css";
@@ -12,5 +13,8 @@ export const metadata: Metadata = { title: "GroomPro Suite", description: "Multi
 export const viewport: Viewport = {width:"device-width",initialScale:1,themeColor:"#17354d"};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en"><head>
+    <script id="groompro-install-capture" dangerouslySetInnerHTML={{__html:installPromptBootstrap}}/>
+    <link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials"/>
+  </head><body>{children}</body></html>;
 }
