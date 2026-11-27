@@ -27,7 +27,8 @@ const script=`const modules={${[...modules].map(([key,code])=>`${JSON.stringify(
 const React=require(${JSON.stringify(react)}),{createRoot}=require(${JSON.stringify(client)}),{PosTicketRecord}=require(${JSON.stringify(pos)}),h=React.createElement;
 window.__device=require(${JSON.stringify(device)});window.__deviceStore=require(${JSON.stringify(deviceStore)});window.__online=true;Object.defineProperty(navigator,'onLine',{get:()=>window.__online});
 const pet={id:'gizmo',customerId:'maria',name:'Gizmo',breed:'Beagle',weightLbs:24,active:true,notes:'Be gentle',careFlags:{},pictureUrl:null};
-const baseTicket={id:'fixture-ticket',orderNumber:575,status:'CHECKED_IN',locationId:'fixture-shop',location:{id:'fixture-shop',timezone:'America/Chicago'},customerId:'maria',customer:{id:'maria',firstName:'Maria',lastName:'Test',email:'maria@example.invalid',phones:[{id:'phone',number:'+15555550123',isPrimary:true}],pets:[pet]},pets:[{pet,petId:pet.id}],scheduledStart:'2026-11-27T15:00:00Z',checkedInAt:'2026-11-27T15:05:00Z',arrivalPriority:7,timingMode:'CONCURRENT',durationMin:30,notes:'',assignments:[],plannedAssignments:[],scheduleHistory:[],lines:[{id:'wash',packageId:null,petId:'gizmo',pet,serviceId:'wash',description:'Full Wash',role:'BATH',lineType:'SERVICE',quantity:1,durationMin:30,unitPriceCents:6100,totalCents:6100}]};
+const twoDogs=${process.argv.includes('--two-dog-photos')};const family=twoDogs?[{...pet,name:'Guillermo124'},{...pet,id:'bentley',name:'Bentley124'}]:[pet];window.__profiles={};
+const baseTicket={id:'fixture-ticket',orderNumber:575,status:'CHECKED_IN',locationId:'fixture-shop',location:{id:'fixture-shop',timezone:'America/Chicago'},customerId:'maria',customer:{id:'maria',firstName:'Maria',lastName:'Test',email:'maria@example.invalid',phones:[{id:'phone',number:'+15555550123',isPrimary:true}],pets:family},pets:family.map(pet=>({pet,petId:pet.id})),scheduledStart:'2026-11-27T15:00:00Z',checkedInAt:'2026-11-27T15:05:00Z',arrivalPriority:7,timingMode:'CONCURRENT',durationMin:30,notes:'',assignments:[],plannedAssignments:[],scheduleHistory:[],lines:[{id:'wash',packageId:null,petId:'gizmo',pet,serviceId:'wash',description:'Full Wash',role:'BATH',lineType:'SERVICE',quantity:1,durationMin:30,unitPriceCents:6100,totalCents:6100}]};
 window.__requests=[];window.__unknown=[];window.__saved=[];window.__ticket=structuredClone(baseTicket);window.__holdTicketReads=false;window.__heldReads=[];window.__photos=[];window.__photoData={};window.__petPicture=null;
 const checkout={subtotalCents:6100,tipCents:0,salesTaxCents:0,totalCents:6100,paidCents:0,dueCents:6100};
 Object.assign(baseTicket.customer,{balanceCents:0,creditCents:0,loyaltyPoints:0});Object.assign(window.__ticket.customer,{balanceCents:0,creditCents:0,loyaltyPoints:0});
@@ -52,8 +53,8 @@ window.fetch=async(url,options={})=>{const parsed=new URL(url,'https://fixture.i
  if(pathname==='/api/message-templates')return response({templates:[],appointments:[]});
  if(pathname==='/api/pets/photos'){
   if(method==='GET'&&parsed.searchParams.has('id'))return new Response(Uint8Array.from(atob(window.__photoData[parsed.searchParams.get('id')]),c=>c.charCodeAt(0)),{headers:{'Content-Type':'image/png'}});
-  if(method==='GET')return response({photos:window.__photos,pet:{id:'gizmo',pictureUrl:window.__petPicture}});
-  if(method==='POST'){const {data,...photo}=body;photo.createdAt='2026-11-27T17:00:00Z';window.__photos.push(photo);window.__photoData[photo.id]=data;if(body.useAsProfile){window.__petPicture='/api/pets/photos?id='+photo.id;window.__ticket.customer.pets[0].pictureUrl=window.__petPicture;window.__ticket.pets[0].pet.pictureUrl=window.__petPicture;}return response({photo:{...photo,pet:{id:'gizmo',pictureUrl:window.__petPicture}}});}
+  if(method==='GET'){const id=parsed.searchParams.get('profilePetId')||parsed.searchParams.get('petId');return response({photos:window.__photos.filter(photo=>photo.petId===id),pet:{id,pictureUrl:window.__profiles[id]||null}});}
+  if(method==='POST'){const {data,...photo}=body;photo.createdAt='2026-11-27T17:00:00Z';window.__photos.push(photo);window.__photoData[photo.id]=data;if(body.useAsProfile){window.__profiles[body.petId]='/api/pets/photos?id='+photo.id;if(!twoDogs){window.__petPicture=window.__profiles[body.petId];window.__ticket.customer.pets[0].pictureUrl=window.__petPicture;window.__ticket.pets[0].pet.pictureUrl=window.__petPicture;}}return response({photo:{...photo,pet:{id:body.petId,pictureUrl:window.__profiles[body.petId]}}});}
  }
  window.__unknown.push({url,method,body});return new Response(JSON.stringify({error:'Unexpected fixture request'}),{status:500});};
 const app=createRoot(document.getElementById('app'));let fixtureKey=0;
@@ -75,6 +76,20 @@ async function main(){
  const output=path.join(root,'test-results','pos-arrival-message-photo');fs.mkdirSync(output,{recursive:true});const screenshot=async name=>fs.writeFileSync(path.join(output,name+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
  const remount=async patch=>{const key=await evaluate(`window.__mount(${JSON.stringify(patch)})`);await wait(`document.querySelector('[data-fixture-key]')?.dataset.fixtureKey===${JSON.stringify(String(key))} && document.querySelector('[aria-label="Arrival priority"]')?.value===${JSON.stringify(String(patch.arrivalPriority??''))} && document.querySelector('[data-customer-id]')?.dataset.customerId==='maria'`)};
  await send('Runtime.enable');await send('Page.enable');await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await send('Page.navigate',{url:'http://127.0.0.1:'+fixtureServer.address().port});await wait(`document.querySelector('[aria-label="Arrival priority"]')?.value==='7'`);
+ if(process.argv.includes('--two-dog-photos')){
+  for(const name of ['Guillermo124','Bentley124']){
+   await click('[aria-label="Edit Photos for '+name+'"]');
+   await wait('!!document.querySelector(\'[aria-label="Pet Photos"] input[type="file"]\')');
+   await evaluate(`(()=>{const canvas=document.createElement('canvas');canvas.width=16;canvas.height=16;const ctx=canvas.getContext('2d');ctx.fillStyle=${JSON.stringify(name==='Bentley124'?'blue':'red')};ctx.fillRect(0,0,16,16);const data=Uint8Array.from(atob(canvas.toDataURL().split(',')[1]),c=>c.charCodeAt(0));const dt=new DataTransfer();dt.items.add(new File([data],'dog.png',{type:'image/png'}));const input=document.querySelector('input[type=file]');input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+   await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Save Photo').click()`);
+   await wait(`document.querySelector('[aria-label="Edit Photos for ${name}"] img')?.naturalWidth>0`);
+   await click('[aria-label="Close '+name+' — Photos"]');
+  }
+  await remount({arrivalPriority:7});
+  for(const name of ['Guillermo124','Bentley124'])await wait(`document.querySelector('[aria-label="Edit Photos for ${name}"] img')?.naturalWidth>0`);
+  assert.equal(await evaluate('new Set(Object.values(window.__profiles)).size'),2);
+  console.log('PASS: both saved profile photos display after reopening a two-dog ticket with stale pet snapshots.');return;
+ }
  await click('[aria-label="Arrival priority"]');await click('.gp-floating-title');await pause(120);assert.equal(await evaluate(`window.__requests.filter(r=>r.body?.action==='PRIORITY').length`),0,'Untouched arrival blur must not overwrite the saved order');
  await click('[aria-label="Arrival priority"]');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',modifiers:2,windowsVirtualKeyCode:65});await send('Input.insertText',{text:'9'});await click('.gp-floating-title');await wait(`window.__requests.some(r=>r.body?.action==='PRIORITY'&&r.body.value===9)`);assert.equal(await evaluate(`window.__requests.filter(r=>r.body?.action==='PRIORITY').length`),1,'An actual correction saves once');
  await remount({arrivalPriority:null});assert.equal(await evaluate(`document.querySelector('[aria-label="Checked in"]').disabled`),false,'Checked-in ticket with missing order offers repair');

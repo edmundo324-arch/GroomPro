@@ -3,10 +3,22 @@ import {useEffect,useState,type CSSProperties} from 'react';
 import {employeeFetch} from '../lib/employee-fetch';
 export type PetPictureUpdate={id:string;pictureUrl:string|null};
 export function announcePetPicture(pet:PetPictureUpdate){window.dispatchEvent(new CustomEvent('groompro:pet-picture-changed',{detail:pet}));}
-export function PetPicture({petId,pictureUrl,name,className,style}:{petId:string;pictureUrl?:string|null;name:string;className?:string;style?:CSSProperties}){
+export function PetPicture({petId,pictureUrl,name,className,style,currentProfile=false}:{currentProfile?:boolean;petId:string;pictureUrl?:string|null;name:string;className?:string;style?:CSSProperties}){
  const [source,setSource]=useState(pictureUrl||''),[url,setUrl]=useState('');
- useEffect(()=>setSource(pictureUrl||''),[petId,pictureUrl]);
- useEffect(()=>{const changed=(event:Event)=>{const pet=(event as CustomEvent<PetPictureUpdate>).detail;if(pet?.id===petId)setSource(pet.pictureUrl||'')};window.addEventListener('groompro:pet-picture-changed',changed);return()=>window.removeEventListener('groompro:pet-picture-changed',changed)},[petId]);
+ useEffect(()=>{
+  let active=true,updated=false;
+  setSource(pictureUrl||'');
+  const changed=(event:Event)=>{
+   const pet=(event as CustomEvent<PetPictureUpdate>).detail;
+   if(pet?.id===petId){updated=true;setSource(pet.pictureUrl||'');}
+  };
+  window.addEventListener('groompro:pet-picture-changed',changed);
+  // Ticket drafts can contain an older pet snapshot. Read the saved profile for each dog.
+  if(currentProfile) employeeFetch('/api/pets/photos?profilePetId='+encodeURIComponent(petId))
+    .then(async response=>response.ok?(await response.json()).pet:null)
+    .then(pet=>{if(active&&!updated&&pet?.id===petId)setSource(pet.pictureUrl||'');}).catch(()=>{});
+  return ()=>{active=false;window.removeEventListener('groompro:pet-picture-changed',changed);};
+ },[petId,pictureUrl,currentProfile]);
  useEffect(()=>{let alive=true,objectUrl='';setUrl('');if(!source)return;
   if(source.startsWith('/api/pets/photos?')){employeeFetch(source).then(async r=>{if(!r.ok)return;objectUrl=URL.createObjectURL(await r.blob());if(alive)setUrl(objectUrl);else URL.revokeObjectURL(objectUrl)}).catch(()=>{});}
   else if(/^(https:\/\/|\/(?!\/))/.test(source))setUrl(source);

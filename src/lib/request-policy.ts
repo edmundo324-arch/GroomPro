@@ -16,7 +16,7 @@ export async function actionPermissions(request:NextRequest,configure=false):Pro
  if(['GET','HEAD','OPTIONS'].includes(request.method))return ['VIEW'];
  if(configure)return ['CONFIGURE'];
  const path=request.nextUrl?.pathname||'';
- if(path==='/api/pets/photos'&&request.method==='POST'){const body=await request.clone().json().catch(()=>({}));return body.useAsProfile===true?['CREATE','EDIT']:['CREATE'];}
+ if((path==='/api/pets/photos'||path==='/api/pets/photos/google')&&request.method==='POST'){const body=await request.clone().json().catch(()=>({}));return body.useAsProfile===true?['CREATE','EDIT']:['CREATE'];}
  if(path==='/api/waitlist'&&request.method==='POST'){const body=await request.clone().json().catch(()=>({}));return body.revision?['EDIT']:['CREATE'];}
   if(path==='/api/staff-tasks'){const body=await request.clone().json().catch(()=>({}));return body.action==='SAVE'&&!body.revision?['CREATE']:['EDIT'];}
  if(path==='/api/pos-operation'){
