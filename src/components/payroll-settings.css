@@ -1,0 +1,14 @@
+.gp-payroll-setup .gp-payroll-fields,.gp-payroll-employee{margin:10px 0;padding:10px;border:1px solid #ccdce5;border-radius:6px;min-width:0}
+.gp-payroll-setup .gp-payroll-fields{display:grid;gap:12px}
+.gp-payroll-setup legend,.gp-payroll-employee legend{font-weight:650;padding:0 4px}
+.gp-payroll-setup label.gp-payroll-radio{display:flex;align-items:center;gap:8px;margin:0}
+.gp-payroll-radio input{flex:none;width:auto;margin:0}
+.gp-payroll-radio small{display:inline-block;margin-left:8px;color:#4e6878}
+.gp-payroll-setup .gp-payroll-method,.gp-payroll-employee .gp-payroll-method{display:flex;flex-direction:column;gap:5px;min-width:0;max-width:360px;margin:0}
+.gp-payroll-method :is(select,input){width:100%;min-width:0;box-sizing:border-box}
+.gp-payroll-preparation{padding:7px 9px;background:#fff7df;border:1px solid #e5d4a1;border-radius:5px;font-size:13px;margin:5px 0 10px}
+.gp-payroll-help{font-size:13px;line-height:1.4;margin:7px 0 0}
+.gp-payroll-actions,.gp-payroll-employee-row{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px}
+.gp-payroll-employee-row>.gp-payroll-method{flex:1 1 240px}
+.gp-payroll-message{min-height:20px;font-size:13px;margin:6px 0 0}
+.gp-payroll-employee{background:#f5f9fc}

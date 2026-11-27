@@ -53,6 +53,7 @@ export async function replayOffline(request: NextRequest, tenantId: string, empl
         if (receipt.requestHash !== requestHash) throw new Rejected(NextResponse.json({ error: 'Offline save ID already used.' }, { status: 409 }));
         return NextResponse.json(receipt.response, { status: receipt.responseStatus || 200 });
       }
+      let checkedInAt: Date | undefined;
       if (target) {
         const record = await currentRecord(tx, tenantId, locationId, target);
         if (!record || metadata.live !== true && offlineRecordVersion(record) !== metadata.version) {
@@ -61,9 +62,18 @@ export async function replayOffline(request: NextRequest, tenantId: string, empl
             offlineConflict: true, cloud: record,
           }, { status: 409 }));
         }
+        const checkIn = (request.nextUrl.pathname === '/api/tickets/status' && body.status === 'CHECKED_IN' && !body.action) ||
+          (request.nextUrl.pathname === '/api/pos-operation' && body.kind === 'STATUS' && body.details?.status === 'CHECKED_IN' && !body.details?.action);
+        if (checkIn && metadata.live !== true && metadata.createdAt !== undefined) {
+          // Only the scoped, version-checked replay can supply a device time.
+          const createdAt = 'createdAt' in record ? Number(record.createdAt) : 0;
+          if (!Number.isSafeInteger(metadata.createdAt) || metadata.createdAt <= 0 || metadata.createdAt > Date.now() + 300000 || createdAt && metadata.createdAt < createdAt)
+            throw new Rejected(NextResponse.json({ error: 'The saved check-in time does not match this appointment. Review the device change before retrying.' }, { status: 409 }));
+          checkedInAt = new Date(metadata.createdAt);
+        }
       }
       const id = offlineRecordId(metadata.id);
-      const response = await offlineTransaction.run({ tx, recordId: id }, invoke);
+      const response = await offlineTransaction.run({ tx, recordId: id, checkedInAt }, invoke);
       if (!response.ok) throw new Rejected(response);
       const result = await response.json();
       // Keep the acknowledgement small. The client refreshes the full record.

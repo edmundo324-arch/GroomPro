@@ -2,6 +2,7 @@ import {localToInstant,zonedParts} from '@/src/lib/operating-hours';
 import {requestLocation} from '@/src/lib/request-location';
 import {recordStaffAttendance} from '@/src/lib/customer-attendance';
 import {workflowSettings} from '@/src/lib/workflow-settings';
+import {offlineCheckedInAt} from '@/src/lib/offline-transaction';
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/lib/db";
 import { writeAudit } from "@/src/lib/audit";
@@ -74,7 +75,7 @@ async function updateStatus(request: NextRequest) {
           _max: { arrivalPriority: true }
         });
         assignedArrivalPriority = (max._max.arrivalPriority || 0) + 1;
-        return tx.ticket.update({ where: { id: live.id, status: live.status }, data: { status, checkedInAt: live.checkedInAt || now, arrivalPriority: assignedArrivalPriority } });
+        return tx.ticket.update({ where: { id: live.id, status: live.status }, data: { status, checkedInAt: live.checkedInAt || offlineCheckedInAt() || now, arrivalPriority: assignedArrivalPriority } });
       });
     } else {
       const data: { status: Status; checkedInAt?: Date | null; pickupAt?: Date | null; pickupCompletedAt?: Date | null; closedAt?: Date | null } = { status };

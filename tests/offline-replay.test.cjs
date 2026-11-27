@@ -73,3 +73,15 @@ test('offline receipts prevent duplicate writes and keep failed saves and confli
   assert.equal(record.firstName, 'Edit');
   assert.equal(receipts.size, 1);
 });
+
+test('only validated offline check-ins carry their recorded time into the status action',async()=>{
+ const actions=load('offline-actions',{}),now=Date.now(),record={id:'ticket',createdAt:new Date(now-86400000),updatedAt:new Date(now-3600000)},contexts=[];
+ const tx={$queryRaw:async()=>[],ticket:{findFirst:async()=>record},posOperation:{findUnique:async()=>null,create:async()=>{}}};
+ const {replayOffline}=load('offline-replay',{'@prisma/client':{Prisma:{TransactionIsolationLevel:{Serializable:'Serializable'}}},'next/server':{NextResponse:{json:Response.json}},'./offline-actions':actions,'./request-location':{requestLocation:async()=> 'location'},'./offline-transaction':{offlineTransaction:{run:(scope,invoke)=>{contexts.push(scope);return invoke()}}},'./db':{db:{$transaction:async run=>run(tx)}}});
+ async function replay(createdAt,extra={},details={status:'CHECKED_IN'}){const url='https://groompro.test/api/pos-operation',metadata={id:require('node:crypto').randomUUID(),tenantId:'tenant',locationId:'location',employeeId:'employee',version:record.updatedAt.toISOString(),createdAt,...extra};const request=new Request(url,{method:'POST',headers:{'x-groompro-offline':encodeURIComponent(JSON.stringify(metadata))},body:JSON.stringify({kind:'STATUS',ticketId:'ticket',details})});request.nextUrl=new URL(url);return replayOffline(request,'tenant','employee',async()=>Response.json({ticket:record}));}
+ const recorded=now-1800000;assert.equal((await replay(recorded)).status,200);assert.equal(+contexts.at(-1).checkedInAt,recorded);
+ assert.equal((await replay(recorded,{live:true})).status,200);assert.equal(contexts.at(-1).checkedInAt,undefined,'Direct online check-in uses server time');
+ assert.equal((await replay(recorded,{}, {status:'READY'})).status,200);assert.equal(contexts.at(-1).checkedInAt,undefined,'Other status timestamps are unchanged');
+ const accepted=contexts.length;for(const bad of [0,now+3600000,now-172800000,'yesterday',null])assert.equal((await replay(bad)).status,409);assert.equal(contexts.length,accepted,'Invalid timestamps never reach a mutation');
+ assert.equal((await replay(recorded,{employeeId:'someone-else'})).status,403);assert.equal(contexts.length,accepted,'Scope checks still precede device-time acceptance');
+});

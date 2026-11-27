@@ -253,12 +253,12 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
     const priorStatus=ticket.status;
     if (details.status) ticket.status = details.status;
     if(priorStatus==='READY'&&details.status&&details.status!=='READY'&&details.status!=='READY_FOR_PICKUP')ticket.pickupAt=null;
-    if (details.action === 'UNDO_CHECK_IN') Object.assign(ticket, { status: 'CONFIRMED', checkedInAt: null, arrivalPriority: null, pickupAt: null });
+    if (details.action === 'UNDO_CHECK_IN') Object.assign(ticket, { status: 'CONFIRMED', checkedInAt: null, arrivalPriority: null, arrivalPriorityPending: false, pickupAt: null });
     if (details.action === 'UNDO_READY') Object.assign(ticket, { status: ticket.checkedInAt ? 'CHECKED_IN' : 'CONFIRMED', pickupAt: null });
-    if (details.status === 'CHECKED_IN') ticket.checkedInAt ||= now;
+    if (details.status === 'CHECKED_IN') { ticket.checkedInAt ||= now; ticket.arrivalPriorityPending = !ticket.arrivalPriority; }
     if (details.status === 'READY'||details.status === 'READY_FOR_PICKUP') ticket.pickupAt = priorStatus==='READY'?ticket.pickupAt||now:now;
     if (!ticket.pickupAt) Object.assign(ticket, {pickupCalledAt:null,pickupTextedAt:null,readyContacted:false});
-    if (details.status === 'OPEN' || details.checkedIn === false) Object.assign(ticket, { checkedInAt: null, arrivalPriority: null });
+    if (details.status === 'OPEN' || details.checkedIn === false) Object.assign(ticket, { checkedInAt: null, arrivalPriority: null, arrivalPriorityPending: false });
   } else if (path === '/api/tickets/visit-history') {
     if(ticket.status!=='READY'||!ticket.pickupAt||ticket.pickupCompletedAt)throw Error('Mark the ticket ready for pickup before recording a call.');
     if(body.action==='CONTACT'){
@@ -339,7 +339,7 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
       ticket.plannedAssignments = [...previous.filter((plan: any) => plan.petId !== body.petId), { petId: body.petId, userId: body.employeeId },
         ...previous.filter((plan: any) => plan.petId === body.petId && plan.packageKey).map((plan: any) => ({ ...plan, userId: body.employeeId }))];
     }
-  } else if (path === '/api/whiteboard') ticket.arrivalPriority = body.value;
+  } else if (path === '/api/whiteboard') { ticket.arrivalPriority = body.value; ticket.arrivalPriorityPending = false; }
   else if (path === '/api/tickets/presentation') ticket.presentationServiceType = body.serviceType;
   else if (path === '/api/tickets/planned-packages') {
     const next = body.assignment;
@@ -445,7 +445,8 @@ export function offlineReadRecords(state: OfflineRecords, url: URL) {
     if (ticket) {
       const paidCents = ticketSettledCents(ticket);
       const subtotalCents = ticket.lines.reduce((total: number, line: any) => total + Number(line.totalCents || 0), 0);
-      return { ticket, paidCents, subtotalCents, totalCents: ticket.totalCents, dueCents: Math.max(0, ticket.totalCents - paidCents), account: customerRecord(state, ticket.customerId) };
+      const tipCents = Number(ticket.tipCents || 0), salesTaxCents = Number(ticket.salesTaxCents || 0);
+      return { ticket, paidCents, subtotalCents, tipCents, salesTaxCents, totalCents: ticket.totalCents, dueCents: Math.max(0, ticket.totalCents - paidCents), account: customerRecord(state, ticket.customerId) };
     }
   }
   if (path === '/api/customers/account') {

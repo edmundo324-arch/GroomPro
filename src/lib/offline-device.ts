@@ -20,6 +20,19 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 });
 function change() { window.dispatchEvent(new Event('groompro:offline-changed')); }
 const same = (left: OfflineScope, right: OfflineScope) => offlineScopeKey(left) === offlineScopeKey(right);
+const ticketSyncChannel = typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('groompro:ticket-sync') : null;
+ticketSyncChannel?.addEventListener('message', async event => {
+  const detail = event.data;
+  if (!detail?.offlineSync || typeof detail.ticketId !== 'string') return;
+  const active = await activeDevice();
+  if (active && active.scope.tenantId === detail.tenantId && active.scope.locationId === detail.locationId)
+    window.dispatchEvent(new CustomEvent('groompro:ticket-changed', { detail }));
+});
+function ticketSynced(scope: OfflineScope, ticketId: string) {
+  const detail = { tenantId: scope.tenantId, locationId: scope.locationId, ticketId, offlineSync: true };
+  window.dispatchEvent(new CustomEvent('groompro:ticket-changed', { detail }));
+  ticketSyncChannel?.postMessage(detail);
+}
 
 async function activeDevice(): Promise<ActiveDevice | undefined> {
   if (localAccessBlocked) return;
@@ -150,7 +163,7 @@ async function projected(active: ActiveDevice) {
       if(entry.result.clock&&snapshot.lookups['/api/time-clock'])snapshot.lookups['/api/time-clock'].clocks[entry.result.userId]=entry.result.clock;
       if (entry.result.ticket) {
         const record = findRecord(snapshot, 'ticket', entry.result.ticket.id);
-        if (record) Object.assign(record, entry.result.ticket);
+        if (record) Object.assign(record, { arrivalPriorityPending: false }, entry.result.ticket);
       }
     } catch { /* The cloud receipt still confirms the saved operation. */ }
   }
@@ -175,7 +188,7 @@ export async function offlineBootstrap() {
 function sendCommand(command: OfflineCommand, version: OfflineCommand['version'], live?: RequestInit) {
   const url = new URL(command.url, window.location.origin);
   if (!url.searchParams.has('locationId')) url.searchParams.set('locationId', command.locationId);
-  const metadata = { id: command.id, tenantId: command.tenantId, locationId: command.locationId, employeeId: command.employeeId, version, live: Boolean(live) };
+  const metadata = { id: command.id, tenantId: command.tenantId, locationId: command.locationId, employeeId: command.employeeId, createdAt: command.createdAt, version, live: Boolean(live) };
   const headers = new Headers(live?.headers);
   headers.set('Content-Type', 'application/json');
   headers.set('x-groompro-offline', encodeURIComponent(JSON.stringify(metadata)));
@@ -232,8 +245,11 @@ async function saveOnDevice(active: ActiveDevice, url: URL, method: string, raw:
     catch { unreachableUntil = Date.now() + 15000; }
     if (response?.ok) {
       try {
-        await confirmCommand(key, command, await response.clone().json());
+        const receipt = await response.clone().json();
+        await confirmCommand(key, command, receipt);
         change();
+        const ticketId = receipt.ticket?.id || (target?.entity === 'ticket' ? target.id : null);
+        if (ticketId) ticketSynced(active.scope, ticketId);
         return response;
       } catch { /* If the receipt is interrupted, retry the same command. */ }
     } else if (response && response.status < 500 && response.status !== 429) {
@@ -397,6 +413,10 @@ export function syncOffline() {
       await confirmCommand(key, command, result);
       completed = true;
       change();
+      // Publish each saved ticket even when a later queued change needs review.
+      // Readers apply remaining queued edits before showing the confirmed order.
+      const ticketId = result.ticket?.id || (target?.entity === 'ticket' ? target.id : null);
+      if (ticketId) ticketSynced(active.scope, ticketId);
     }
     if (completed) {
       await refreshDevice(active.scope);

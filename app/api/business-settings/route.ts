@@ -13,7 +13,7 @@ async function sessionFor(r: NextRequest) {
 async function handlePolicyGET(request: NextRequest) {
   const session = await sessionFor(request);
   if (!session) return NextResponse.json({ error: "Employee session required" }, { status: 401 });
-  const settings = await db.tenantSetting.findMany({ where: { tenantId: session.tenantId, NOT: [{settingKey:{startsWith:"EMPLOYEE_PIN_VAULT:"}},{settingKey:"IMPORT_ENCRYPTION_KEY"}] } });
+  const settings = await db.tenantSetting.findMany({ where: { tenantId: session.tenantId, NOT: [{settingKey:{startsWith:"EMPLOYEE_HR:"}},{settingKey:{startsWith:"EMPLOYEE_PAY_METHOD:"}},{settingKey:"PAYROLL_PAY_METHOD_SETTINGS"},{settingKey:{startsWith:"EMPLOYEE_PIN_VAULT:"}},{settingKey:"IMPORT_ENCRYPTION_KEY"}] } });
   return NextResponse.json({ settings: Object.fromEntries(settings.map(s => [s.settingKey, s.value])) });
 }
 

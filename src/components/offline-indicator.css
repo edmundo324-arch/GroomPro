@@ -1,0 +1,7 @@
+.gp-offline-review{color:#17324d;white-space:normal;font-size:14px}
+.gp-offline-review>.gp-editor-content>section{padding:14px;overflow-wrap:anywhere}
+.gp-offline-review p{margin:0 0 12px;line-height:1.45}
+.gp-offline-review details{margin-bottom:10px}
+.gp-offline-review summary{cursor:pointer;font-weight:700;padding:8px;border:1px solid #cbd9e5;background:#f0f7fa}
+.gp-offline-review pre{overflow-wrap:anywhere;font-size:12px;line-height:1.4}
+.gp-offline-review .gp-actions{flex-wrap:wrap;margin:12px 0}

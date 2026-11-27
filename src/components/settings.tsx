@@ -2,6 +2,7 @@
 import {CatalogSyncChoice,CatalogSyncSummary,type CatalogSyncScope,type CatalogSyncResult} from './catalog-sync-choice';
 import {SalesTaxSettings} from './sales-tax-settings';
 import {TipDistributionSettings} from './tip-distribution-settings';
+import {PayrollSettings} from './payroll-settings';
 import {ConversationSettings} from './conversation-settings';
 import {MarketingLimitSettings} from './marketing-limit-settings';
 import {VoidTicketSettings} from './ticket-void';
@@ -64,6 +65,7 @@ const items=type==="SERVICE"?services:packages;return <section className="gp-set
  {id:'categories',label:'Service categories',content:<><CategorySettings/><BusinessLibrary kind="grooming-picks"/></>},
  {id:'sales-tax',label:'Sales Tax',content:<SalesTaxSettings/>},
  {id:'tips',label:'Tip Distribution',content:<TipDistributionSettings locationId={locationId}/>},
+ {id:'payroll',label:'Payroll',content:<PayrollSettings/>},
  {id:'rewards',label:'Rewards',content:<><ReferralRewardSettings/><RewardSettings/></>},
  {id:'communications',label:'Communications',content:<><AppointmentMessageSettings/><MarketingLimitSettings/><ConversationSettings/><CustomRuleSettings/><BusinessLibrary kind="message-templates"/><HeyRosieSettings/></>},
  {id:'data',label:'Data & integrations',content:<SettingsSections id="settings-data" label="Data and integrations" sections={[{id:'imports',label:'Import & migration',content:<><CustomerImport/><TenantExport/></>},{id:'123pet',label:'123Pet connection',content:<Pet123Settings/>},{id:'library',label:'Starter library',content:<StarterLibrary/>}]}/>},

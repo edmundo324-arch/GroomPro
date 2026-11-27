@@ -39,6 +39,7 @@ const sections: Record<string, [label: string, description: string, keywords: st
   'locations/locations': ['Locations', 'Choose or add a business location.', 'store address add location'],
   'locations/sharing': ['Customer sharing', 'Choose how customer records are shared between locations.', 'client location access'],
   'sales-tax': ['Sales Tax', 'Set the tax percentage for open tickets.', 'tax taxes percentage automatic sales tax'],
+  payroll: ['Payroll', 'Prepare individual or shared employee pay methods.', 'payroll hourly salary commission employee pay method'],
   pricing: ['Pricing', 'Adjust base service and package prices or set a price rule for a location.', 'rates bulk price markup discount'],
   breeds: ['Breeds', 'Manage breed records and their grooming defaults.', 'breed dog default package'],
   categories: ['Service categories', 'Manage categories used for services and employee qualifications.', 'job title employee categories grooming instructions quick picks body ears tail tbf'],
@@ -58,6 +59,7 @@ const businessOnly = new Set(['ticket-layout', 'schedule-editor', 'profiles', 'b
 const importPath = ['data', 'imports'];
 const ticketPath = ['workflow', 'ticket-layout'];
 export const settingsSearchEntries: SettingsSearchEntry[] = [
+ {path:['payroll'],title:'Payroll Setup',description:'Choose individual employee pay methods or one shared method. Payroll payments and tax filings are not connected.',keywords:'payroll hourly commission salary whichever higher employee pay method business common shared',access:'manager',anchor:'payroll-setup',steps:['Payroll Setup']},
  {path:['rewards'],title:'Discounts & promotions',description:'Create percent or dollar offers and choose eligible customers and items.',keywords:'discount coupon promotion military VIP percent dollar best largest offer',access:'manager',anchor:'promotion-settings',steps:['Discounts & promotions']},
 
  {path:['communications'],title:'Automatic appointment messages',description:'Choose confirmation schedules, message channels and fee-reminder wording.',keywords:'automatic confirmation request reminders attendance days morning sms email cancellation fee vaccination vaccine expiration eight weeks reminder wording review request feedback closing review link birthday birthdays leap year prepaid reminders',access:'manager'},
@@ -176,7 +178,7 @@ export const settingsSearchEntries: SettingsSearchEntry[] = [
   },
   ...Object.entries(sections).map(([key, [title, description, keywords]]): SettingsSearchEntry => {
     const path = key.split('/');
-    const access = key === 'workflow/care-instructions' ? 'manager' : key === 'data/123pet' ? 'platform' : key === 'data/imports' ? 'manager' : businessOnly.has(path[1]) && path[0] === 'workflow' ? 'admin' : undefined;
+    const access = key === 'workflow/care-instructions' || key === 'payroll' ? 'manager' : key === 'data/123pet' ? 'platform' : key === 'data/imports' ? 'manager' : businessOnly.has(path[1]) && path[0] === 'workflow' ? 'admin' : undefined;
     return { path, title, description, keywords, access };
   }),
 ];

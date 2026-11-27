@@ -1,0 +1,21 @@
+"use client";
+import {useEffect,useRef,useState} from 'react';
+import {employeeFetch} from '../lib/employee-fetch';
+import {payrollPayMethods,payrollPreparationNotice,type PayrollContext,type PayrollPayMethod,type PayrollPayMode} from '../lib/payroll-pay-methods';
+import './payroll-settings.css';
+export function PayrollSettings(){
+ const [saved,setSaved]=useState<PayrollContext|null>(null),[mode,setMode]=useState<PayrollPayMode>('PER_EMPLOYEE'),[method,setMethod]=useState<PayrollPayMethod|''>(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[reload,setReload]=useState(false),requesting=useRef(false);
+ async function load(){if(requesting.current)return;requesting.current=true;setBusy(true);setMessage('');try{const response=await employeeFetch('/api/payroll-settings',{cache:'no-store'}),data=await response.json();if(!response.ok||!data.settings)throw Error(data.error||'Payroll settings could not be loaded.');setSaved(data);setMode(data.settings.mode);setMethod(data.settings.commonMethod||'');setReload(false)}catch(error){setMessage((error as Error).message)}finally{requesting.current=false;setBusy(false)}}
+ useEffect(()=>{void load()},[]);
+ async function save(){if(!saved||requesting.current)return;requesting.current=true;setBusy(true);setMessage('');try{const response=await employeeFetch('/api/payroll-settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({scope:'BUSINESS',mode,commonMethod:method||null,revision:saved.settings.revision})}),data=await response.json();if(!response.ok||!data.settings){setReload(response.status===409);throw Error(data.error||'Payroll settings could not be saved.')}setSaved(data);setReload(false);setMessage('Payroll pay-method setup saved. Employee choices and existing earnings are preserved.');window.dispatchEvent(new CustomEvent('groompro:data-changed',{detail:{url:'/api/payroll-settings'}}))}catch(error){setMessage((error as Error).message)}finally{requesting.current=false;setBusy(false)}}
+ return <section className="gp-settings-card gp-payroll-setup" data-settings-target="payroll-setup"><h2>Payroll Setup</h2><p className="gp-payroll-preparation">{payrollPreparationNotice}</p><p>Choose how pay methods are assigned. This saves your payroll setup choices; it does not calculate or send wages or change existing commissions.</p><p className="gp-payroll-help">For existing clock-in, break, and time corrections, go to <strong>Blue Menu → Schedule → Time Clock</strong>.</p>
+  <fieldset disabled={!saved||busy} className="gp-payroll-fields"><legend>Pay Method Assignment</legend>
+   <label className="gp-payroll-radio"><input type="radio" name="payroll-pay-mode" checked={mode==='PER_EMPLOYEE'} onChange={()=>setMode('PER_EMPLOYEE')}/><span>Each Employee Has Their Own Pay Method <small>Factory Default</small></span></label>
+   <label className="gp-payroll-radio"><input type="radio" name="payroll-pay-mode" checked={mode==='COMMON'} onChange={()=>setMode('COMMON')}/><span>Use One Pay Method for Everyone</span></label>
+   <label className="gp-payroll-method">Shared Pay Method<select aria-label="Shared Pay Method" value={method} disabled={mode!=='COMMON'} onChange={event=>setMethod(event.target.value as PayrollPayMethod|"")}><option value="">Choose a Pay Method</option>{payrollPayMethods.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
+   <p className="gp-payroll-help">{mode==='COMMON'&&method==='WHICHEVER_IS_HIGHER'&&<>Choose the larger amount: hourly pay or commission. This is a setup choice only. </>}Individual choices are saved under Schedule → Edit Employee → Pay &amp; Commissions. Switching to a shared method keeps those choices for later use.</p>
+  </fieldset>
+  <div className="gp-payroll-actions"><button type="button" className="gp-btn primary" disabled={!saved||busy||reload||(mode==='COMMON'&&!method)} onClick={()=>void save()}>Save Payroll Setup</button>{(!saved||reload)&&<button type="button" className="gp-btn" disabled={busy} onClick={()=>void load()}>{saved?'Reload Saved Payroll Settings':'Retry Loading Payroll Settings'}</button>}</div>
+  <p className="gp-payroll-message" role="status">{busy?'Loading or Saving Payroll Setup...':message}</p>
+ </section>;
+}

@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { offlineStatus, prepareOffline, reviewOffline, syncOffline } from '../lib/offline-device';
 import type { OfflineCommand } from '../lib/offline-actions';
+import { FloatingEditorWindow } from './floating-editor-window';
+import './offline-indicator.css';
 
 export function OfflineIndicator({ scope, employeeId }: { scope: string; employeeId?: string }) {
   const [online, setOnline] = useState(true);
@@ -62,8 +65,8 @@ export function OfflineIndicator({ scope, employeeId }: { scope: string; employe
         {(issue||state.signInRequired||pending>0)&&<small>{issue||state.signInRequired?'!':pending}</small>}
       </span>
     </button>
-    {review && <section aria-label="Offline changes" className="gp-floating-window" style={{ position: 'fixed', top: '4rem', right: '1rem', zIndex: 31, width: 'min(32rem, 92vw)', padding: '1rem', maxHeight: '75dvh', overflow: 'auto' }}>
-      <h2>Offline changes</h2>
+    {review && createPortal(<FloatingEditorWindow windowKey="offline-changes" title="Offline Changes" initialSize={{width:600,height:560}} onClose={() => setReview(false)} className="gp-offline-review" style={{zIndex:2200}}>
+      <section aria-label="Offline changes">
       <p>{pending ? 'These changes are saved on this device until GoDaddy confirms them.' : state.ready ? 'The local records are ready.' : 'Keep GroomPro open online while this device prepares.'}</p>
       <p>{state.reportSavedAt?`Reporting history is available through the copy saved ${new Date(state.reportSavedAt).toLocaleString()}.`:"Full reporting history has not finished preparing on this device. Keep GroomPro connected to finish; previously opened reports remain available."}</p>
       {state.signInRequired && <p>Sign in as the employee who saved these changes to resume syncing.</p>}
@@ -85,6 +88,7 @@ export function OfflineIndicator({ scope, employeeId }: { scope: string; employe
         </details>)}
       </details>}
       {!issue && pending > 0 && <button className="gp-btn" disabled={!online} onClick={() => void syncOffline()}>Sync now</button>}
-    </section>}
+      </section>
+    </FloatingEditorWindow>,document.body)}
   </div>;
 }
