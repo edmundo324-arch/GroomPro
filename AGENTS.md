@@ -71,7 +71,7 @@
 
 ## Compact Calendar and app installation
 - Calendar heading and New POS Ticket are factory-hidden; tenants may enable them in POS layout settings. Empty employee slots continue the existing booking workflow.
-- Small-screen Calendar keeps date navigation and search visible; secondary controls use the three-dot menu. Time Block / To Whiteboard are concise labels. Clear empties live search without reloading data.
+- Small-screen Calendar keeps date navigation and search visible; secondary controls use the three-dot menu. To Whiteboard is the concise label. Clear empties live search without reloading data.
 - Phone/tablet column defaults are 100 px; scoped user choices override defaults and survive reopening. Touch item fields show ordinary text until activated, while desktop keeps its original native editors.
 - The standalone web-app manifest uses a stable root launch URL without preview tokens. Installation shares live application services and permissions; no offline customer/payment caches or separate app business logic.
 
@@ -157,3 +157,4 @@
 - Show the year once above Employee or Booking Asset, with both years for a range crossing New Year. Day headings show the weekday and MM/DD; editing and saving retain complete dates.
 - Shift editing uses a compact, stable paper-like form. Start and End remain together; Day Off and recurring-scope choices disable inapplicable controls without moving the remaining fields or discarding entered hours. Preserve window size preferences, shop choices, recurring shifts, date overrides and sick-coverage actions.
 - POS planned employee choices follow the appointment date and shop, including date-specific days off. Refresh after schedule changes; do not offer everyone when schedules fail to load. Preserve saved assignments visibly, including approved scheduling exceptions, and keep actual service-work attribution separate. Do not add new overlap or after-closing restrictions.
+- Time Block stays available through Calendar right-click → Add Time Block, not a toolbar checkbox or overflow-menu mode. Preserve existing block display, editing, moving and resizing, and the other right-click actions.

@@ -1,6 +1,8 @@
 require('./load-ts.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),ts=require('typescript');
 const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
+const summary={};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/appointment-summary.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports:summary,require:id=>id.endsWith('.css')?{}:id.startsWith('../lib/')?require(path.resolve('src/lib',id.slice('../lib/'.length)+'.ts')):require(id)});
 test('rendered Calendar keeps approved Tuesday and late-finish dogs under staff with Working Only enabled',()=>{
  const fixture={date:new Date(2026,11,29,12),employees:[{id:'g',firstName:'Kandance',lastName:'Krueger',active:true},{id:'b',firstName:'Anton',lastName:'Johnson',active:true}],tickets:[]};
  for(const [id,employee,name,approved] of [['a','g','Tuesday Dog',true],['b','b','Late Finish Dog',true],['c','g','Unapproved Dog',false]])fixture.tickets.push({id,orderNumber:1,locationId:'shop',scheduledStart:'2026-12-29T16:30:00',durationMin:100,timingMode:'CONCURRENT',status:'OPEN',customer:{firstName:'Sample',lastName:'Family'},pets:[{pet:{id,name}}],lines:[{id,petId:id,lineType:'SERVICE',role:'GROOM',description:'Grooming',durationMin:100,quantity:1}],assignments:[],plannedAssignments:[{petId:id,userId:employee,calendarAvailabilityApproved:approved}]});
@@ -12,9 +14,12 @@ test('rendered Calendar keeps approved Tuesday and late-finish dogs under staff 
   if(id==='./module-view')return {useModuleRefresh:()=>({visible:true,revision:0})};
   if(id==='./floating-editor-window')return {usePreferenceScope:()=> 'test'};
   if(id==='./use-calendar-width')return {useCalendarWidth:()=>['fit',noop]};
+  if(id==='./use-appointment-preview')return {useAppointmentPreview:()=>({hover:null,setHover:noop,details:null,show:noop})};
+  if(id==='./appointment-summary')return summary;
   return new Proxy({},{get:()=>()=>null});
  }});
  const html=renderToStaticMarkup(exports.CalendarWorkspace({onNewTicket:noop,onOpenTicket:noop,refreshKey:0}));
+ assert.doesNotMatch(html,/gp-cal-time-block|Enable Time Block/);
  const column=id=>html.split(`data-resource-id="${id}"`)[1]?.split('data-resource-id=')[0]||'';
  assert.match(column('g'),/Tuesday Dog/);assert.doesNotMatch(column('g'),/Unapproved Dog/);
  assert.match(column('b'),/Late Finish Dog/);assert.match(column('unassigned'),/Unapproved Dog/);

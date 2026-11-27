@@ -21,7 +21,7 @@ export const fieldPurposes:Record<string,string>={
  "Preview with my business data":"Preview the popup using an existing appointment from this business. If none is available, the example names remain; no appointment is changed.",
  "Use gradient":"Blend the appointment color from one end of the card to the other. Adjust the start and end coverage to control how strong the color looks.",
  "Working only":"Show employees and assets with scheduled hours for the selected day. This changes the view, not their work schedules.",
- "Time Block":"Mark time as unavailable on an employee or asset lane. Turn this on, then choose an empty slot to create the block.",
+ "Time Block":"Mark time as unavailable on an employee or asset lane. Right-click an empty time slot and choose Add Time Block.",
  "Calls":"Allow staff to call this contact number when calling is available for the business.",
  "Send automatic appointment messages":"Use the saved confirmation and reminder schedule for appointments, including upcoming visits. Customer confirmation stops further confirmation requests for that appointment.",
  "Ask staff about a new confirmation when moving a confirmed appointment":"Ask the employee whether the customer should confirm the new date or time. Declining a new request keeps the appointment Confirmed; the appointment-change notice remains separate.",
