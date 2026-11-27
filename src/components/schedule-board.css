@@ -1,0 +1,14 @@
+.gp-editor-window.gp-shift-editor .gp-editor-content{display:block;overflow:auto}
+.gp-editor-window.gp-shift-editor .gp-editor-form{display:block;flex:none;overflow:visible;padding:14px 16px}
+.gp-editor-window.gp-shift-editor .gp-editor-fieldset{display:block}
+.gp-shift-editor .gp-shift-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;align-content:start}
+.gp-shift-editor .gp-shift-fields>label{display:flex;flex-direction:column;gap:4px;min-width:0;margin:0}
+.gp-shift-editor .gp-shift-full{grid-column:1 / -1}
+.gp-shift-editor .gp-shift-fields :is(input:not([type=checkbox]),select){width:100%;min-width:0;box-sizing:border-box}
+.gp-shift-editor .gp-shift-weekdays{display:flex;flex-wrap:wrap;gap:8px 14px;border:0;padding:4px 0;margin:0;min-width:0}
+.gp-shift-editor .gp-shift-weekdays legend{padding:0;margin-bottom:4px;font-weight:600}
+.gp-shift-editor .gp-shift-weekdays label,.gp-shift-editor .gp-shift-fields>.gp-shift-day-off{display:flex;flex-direction:row;align-items:center;gap:5px;margin:0}
+.gp-shift-editor input[type=checkbox]{width:auto;margin:0}
+.gp-shift-editor .gp-shift-explanation{margin:10px 0;font-size:13px;line-height:1.35;min-height:2.7em;color:#526076}
+.gp-editor-window.gp-shift-editor .gp-editor-actions{justify-content:flex-start;width:auto;padding:10px 24px 2px 0}
+.gp-shift-editor :disabled{cursor:default}

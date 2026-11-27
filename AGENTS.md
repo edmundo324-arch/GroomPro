@@ -152,3 +152,7 @@
 - Saving arrival order requires an intentional edit; merely focusing or leaving its field must never clear the number. Repeating check-in may repair missing arrival information without changing the original check-in time or booked time.
 - The POS text icon opens a customer message before pickup and the existing pickup composer when Ready. Opening or sending an ordinary message must not complete the appointment or record pickup contact.
 - Pet photos reuse the shared private photo editor. Right-click a pet name or use its POS picture to open it; ordinary pet-name clicks keep their package behavior. Photo selection persists across appointments while dated grooming photos remain available.
+
+## Schedule Readability — November 27, 2026
+- Show the year once above Employee or Booking Asset, with both years for a range crossing New Year. Day headings show the weekday and MM/DD; editing and saving retain complete dates.
+- Shift editing uses a compact, stable paper-like form. Start and End remain together; Day Off and recurring-scope choices disable inapplicable controls without moving the remaining fields or discarding entered hours. Preserve window size preferences, shop choices, recurring shifts, date overrides and sick-coverage actions.
