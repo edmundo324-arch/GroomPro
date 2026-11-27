@@ -58,16 +58,16 @@ export function ProfileDisplayPreferences({ endpoint, title, fields, options, on
   </details>;
 }
 
-export function ProfileDisplayTable<T extends { id: string }>({ label, rows, fields, options, name, render, onOpen, busy }: {
+export function ProfileDisplayTable<T extends { id: string }>({ label, rows, fields, options, name, render, onOpen, onContextMenu, busy }: {
   label: string; rows: T[]; fields: string[]; options: ProfileColumn[]; name: (row: T) => string;
-  render: (row: T, column: ProfileColumn) => ReactNode; onOpen: (row: T) => void; busy?: boolean;
+  render: (row: T, column: ProfileColumn) => ReactNode; onOpen: (row: T) => void; onContextMenu?: (row: T) => void; busy?: boolean;
 }) {
   const columns = (fields.length ? fields : ['name']).map(key => options.find(column => column.key === key) || { key, label: key });
   const opener = columns.find(column => column.key === 'name') || columns[0];
   return <div className="gp-search-results gp-customer-table gp-profile-table">
     <table aria-label={label} aria-busy={busy}>
       <thead><tr>{columns.map(column => <th key={column.key} scope="col">{column.label}</th>)}</tr></thead>
-      <tbody>{rows.map(row => <tr key={row.id} onClick={() => onOpen(row)}>
+      <tbody>{rows.map(row => <tr key={row.id} onClick={() => onOpen(row)} onContextMenu={onContextMenu?event=>{event.preventDefault();event.stopPropagation();onContextMenu(row)}:undefined}>
         {columns.map(column => <td key={column.key} data-field={column.key} data-label={column.label}>
           {column === opener ? <button type="button" className="gp-customer-row-link" aria-label={'View ' + name(row)}>{render(row, column)}</button> : render(row, column)}
         </td>)}

@@ -10,14 +10,16 @@ export function createDeviceId() {
 }
 
 export async function startEmployeeSession(tenantId: string, userId: string, deviceId: string) {
-  await db.employeeSession.updateMany({
+  return db.$transaction(async tx=>{
+  await tx.employeeSession.updateMany({
     where: { tenantId, deviceId, endedAt: null },
     data: { endedAt: new Date() },
   });
 
-  return db.employeeSession.create({
+  return tx.employeeSession.create({
     data: { tenantId, userId, deviceId },
     include: { user: { select: { id: true, displayName: true, firstName: true, lastName: true, role: true, active: true } } },
+  });
   });
 }
 

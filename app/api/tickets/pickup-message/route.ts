@@ -21,7 +21,17 @@ async function handle(r:NextRequest){
  customer:{include:{phones:{where:{smsEnabled:true},orderBy:{isPrimary:'desc'}}}},
  pets:{include:{pet:{select:{name:true}}}}}
  });
- if(!ticket||ticket.status!=='READY'||!ticket.pickupAt||ticket.pickupCompletedAt)return reply({error:'This appointment is no longer Ready for Pickup. Reopen it before preparing a pickup text.'},409);
+ if(!ticket)return reply({error:'This appointment could not be found at this location.'},404);
+ if(b.purpose==='CUSTOMER'){
+  if(r.method==='GET')return reply({body:'',mode:'COMPOSE',customerId:ticket.customerId,phones:ticket.customer.phones.map(p=>({id:p.id,number:p.number})),pets:ticket.pets.map(p=>p.pet.name).join(', ')});
+  if(b.action!=='SEND'||!/^[-a-zA-Z0-9]{16,80}$/.test(String(b.requestKey||'')))return reply({error:'Reopen this message before sending.'},400);
+  const phone=ticket.customer.phones.find(p=>p.id===b.phoneId);if(!phone||phone.number!==b.phoneNumber)throw Error('Review the customer’s texting number before continuing.');
+  const digits=normalizePhone(phone.number),expectedPhone=phone.number.trim().startsWith('+')?'+'+phone.number.replace(/\D/g,''):digits.length===10?'+1'+digits:'+'+digits;
+  const result=await sendCustomerSms({tenantId,customerId:ticket.customerId,ticketId:ticket.id,phoneId:phone.id,body:String(b.body||''),subject:'Appointment message',operation:{id:'ticket_text_'+ticket.id+'_'+b.requestKey,expectedPhone}});
+  await db.auditEntry.create({data:{tenantId,actorType:'EMPLOYEE',actorUserId:session.user.id,entityType:'TICKET',entityId:ticket.id,customerId:ticket.customerId,action:'CUSTOMER_TEXT_REQUESTED',summary:result.message,details:{communicationId:result.communication.id,deliveryStatus:result.communication.deliveryStatus}}});
+  return reply({message:result.message,deliveryStatus:result.communication.deliveryStatus});
+ }
+ if(ticket.status!=='READY'||!ticket.pickupAt||ticket.pickupCompletedAt)return reply({error:'This appointment is no longer Ready for Pickup. Reopen it before preparing a pickup text.'},409);
  const {policy}=await readAppointmentMessageSettings(tenantId),zone=ticket.location.timezone;
  if(r.method==='GET'){
  const cancellation=await readPortalPolicy(tenantId),fee=await getTenantNumberSetting(tenantId,'NO_SHOW_FEE_CENTS',4500);

@@ -5,8 +5,8 @@ import {petVipStatus} from '../lib/pet-vip-status';
 import {petIndicatorSettings} from '../lib/pet-indicators';
 import {PetCare} from './pet-care';
 import {DismissButton} from './dismiss-button';
-type Props={customerNotes?:string;permanentNotes?:Record<string,string>;notesPopup?:boolean;tapNotesPopup?:boolean;indicators?:ReturnType<typeof petIndicatorSettings>;pets:any[];includedIds:string[];packageIds:string[];disabled:boolean;warnVet:boolean;summaries:Record<string,string>;onInclude:(pet:any,included:boolean)=>void;onPackage:(id:string)=>void;onNotes:()=>void};
-export function PosPetStrip({pets,customerNotes='',permanentNotes={},notesPopup=false,tapNotesPopup=false,indicators,includedIds,packageIds,disabled,warnVet,summaries,onInclude,onPackage,onNotes}:Props){
+type Props={onPhoto?:(pet:any)=>void;customerNotes?:string;permanentNotes?:Record<string,string>;notesPopup?:boolean;tapNotesPopup?:boolean;indicators?:ReturnType<typeof petIndicatorSettings>;pets:any[];includedIds:string[];packageIds:string[];disabled:boolean;warnVet:boolean;summaries:Record<string,string>;onInclude:(pet:any,included:boolean)=>void;onPackage:(id:string)=>void;onNotes:()=>void};
+export function PosPetStrip({onPhoto,pets,customerNotes='',permanentNotes={},notesPopup=false,tapNotesPopup=false,indicators,includedIds,packageIds,disabled,warnVet,summaries,onInclude,onPackage,onNotes}:Props){
  const [indicatorLabel,setIndicatorLabel]=useState('');
  const [notePopup,setNotePopup]=useState<{id:string;left:number;top:number;above:boolean;tapped:boolean;customer?:boolean}|null>(null);
  const hideTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -49,7 +49,7 @@ export function PosPetStrip({pets,customerNotes='',permanentNotes={},notesPopup=
  const popupPet=notesPopup&&notePopup?pets.find(p=>p.id===notePopup.id):null;
  return <section className="gp-pos-pet-strip" aria-label="Customer pets">
   <div className="gp-pos-pet-row">{(edges.left||edges.right)&&<button type="button" className="gp-btn gp-pet-strip-nav" aria-label="Previous pets" disabled={!edges.left} onClick={()=>scroll.current?.scrollBy({left:-(scroll.current.clientWidth*.75),behavior:'smooth'})}>‹</button>}<div ref={scroll} className="gp-pos-pet-scroll" aria-label="Pet choices" tabIndex={0}>
-   {pets.length?pets.map(p=><div className="gp-pos-pet-chip" key={p.id} data-selected={pet?.id===p.id} tabIndex={0} onPointerDown={()=>{setSelected(p.id);setIndicatorLabel('')}} onFocus={()=>{if(pet?.id!==p.id)setIndicatorLabel('');setSelected(p.id)}}>
+   {pets.length?pets.map(p=><div className="gp-pos-pet-chip" key={p.id} onContextMenu={onPhoto?e=>{e.preventDefault();e.stopPropagation();setNotePopup(null);onPhoto(p)}:undefined} data-selected={pet?.id===p.id} tabIndex={0} onPointerDown={()=>{setSelected(p.id);setIndicatorLabel('')}} onFocus={()=>{if(pet?.id!==p.id)setIndicatorLabel('');setSelected(p.id)}}>
     <button type="button" className="gp-btn" disabled={disabled||p.active===false} aria-pressed={packageIds.includes(p.id)} title={popupPet?.id===p.id?undefined:p.active===false?'Inactive pet':'Add or remove this dog’s assigned grooming package'} onFocus={event=>{if(event.currentTarget.matches(':focus-visible'))showNote(p.id,event.currentTarget)}} onBlur={hideHoverNote} onKeyDown={event=>{if(event.key==='Escape'&&notePopup){event.stopPropagation();setNotePopup(null);}}} aria-describedby={popupPet?.id===p.id?tooltipId:undefined} onClick={()=>{setSelected(p.id);onPackage(p.id)}}><span onPointerEnter={event=>{if(event.pointerType==='mouse')showNote(p.id,event.currentTarget)}} onPointerLeave={hideHoverNote}>{p.name}</span><small>{[p.weightLbs!=null?`${Number(p.weightLbs)} lb`:'',p.breed].filter(Boolean).join(' · ')}</small></button>
     <span className="gp-pet-strip-indicators">{[petVipStatus(p).code,
      ...(p.careFlags?.vipConversationAt?['CONVERSATION']:[]),...(!p.veterinarian?['VET']:[]),

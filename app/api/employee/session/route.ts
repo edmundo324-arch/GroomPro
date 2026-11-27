@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ employee: { id: session.user.id, displayName: session.user.displayName, firstName: session.user.firstName, lastName: session.user.lastName, role: session.user.role } });
 }
 
-export async function POST(request: NextRequest) {
+async function signIn(request: NextRequest) {
   const { tenantId, deviceId, sessionId } = await getContext(request);
   if (!tenantId) return NextResponse.json({ error: "Tenant context is required." }, { status: 401 });
 
@@ -100,6 +100,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({approval:approval.id});
   }
   return signedInResponse(tenantId,user.id,deviceId);
+}
+
+export async function POST(request:NextRequest){
+  try{return await signIn(request)}catch(error){
+    if(error instanceof Error&&error.message==='PIN changed. Please sign in again.')return NextResponse.json({error:error.message},{status:409});
+    // Keep credentials and database details out of both the response and logs.
+    const code=typeof (error as any)?.code==='string'&&(error as any).code.match(/^(P\d{4}|E[A-Z_]+)$/)?(error as any).code:'UNEXPECTED';
+    console.error('Employee sign-in failed',{code});
+    return NextResponse.json({error:'GroomPro could not finish checking employee access. Wait a moment and try again. If this continues, ask GroomPro support to check the sign-in service.',code:'SIGN_IN_UNAVAILABLE'},{status:503,headers:{'Cache-Control':'no-store'}});
+  }
 }
 
 export async function DELETE(request: NextRequest) {

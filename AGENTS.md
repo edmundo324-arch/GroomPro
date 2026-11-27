@@ -147,3 +147,8 @@
 ## Shared Appointment Display — November 27, 2026
 - User-facing terminology is Appointment, never Calendar Card. Appointment Appearance must let staff choose displayed details, arrange their lines/order and bold emphasis, with a live preview; color controls alone do not satisfy this requirement.
 - Calendar, List, Tickets and other appointment summaries share detail rendering, saved appearance and the same full-family hover popup. Preserve per-dog calendar placement, existing history filters/compact choices, and the stable POS form. Changing the viewing module must not rewrite appointment data or its appearance.
+
+## POS Arrival, Text and Photo Repairs — November 27, 2026
+- Saving arrival order requires an intentional edit; merely focusing or leaving its field must never clear the number. Repeating check-in may repair missing arrival information without changing the original check-in time or booked time.
+- The POS text icon opens a customer message before pickup and the existing pickup composer when Ready. Opening or sending an ordinary message must not complete the appointment or record pickup contact.
+- Pet photos reuse the shared private photo editor. Right-click a pet name or use its POS picture to open it; ordinary pet-name clicks keep their package behavior. Photo selection persists across appointments while dated grooming photos remain available.

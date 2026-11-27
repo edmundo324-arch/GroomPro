@@ -29,3 +29,10 @@ test('composite checkout requires both create and edit for a new ticket, only ed
  assert.deepEqual(Array.from(await actionPermissions({method:'POST',nextUrl:{pathname:'/api/tickets/checkout'}})),['EDIT']);
  assert.deepEqual(Array.from(await actionPermissions({method:'PATCH'},true)),['CONFIGURE']);
 });
+test('photo uploads that change the pet picture also require edit permission',async()=>{
+ const {actionPermissions}=load('src/lib/request-policy.ts',{'./request-authorization':{},'next/server':{},'./db':{},'./employee-session':{},'./module-entitlement':{}});
+ const request=body=>({method:'POST',nextUrl:{pathname:'/api/pets/photos'},clone:()=>({json:async()=>body})});
+ assert.deepEqual(Array.from(await actionPermissions(request({useAsProfile:true}))),['CREATE','EDIT']);
+ assert.deepEqual(Array.from(await actionPermissions(request({useAsProfile:false}))),['CREATE']);
+ assert.deepEqual(Array.from(await actionPermissions({method:'PATCH',nextUrl:{pathname:'/api/pets/photos'}})),['EDIT']);
+});
