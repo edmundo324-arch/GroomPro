@@ -24,7 +24,7 @@ import {employeeFetch} from "../lib/employee-fetch";
 import {CategorySettings} from "./category-settings";
 import {WorkflowSettings} from "./workflow-settings";
 import { useEffect, useState } from "react";
-import {ReferralRewardSettings} from './referral-reward-settings';
+
 import { CustomerImport } from "./customer-import";import { PlatformControls } from "./platform-controls";import { RewardSettings } from "./reward-settings";import { OperatingHoursSettings } from "./operating-hours-settings";import { HeyRosieSettings } from "./heyrosie-settings";
 type Location={id:string;name:string;city?:string|null;state?:string|null};type PriceItem={id:string;name:string;category?:string|null;basePriceCents:number;adjustmentPct:number;priceOverrideCents:number|null;finalPriceCents:number};const money=(c:number)=>`$${(c/100).toFixed(2)}`;
 export function Settings({role}:{role?:string}){const[locations,setLocations]=useState<Location[]>([]);const[locationId,setLocationId]=useState("");const[mode,setMode]=useState("SHARED");const[services,setServices]=useState<PriceItem[]>([]);const[packages,setPackages]=useState<PriceItem[]>([]);const[type,setType]=useState<"SERVICE"|"PACKAGE">("SERVICE");const[percent,setPercent]=useState("10");const[loading,setLoading]=useState(true);const[message,setMessage]=useState("");const[newLocation,setNewLocation]=useState({name:"",address1:"",city:"",state:"TX",postalCode:""});
@@ -66,8 +66,8 @@ const items=type==="SERVICE"?services:packages;return <section className="gp-set
  {id:'sales-tax',label:'Sales Tax',content:<SalesTaxSettings/>},
  {id:'tips',label:'Tip Distribution',content:<TipDistributionSettings locationId={locationId}/>},
  {id:'payroll',label:'Payroll',content:<PayrollSettings/>},
- {id:'rewards',label:'Rewards',content:<><ReferralRewardSettings/><RewardSettings/></>},
- {id:'communications',label:'Communications',content:<><AppointmentMessageSettings/><MarketingLimitSettings/><ConversationSettings/><CustomRuleSettings/><BusinessLibrary kind="message-templates"/><HeyRosieSettings/></>},
+ {id:'rewards',label:'Rewards',content:<RewardSettings/>},
+ {id:'communications',label:'Communications',content:<AppointmentMessageSettings multiLocation={locations.length>1} extra={[{id:'marketing',label:'Marketing limits',content:<MarketingLimitSettings/>},{id:'conversations',label:'Conversations',content:<ConversationSettings/>},{id:'rules',label:'Custom automatic rules',content:<CustomRuleSettings multiLocation={locations.length>1}/>},{id:'templates',label:'Message templates',content:<BusinessLibrary kind="message-templates" multiLocation={locations.length>1}/>},{id:'heyrosie',label:'HeyRosie',content:<HeyRosieSettings/>}]}/>},
  {id:'data',label:'Data & integrations',content:<SettingsSections id="settings-data" label="Data and integrations" sections={[{id:'imports',label:'Import & migration',content:<><CustomerImport/><TenantExport/></>},{id:'123pet',label:'123Pet connection',content:<Pet123Settings/>},{id:'library',label:'Starter library',content:<StarterLibrary/>}]}/>},
  {id:'administration',label:'Access & subscription',content:<SettingsSections id="settings-administration" label="Administration" sections={[{id:'access',label:'Platform access',content:<PlatformControls/>},{id:'subscription',label:'Subscription',content:<SubscriptionSettings/>},{id:'devices',label:'Device access',content:<DeviceSettings/>}]}/>}
  ]}/></SettingsSearch></section>}

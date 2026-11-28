@@ -4,7 +4,7 @@ export const defaultBirthdayPolicy:BirthdayPolicy={customers:true,pets:true,time
 export function birthdayPolicy(value:unknown):BirthdayPolicy{
  const p=(value??defaultBirthdayPolicy) as BirthdayPolicy;
  if(typeof p.customers!=='boolean'||typeof p.pets!=='boolean'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(p.time)||!['MARCH_1','FEBRUARY_28'].includes(p.leapDay))throw Error('Choose a birthday send time and a date for February 29 birthdays in non-leap years.');
- for(const key of ['customerText','petText'] as const){const allowed=key==='petText'?['{business}','{customer}','{pet}']:['{business}','{customer}'];if(typeof p[key]!=='string'||!p[key].trim()||p[key].length>1200||(p[key].match(/\{[^{}]*\}/g)||[]).some(t=>!allowed.includes(t)))throw Error('Write a birthday message using the listed details, up to 1,200 characters.');}
+ for(const key of ['customerText','petText'] as const){const allowed=key==='petText'?['{business}','{customer}','{firstName}','{location}','{pet}']:['{business}','{customer}','{firstName}','{location}'];if(typeof p[key]!=='string'||!p[key].trim()||p[key].length>1200||(p[key].match(/\{[^{}]*\}/g)||[]).some(t=>!allowed.includes(t)))throw Error('Write a birthday message using the listed details, up to 1,200 characters.');}
  return {...p,customerText:p.customerText.trim(),petText:p.petText.trim()};
 }
 export function birthdayDue(birth:Date|string|null,policy:BirthdayPolicy,timezone:string,now:Date){

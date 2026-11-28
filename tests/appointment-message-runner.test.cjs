@@ -34,3 +34,17 @@ test('pickup grace period blocks normal and custom dispatch; undo cancels it',as
 test('pickup cancellation suppresses SMS only for the cancelled completion, including custom pickup rules',async()=>{
  for(const custom of [false,true]){const f=fixture();f.ticket.status='READY';f.policy.channels=['SMS'];f.lifecycle([{kind:'PICKUP',at:f.ticket.pickupAt}]);f.cancelPickup(f.ticket.pickupAt.toISOString());if(custom)f.override({ready:true,rule:{id:'rule',revision:1},action:{title:'Ready for pickup',body:'Ready',channels:['SMS'],marketing:false},eventId:'event'},'PICKUP');await f.api.runAppointmentMessages();assert.equal(f.sent.length,0);assert.equal(f.ticket.status,'READY');f.cancelPickup(new Date(0).toISOString());await f.api.runAppointmentMessages();assert.equal(f.sent.length,1);}
 });
+
+test('staff can ask a late customer if they are on their way, once per enabled channel',async()=>{
+ const f=fixture();
+ f.ticket.scheduledStart.setTime(Date.now()-30*60000);
+ f.state.scheduledStart=f.ticket.scheduledStart.toISOString();
+ f.state.confirmedAt=f.state.scheduledStart;
+ f.state.newRequestChannels=['SMS','EMAIL'];
+ const request={tenantId:'a',ticketId:'t',requestAt:f.state.newRequestAt};
+ await f.api.runAppointmentMessages(null,request);
+ assert.equal(f.sent.length,2);
+ for(const message of f.sent)assert.match(message.body,/are you on your way/);
+ await f.api.runAppointmentMessages(null,request);
+ assert.equal(f.sent.length,2);
+});

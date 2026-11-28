@@ -21,8 +21,9 @@ async function updateStatus(request: NextRequest) {
   try {
     const body = await request.json();
     const ticketId = String(body.ticketId || "");
+    const repairOnly = body.action === 'REPAIR_ARRIVAL';
     const status = String(body.status || "") as Status;
-    if (!ticketId || (!ALLOWED.includes(status)&&!["UNDO_CHECK_IN","UNDO_READY"].includes(body.action))) return NextResponse.json({ error: "Ticket and valid status are required." }, { status: 400 });
+    if (!ticketId || (repairOnly && status !== "CHECKED_IN") || (!ALLOWED.includes(status)&&!["UNDO_CHECK_IN","UNDO_READY"].includes(body.action))) return NextResponse.json({ error: "Ticket and valid status are required." }, { status: 400 });
 
     const noticeLocation=body.expectedPickupAt?await requestLocation(request,tenantId):undefined;
     if(body.expectedPickupAt&&!noticeLocation)return NextResponse.json({error:"Choose the assigned shop before undoing completion."},{status:400});
@@ -35,6 +36,7 @@ async function updateStatus(request: NextRequest) {
     if (ticket.status === "CLOSED" && status !== "CLOSED") return NextResponse.json({ error: "A closed ticket cannot be reopened." }, { status: 409 });
     if (ticket.status === "CANCELLED" && status !== "CANCELLED") return NextResponse.json({ error: "A cancelled ticket cannot be reopened." }, { status: 409 });
 
+    if(repairOnly&&(!ticket.checkedInAt||ticket.arrivalPriority||!['CHECKED_IN','READY','IN_PROGRESS'].includes(ticket.status)))return NextResponse.json({ticket});
     if(['UNDO_CHECK_IN','UNDO_READY'].includes(body.action)){
       if(['CLOSED','CANCELLED','NO_SHOW'].includes(ticket.status))return NextResponse.json({error:'This visit cannot be changed.'},{status:409});
       let restoreDisplayStatus:string|null=null;
@@ -65,6 +67,7 @@ async function updateStatus(request: NextRequest) {
         await tx.$queryRaw`SELECT id FROM Location WHERE id=${ticket.locationId} AND tenantId=${tenantId} FOR UPDATE`;
         const live=await tx.ticket.findFirst({where:{id:ticket.id,tenantId}});
         if(!live||['CLOSED','CANCELLED','NO_SHOW'].includes(live.status))throw Error('This appointment changed. Reopen it before checking in.');
+        if(repairOnly&&(!live.checkedInAt||live.arrivalPriority||!['CHECKED_IN','IN_PROGRESS','READY'].includes(live.status)))return live;
         if(live.checkedInAt&&live.arrivalPriority){assignedArrivalPriority=live.arrivalPriority;return tx.ticket.update({where:{id:live.id,status:live.status},data:{status}});}
         const location=await tx.location.findFirst({where:{id:ticket.locationId,tenantId},select:{timezone:true}});
         const zone=location?.timezone||'America/Chicago',day=zonedParts(live.scheduledStart||now,zone).date;
@@ -75,7 +78,7 @@ async function updateStatus(request: NextRequest) {
           _max: { arrivalPriority: true }
         });
         assignedArrivalPriority = (max._max.arrivalPriority || 0) + 1;
-        return tx.ticket.update({ where: { id: live.id, status: live.status }, data: { status, checkedInAt: live.checkedInAt || offlineCheckedInAt() || now, arrivalPriority: assignedArrivalPriority } });
+        return tx.ticket.update({ where: { id: live.id, status: live.status }, data: { status:repairOnly?live.status:status, checkedInAt: live.checkedInAt || offlineCheckedInAt() || now, arrivalPriority: assignedArrivalPriority } });
       });
     } else {
       const data: { status: Status; checkedInAt?: Date | null; pickupAt?: Date | null; pickupCompletedAt?: Date | null; closedAt?: Date | null } = { status };
@@ -86,6 +89,7 @@ async function updateStatus(request: NextRequest) {
       updated = await db.ticket.update({ where: { id: ticket.id, status: ticket.status }, data });
     }
 
+    if(repairOnly)return NextResponse.json({ticket:updated});
     await writeAudit({
       tenantId,
       actorUserId: session.user.id,
@@ -102,5 +106,5 @@ async function updateStatus(request: NextRequest) {
   }
 }
 
-export async function PATCH(request:NextRequest){const tenantId=tenantFrom(request);const body=await request.clone().json().catch(()=>null);if(!body)return NextResponse.json({error:'Invalid status request.'},{status:400});const settings=await workflowSettings(tenantId),custom=settings.customStatuses.includes(body.status);const payload=custom?{...body,status:settings.customStatusStages[body.status]||'OPEN',recordAttendance:false}:{...body,recordAttendance:body.status==='CONFIRMED'&&!body.action};const response=await updateStatus(new NextRequest(request.url,{method:'PATCH',headers:request.headers,body:JSON.stringify(payload)}));if(response.ok){const data=await response.json();await db.ticket.updateMany({where:{id:body.ticketId,tenantId,status:data.ticket?.status},data:{displayStatus:body.action==='UNDO_READY'?data.ticket?.displayStatus||null:custom?body.status:null}});return NextResponse.json({...data,...(data.ticket?{ticket:{...data.ticket,displayStatus:body.action==='UNDO_READY'?data.ticket?.displayStatus||null:custom?body.status:null}}:{})},{status:response.status})}return response}
+export async function PATCH(request:NextRequest){const tenantId=tenantFrom(request);const body=await request.clone().json().catch(()=>null);if(!body)return NextResponse.json({error:'Invalid status request.'},{status:400});const settings=await workflowSettings(tenantId),custom=settings.customStatuses.includes(body.status);const payload=custom?{...body,status:settings.customStatusStages[body.status]||'OPEN',recordAttendance:false}:{...body,recordAttendance:body.status==='CONFIRMED'&&!body.action};const response=await updateStatus(new NextRequest(request.url,{method:'PATCH',headers:request.headers,body:JSON.stringify(payload)}));if(response.ok&&body.action!=='REPAIR_ARRIVAL'){const data=await response.json();await db.ticket.updateMany({where:{id:body.ticketId,tenantId,status:data.ticket?.status},data:{displayStatus:body.action==='UNDO_READY'?data.ticket?.displayStatus||null:custom?body.status:null}});return NextResponse.json({...data,...(data.ticket?{ticket:{...data.ticket,displayStatus:body.action==='UNDO_READY'?data.ticket?.displayStatus||null:custom?body.status:null}}:{})},{status:response.status})}return response}
 

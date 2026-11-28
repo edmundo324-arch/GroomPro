@@ -12,14 +12,17 @@ export async function confirmationNotice(client:any,tenantId:string,ticketId:str
  const state=attendanceFor(row?.value,ticket.scheduledStart);
  let reason='';
  if(!ticket.customer?.active)reason='This customer is inactive.';
- else if(state.confirmedAt)reason='The customer has already confirmed this appointment.';
- else if(['CHECKED_IN','IN_PROGRESS','READY'].includes(ticket.status))reason='The dogs are already here for this visit.';
+ else if(state.confirmedAt&&+ticket.scheduledStart>Date.now())reason='The customer has already confirmed this appointment.';
+ else if(ticket.checkedInAt||['CHECKED_IN','IN_PROGRESS','READY'].includes(ticket.status))reason='The dogs are already here for this visit.';
  else if(!['OPEN','CONFIRMED'].includes(ticket.status))reason='This appointment is no longer open for confirmation.';
  else if(['REQUESTED','PENDING','REJECTED'].includes(ticket.bookingDecision))reason='Accept the booking before asking the customer to confirm.';
  else if(!ticket.scheduledStart)reason='Schedule this appointment before requesting confirmation.';
- else if(+ticket.scheduledStart<=Date.now())reason='The scheduled appointment time has passed.';
  const bounced=ticket.customer.email?await client.communication.findFirst({where:{tenantId,customerId:ticket.customerId,channel:'EMAIL',direction:'OUTBOUND',deliveryStatus:'BOUNCED',toAddress:ticket.customer.email},orderBy:{createdAt:'desc'}}):null;
- return {customerId:ticket.customerId,scheduledStart:ticket.scheduledStart?.toISOString()||'',canRequest:!reason,reason,bouncedEmail:bounced?ticket.customer.email:null};
+ const sent=await client.communication.findMany({where:{tenantId,ticketId,customerId:ticket.customerId,direction:'OUTBOUND',sentAt:{not:null},channel:{in:['SMS','EMAIL']}},orderBy:[{sentAt:'desc'},{id:'asc'}],select:{id:true,channel:true,sentAt:true,subject:true}});
+ const contexts=sent.length?await client.tenantSetting.findMany({where:{tenantId,settingKey:{in:sent.map((row:{id:string})=>attendanceReplyKey(row.id))}},select:{settingKey:true,value:true}}):[];
+ const confirmations=new Map<string,string|undefined>(contexts.filter((row:any)=>['CONFIRMATION','REMINDER'].includes(row.value?.kind)&&row.value.ticketId===ticketId).map((row:any)=>[row.settingKey,row.value.source]));
+ const sentHistory=sent.filter((row:any)=>(row.id.startsWith('appt_')&&row.subject==='Appointment reminder')||confirmations.has(attendanceReplyKey(row.id))).map((row:any)=>({id:row.id,channel:row.channel,sentAt:row.sentAt,source:confirmations.get(attendanceReplyKey(row.id))}));
+ return {sentHistory,customerId:ticket.customerId,scheduledStart:ticket.scheduledStart?.toISOString()||'',canRequest:!reason,reason,bouncedEmail:bounced?ticket.customer.email:null};
 }
 
 export async function queueConfirmationRequest(client:any,tenantId:string,userId:string,input:{ticketId:string;scheduledStart:string;operationId:string;emailOnly?:boolean;sourceCommunicationId?:string}){
@@ -32,13 +35,14 @@ export async function queueConfirmationRequest(client:any,tenantId:string,userId
  return client.$transaction(async(tx:any)=>{
   await tx.$queryRaw`SELECT id FROM Ticket WHERE tenantId=${tenantId} AND id=${input.ticketId} FOR UPDATE`;
   const ticket=await tx.ticket.findFirst({where:{tenantId,id:input.ticketId},include:{customer:true}});
-  if(!ticket?.customer?.active||!ticket.scheduledStart||+ticket.scheduledStart<=Date.now()||!['OPEN','CONFIRMED'].includes(ticket.status)||['REQUESTED','PENDING','REJECTED'].includes(ticket.bookingDecision))throw Error('This appointment no longer needs a confirmation request.');
+  if(!ticket?.customer?.active||!ticket.scheduledStart||ticket.checkedInAt||!['OPEN','CONFIRMED'].includes(ticket.status)||['REQUESTED','PENDING','REJECTED'].includes(ticket.bookingDecision))throw Error('This appointment no longer needs a confirmation request.');
+  if(input.emailOnly&&+ticket.scheduledStart<=Date.now())throw Error('This appointment time has passed. Open the ticket to send a follow-up.');
   if(ticket.scheduledStart.toISOString()!==input.scheduledStart)throw Error('The appointment time changed. Reopen the ticket before sending a reminder.');
   const key='CONFIRMATION_REQUEST:'+createHash('sha256').update(JSON.stringify([tenantId,input.ticketId,input.operationId])).digest('hex');
   const previous=(await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:key}}}))?.value;
   if(previous){if(previous.scheduledStart!==input.scheduledStart)throw Error('This reminder belongs to the earlier appointment time.');return previous;}
   const where={tenantId_settingKey:{tenantId,settingKey:attendanceKey(ticket.id)}},row=await tx.tenantSetting.findUnique({where}),current=attendanceFor(row?.value,ticket.scheduledStart);
-  if(current.confirmedAt)throw Error('The customer has already confirmed this appointment. No new request is needed.');
+  if(current.confirmedAt&&(+ticket.scheduledStart>Date.now()||input.emailOnly))throw Error('The customer has already confirmed this appointment. No new request is needed.');
   const cancellation=(await tx.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:'PORTAL_CANCELLATION:'+ticket.id}}}))?.value;
   if(cancellation?.state==='PENDING')throw Error('Review the customer’s cancellation request before sending another confirmation request.');
   const uncertain=await tx.communication.findFirst({where:{tenantId,customerId:ticket.customerId,ticketId:ticket.id,channel:{in:channels},direction:'OUTBOUND',deliveryStatus:{in:['UNKNOWN','SENDING']}}});

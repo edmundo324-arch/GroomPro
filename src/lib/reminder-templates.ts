@@ -13,4 +13,4 @@ export function libraryWithReminderTemplates(value:any){
  const ids=new Set(saved.rows.map((r:any)=>r.id));
  return {...saved,reminderTemplatesVersion:1,rows:[...saved.rows,...reminderTemplates.filter(r=>!ids.has(r.id)).slice(0,Math.max(0,2000-saved.rows.length))]};
 }
-export const templateDetailLabels={business:'Business Name',customer:'Customer Full Name',firstName:'Customer First Name',pets:'Dog Names',appointmentDate:'Appointment Date',appointmentTime:'Appointment Time',location:'Shop Name'} as const;
+export const templateDetailLabels={business:'Business Name',customer:'Customer Full Name',firstName:'Customer First Name',pets:'Dog Names',appointmentDate:'Appointment Date',appointmentTime:'Appointment Time',location:'Location'} as const;

@@ -482,3 +482,10 @@
 @media(max-width:599px),(orientation:landscape) and (max-height:499px){.gp-pos-phone .gp-pos-visit-stamps{display:flex;flex-basis:100%;justify-content:flex-start}}
 
 .gp-calendar-context-menu{display:flex;flex-direction:column;max-height:calc(100vh - 16px);overflow-y:auto}.gp-calendar-context-menu>.gp-btn{text-align:left;border-radius:0;border-bottom:1px solid #d6e1e8;padding:10px 14px}.gp-calendar-context-menu>.gp-btn:nth-child(odd){background:#eef5fc}.gp-calendar-context-menu>.gp-btn:nth-child(even){background:#fff9ed}.gp-calendar-context-menu>small{padding:8px 14px}
+
+.gp-pos-desktop .gp-ticket-workbar.gp-pet-actions,
+.gp-pos-phone .gp-ticket-workbar.gp-pet-actions{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;padding:3px 7px}
+.gp-pet-actions>fieldset{flex:0 1 22em;min-width:0}
+.gp-pet-actions .gp-pos-item-tools input{width:100%;min-width:0}
+.gp-pos-desktop .gp-ticket-workbar.gp-pet-actions>.gp-pos-promotions,
+.gp-pos-phone .gp-ticket-workbar.gp-pet-actions>.gp-pos-promotions{flex:0 0 auto}

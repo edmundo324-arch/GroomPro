@@ -6,3 +6,10 @@ test('customer confirmation stops requests but preserves selected reminders; sho
 test('cancellation, old times, paused new requests and finished appointments suppress obsolete confirmations',()=>{const now=new Date('2030-01-08T16:00:00Z');assert.deepEqual(plan({...ticket,status:'CANCELLED'},null,policy,active,now),[]);assert.deepEqual(plan(ticket,null,policy,active,now,true),[]);assert.deepEqual(plan(ticket,{requestsPausedForStart:ticket.scheduledStart},policy,active,now),[]);assert.deepEqual(plan(ticket,null,policy,active,new Date('2030-01-10T17:00:00Z')),[]);assert.deepEqual(plan(ticket,null,{...policy,enabled:false},active,now),[])});
 
 test('newly accepted bookings skip confirmation dates before acceptance while explicit reschedule requests still run',()=>{const state={scheduledStart:ticket.scheduledStart,requestScheduleStartsAt:'2030-01-08T16:00:00Z'};assert.deepEqual(plan(ticket,state,policy,active,new Date('2030-01-08T17:00:00Z')),[]);assert.deepEqual(plan(ticket,state,policy,active,new Date('2030-01-10T14:00:00Z')).map(p=>p.at.toISOString()),['2030-01-10T13:00:00.000Z']);assert.deepEqual(plan(ticket,{...state,newRequestAt:'2030-01-08T16:30:00Z'},policy,active,new Date('2030-01-08T17:00:00Z')).map(p=>p.at.toISOString()),['2030-01-08T16:30:00.000Z'])});
+
+test('late follow-up is manual and stops after arrival',()=>{
+ const now=new Date('2030-01-10T16:15:00Z'),at=now.toISOString(),state={scheduledStart:ticket.scheduledStart,newRequestAt:at,confirmedAt:ticket.scheduledStart};
+ assert.deepEqual(plan(ticket,state,policy,active,now),[]);
+ assert.deepEqual(plan(ticket,state,policy,active,now,false,at),[{kind:'CONFIRMATION',at:now}]);
+ assert.deepEqual(plan({...ticket,checkedInAt:at},state,policy,active,now,false,at),[]);
+});

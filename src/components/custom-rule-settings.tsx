@@ -11,6 +11,7 @@ import {HelpPopup} from './help-popup';
 
 import {employeeFetch} from '../lib/employee-fetch';
 
+import {CampaignWording} from './campaign-wording';
 import {customRuleEvents,customRuleVariables,CustomRuleDraft,CustomRuleAction,executableStaffEvents,executableMessageEvents} from '../lib/custom-rule-policy';
 
 type Choice={id:string;name:string};
@@ -23,9 +24,9 @@ const toggle=(values:string[],id:string)=>values.includes(id)?values.filter(v=>v
 
 function Choices({label,help,choices,values,onChange}:{label:string;help:string;choices:Choice[];values:string[];onChange:(v:string[])=>void}){return <fieldset><legend><strong>{label}</strong><HelpPopup label={label}>{help}</HelpPopup></legend><div style={{display:'flex',flexWrap:'wrap',gap:12}}>{choices.map(c=><label key={c.id}><input type="checkbox" checked={values.includes(c.id)} onChange={()=>onChange(toggle(values,c.id))}/>{c.name}</label>)}{!choices.length&&<span>No choices are available.</span>}</div></fieldset>}
 
-export function CustomRuleSettings(){const[open,setOpen]=useState(false);return <><button type="button" className="gp-btn" data-settings-target="custom-rules" onClick={()=>setOpen(true)}>Custom automatic rules</button>{open&&<RuleEditor onClose={()=>setOpen(false)}/>}</>}
+export function CustomRuleSettings({multiLocation=false}:{multiLocation?:boolean}={}){const[open,setOpen]=useState(false);return <><button type="button" className="gp-btn" data-settings-target="custom-rules" onClick={()=>setOpen(true)}>Custom automatic rules</button>{open&&<RuleEditor multiLocation={multiLocation} onClose={()=>setOpen(false)}/>}</>}
 
-function RuleEditor({onClose}:{onClose:()=>void}){
+function RuleEditor({onClose,multiLocation}:{onClose:()=>void;multiLocation:boolean}){
 
  const[services,setServices]=useState<Choice[]>([]),[packages,setPackages]=useState<Choice[]>([]),[vipPlans,setVipPlans]=useState<Choice[]>([]);
  const[history,setHistory]=useState<any[]>([]),[rules,setRules]=useState<SavedRule[]>([]),[draft,setDraft]=useState<CustomRuleDraft|null>(null),[employees,setEmployees]=useState<Choice[]>([]),[locations,setLocations]=useState<Choice[]>([]),[tags,setTags]=useState<Choice[]>([]),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false),[message,setMessage]=useState(''),[existingRecords,setExistingRecords]=useState('');
@@ -90,7 +91,7 @@ function RuleEditor({onClose}:{onClose:()=>void}){
 
  <label><strong>Title / email subject</strong><HelpPopup label="Action title">Use a clear task or notification title. For email this becomes the subject; text messages use the message below.</HelpPopup><input aria-label={'Action '+(index+1)+' title'} maxLength={180} value={a.title} onChange={e=>action(a.id,{title:e.target.value})}/></label>
 
- <label><strong>Instructions / message</strong><HelpPopup label="Action instructions">Write what the employee or customer needs to know. Supported placeholders are filled from the matching record; missing information must not be invented.</HelpPopup><textarea aria-label={'Action '+(index+1)+' message'} rows={4} maxLength={4000} value={a.body} onChange={e=>action(a.id,{body:e.target.value})}/></label>
+ <CampaignWording multiLocation={multiLocation} label={'Action '+(index+1)+' message'} maxLength={4000} fields={customRuleVariables} value={a.body} onChange={body=>action(a.id,{body})}/>
 
  {a.kind==='MESSAGE'&&<label><input type="checkbox" checked={a.marketing===true} onChange={e=>action(a.id,{marketing:e.target.checked})}/>Promotional message<HelpPopup label="Promotional message">Turn this on for offers or promotions. These messages share the tenant’s marketing limit with rebooking invitations; ordinary appointment, account and document notices do not use that allowance.</HelpPopup></label>}
  {a.kind==='MESSAGE'&&draft.event==='CLOSED'&&<label><strong>Replace closing message</strong><HelpPopup label="Replace closing message">Choose which closing message this wording replaces. The other keeps its existing settings and wording; the report card itself stays saved.</HelpPopup><select aria-label="Replace closing message" value={a.replaces||''} onChange={e=>action(a.id,{replaces:e.target.value as 'REVIEW'|'REPORT_CARD'})}><option value="">Choose a closing message</option><option value="REVIEW">Review request</option><option value="REPORT_CARD">Report-card message</option></select></label>}

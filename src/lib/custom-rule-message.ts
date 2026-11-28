@@ -20,7 +20,7 @@ export async function sendCustomRuleMessage(tenantId:string,rule:{id:string;revi
   if(await platformRestriction(tenantId)||!await isFeatureEnabled(tenantId,'MESSAGING')||!await stillCurrent())continue;
   const customer=await client.customer.findFirst({where:{tenantId,id:customerId,active:true},include:{phones:{where:{smsEnabled:true},orderBy:{isPrimary:'desc'}}}});if(!customer)continue;
   const names=await currentTargetNames(client,tenantId,customerId,rule);if(names===null)continue;
-  const currentValues={...values,...(names!==undefined?{petName:names}:{}),customerName:[customer.firstName,customer.lastName].filter(Boolean).join(' '),balanceDue:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(customer.balanceCents)/100)},body=renderCustomRuleText(action.body,currentValues),subject=renderCustomRuleText(action.title,currentValues);
+  const currentValues={...values,firstName:customer.firstName,...(names!==undefined?{petName:names}:{}),customerName:[customer.firstName,customer.lastName].filter(Boolean).join(' '),balanceDue:new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(customer.balanceCents)/100)},body=renderCustomRuleText(action.body,currentValues),subject=renderCustomRuleText(action.title,currentValues);
   const phone=customer.phones?.[0];
   if(channel==='SMS'&&(customer.appointmentSms===false||customer.invalidSmsNumber||!phone))continue;
   if(channel==='EMAIL'&&(customer.appointmentEmail===false||customer.invalidEmail||!customer.email))continue;

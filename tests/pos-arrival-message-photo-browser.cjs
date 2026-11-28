@@ -7,11 +7,11 @@ const stubs={
  'floating-editor-window.tsx':`const React=require('react');exports.FloatingEditorWindow=({title,children,onClose,style})=>React.createElement('section',{role:'dialog','aria-label':title,className:'fixture-dialog',style},React.createElement('header',{},title,React.createElement('button',{'aria-label':'Close '+title,onClick:onClose},'×')),children);`,
  'pos-window-frame.tsx':`const React=require('react');exports.PosWindowFrame=({children,className,style})=>React.createElement('section',{className,style},children);exports.PosFullSizeButton=()=>null;`,
  'pos-layout-controls.tsx':`const React=require('react');exports.usePhoneTicket=()=>false;exports.TicketTabs=()=>null;exports.TicketTopLayout=({controls})=>React.createElement('div',{className:'fixture-details'},Object.keys(controls).map(key=>React.createElement('div',{key},controls[key])));exports.TicketBottomLayout=()=>null;`,
- 'pos-items.tsx':`const React=require('react');exports.PosItems=({lines})=>React.createElement('section',{'aria-label':'Ticket Items'},lines.map(line=>React.createElement('p',{key:line.id},line.description)));`,
+ 'pos-items.tsx':`const React=require('react');exports.PosItemFinder=()=>null;exports.PosItems=({lines})=>React.createElement('section',{'aria-label':'Ticket Items'},lines.map(line=>React.createElement('p',{key:line.id},line.description)));`,
  'business-library.tsx':'exports.BusinessLibrary=()=>null;',
 };
 for(const [file,names] of Object.entries({
- 'pickup-call.tsx':['PickupCall'],'ticket-follow-ups.tsx':['TicketFollowUps'],'customer-deposit.tsx':['CustomerDeposit','ApplyCustomerCredit'],'ticket-void.tsx':['TicketVoid'],'ticket-refunds.tsx':['TicketRefunds'],'ticket-referral-rewards.tsx':['TicketReferralRewards'],'ticket-promotions.tsx':['TicketPromotions'],'grooming-progress.tsx':['GroomingProgress'],'visit-history.tsx':['VisitHistory'],'appointment-history.tsx':['AppointmentHistory'],'grooming-notes.tsx':['GroomingNotes'],'customer-identification.tsx':['CustomerIdentification'],'report-card.tsx':['ReportCard'],'ticket-prepaid.tsx':['TicketPrepaid'],'ticket-gift-cards.tsx':['TicketGiftCards'],'promoting-services.tsx':['PromotingServices'],'customer-profile.tsx':['CustomerProfile'],'catalog-workspace.tsx':['MembershipEnrollment'],'ticket-tips.tsx':['TicketTips'],'help-popup.tsx':['HelpPopup']
+ 'pickup-call.tsx':['PickupCall'],'ticket-follow-ups.tsx':['TicketFollowUps'],'customer-deposit.tsx':['CustomerDeposit','ApplyCustomerCredit'],'ticket-void.tsx':['TicketVoid'],'ticket-refunds.tsx':['TicketRefunds'],'ticket-referral-rewards.tsx':['TicketReferralRewards'],'ticket-promotions.tsx':['TicketPromotions'],'grooming-progress.tsx':['GroomingProgress'],'visit-history.tsx':['VisitHistory'],'appointment-history.tsx':['AppointmentHistory'],'grooming-notes.tsx':['GroomingNotes'],'customer-identification.tsx':['CustomerIdentification'],'report-card.tsx':['ReportCard'],'ticket-prepaid.tsx':['TicketPrepaid'],'ticket-gift-cards.tsx':['TicketGiftCards'],'customer-profile.tsx':['CustomerProfile'],'catalog-workspace.tsx':['MembershipEnrollment'],'ticket-tips.tsx':['TicketTips'],'help-popup.tsx':['HelpPopup']
 }))stubs[file]=names.map(name=>'exports.'+name+'=()=>null;').join('');
 function bundle(file){
  file=path.resolve(root,file);if(modules.has(file))return file;
@@ -35,12 +35,13 @@ Object.assign(baseTicket.customer,{balanceCents:0,creditCents:0,loyaltyPoints:0}
 Object.assign(baseTicket,{tipCents:0,salesTaxCents:0,totalCents:6100,payments:[]});Object.assign(window.__ticket,{tipCents:0,salesTaxCents:0,totalCents:6100,payments:[]});
 const response=data=>new Response(JSON.stringify(data),{status:200,headers:{'Content-Type':'application/json'}});
 window.fetch=async(url,options={})=>{const parsed=new URL(url,'https://fixture.invalid'),pathname=parsed.pathname,method=options.method||'GET',body=options.body?JSON.parse(options.body):null;window.__requests.push({url:parsed.pathname+parsed.search,method,body});
- if(pathname==='/api/tickets/fixture-ticket'){if(window.__holdTicketReads)await new Promise(resolve=>window.__heldReads.push(resolve));return response({ticket:structuredClone(window.__ticket),account:{balanceCents:0,creditCents:0,loyaltyPoints:0},rewards:[],paymentMethods:[]});}
+ if(pathname==='/api/tickets/status'&&body?.action==='REPAIR_ARRIVAL'){if(window.__backfill)window.__ticket.arrivalPriority=5;return response({ticket:window.__ticket});}
+  if(pathname==='/api/tickets/fixture-ticket'){if(window.__holdTicketReads)await new Promise(resolve=>window.__heldReads.push(resolve));return response({ticket:structuredClone(window.__ticket),account:{balanceCents:0,creditCents:0,loyaltyPoints:0},rewards:[],paymentMethods:[]});}
  if(pathname==='/api/tickets/checkout')return response(checkout);
  if(pathname==='/api/tickets/confirmation-request'){
-  if(method==='POST')return response({message:'Fixture confirmation recorded.'});
+  if(method==='POST'){window.__sentHistory=[{id:'two',channel:'SMS',sentAt:'2026-11-27T19:00:00Z'},{id:'one',channel:'EMAIL',sentAt:'2026-11-27T18:00:00Z'}];return response({message:'Fixture confirmation recorded.'});}
   if(window.__failNotice){return new Response(JSON.stringify({error:'Reconnect to check this appointment.'}),{status:400});}
-  const canRequest=window.__ticket.status==='OPEN';return response({canRequest,scheduledStart:window.__ticket.scheduledStart,reason:canRequest?'':'The dogs are already here for this visit.'});
+  const canRequest=window.__ticket.status==='OPEN';return response({canRequest,sentHistory:window.__sentHistory||[],scheduledStart:window.__ticket.scheduledStart,reason:canRequest?'':'The dogs are already here for this visit.'});
  }
  if(pathname==='/api/pos-drafts')return response({draft:null});
  if(pathname==='/api/catalog')return response({services:[{id:'wash',name:'Full Wash',priceCents:6100,active:true}],products:[],packages:[{id:'fw',name:'Full Wash Package',active:true,priceCents:6100,services:[]}],plans:[],breeds:[]});
@@ -83,6 +84,13 @@ async function main(){
  const output=path.join(root,'test-results','pos-arrival-message-photo');fs.mkdirSync(output,{recursive:true});const screenshot=async name=>fs.writeFileSync(path.join(output,name+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
  const remount=async patch=>{const key=await evaluate(`window.__mount(${JSON.stringify(patch)})`);await wait(`document.querySelector('[data-fixture-key]')?.dataset.fixtureKey===${JSON.stringify(String(key))} && document.querySelector('[aria-label="Arrival priority"]')?.value===${JSON.stringify(String(patch.arrivalPriority??''))} && document.querySelector('[data-customer-id]')?.dataset.customerId==='maria'`)};
  await send('Runtime.enable');await send('Page.enable');await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await send('Page.navigate',{url:'http://127.0.0.1:'+fixtureServer.address().port});await wait(`document.querySelector('[aria-label="Arrival priority"]')?.value==='7'`);
+ if(process.argv.includes('--pet-actions')){
+  await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Offer Today').click()`);
+  await wait(`document.activeElement?.getAttribute('aria-label')==='Search Offer Today'`);
+  await send('Input.insertText',{text:'nail'});
+  assert.equal(await evaluate(`document.activeElement.value`),'nail');
+  console.log('PASS: Offer Today opens with its search ready to type.');return;
+ }
  if(process.argv.includes('--confirmation')){
   const area='.gp-ticket-confirmation-request';
   await wait(`document.querySelector('${area}')?.textContent.includes('already here')`);
@@ -94,7 +102,16 @@ async function main(){
   await click(area+' button');
   await wait(`document.querySelector('${area}')?.textContent.includes('Fixture confirmation recorded.')`);
   assert.equal(await evaluate(`window.__requests.filter(r=>r.url==='/api/tickets/confirmation-request'&&r.method==='POST').length`),1);
-  console.log('PASS: unavailable reason, failed lookup, retry and confirmation submission.');return;
+  await wait(`document.querySelector('.gp-ticket-confirmation-request time')?.textContent.includes('1:00 PM')`);
+  await remount({status:'OPEN',checkedInAt:null,arrivalPriority:null});
+  await wait(`document.querySelectorAll('.gp-ticket-confirmation-request time').length===2`);
+  console.log('PASS: confirmation submission and shop-local sent history after reopening.');return;
+ }
+ if(process.argv.includes('--backfill')){
+  await evaluate("window.__backfill=true;window.__mount({status:'READY',arrivalPriority:null})");
+  await wait(`document.querySelector('[aria-label="Arrival priority"]')?.value==='5'`);
+  assert.equal(await evaluate('window.__ticket.status'),'READY');
+  console.log('PASS: reopening a ready ticket fills its missing order automatically.');return;
  }
  if(process.argv.includes('--two-dog-photos')){
   for(const name of ['Guillermo124','Bentley124']){
@@ -126,20 +143,20 @@ async function main(){
  await evaluate(`[...document.querySelectorAll('[aria-label="Pet Photos"] button')].find(b=>b.textContent==='Save Photo').click()`);await wait(`document.querySelector('[aria-label="Edit Photos for Gizmo"] img')?.naturalWidth>0`);assert.equal(await evaluate(`window.__requests.filter(r=>r.method==='POST'&&r.url==='/api/pets/photos').length`),1);const photoUpload=await evaluate(`(()=>{const r=window.__requests.find(r=>r.method==='POST'&&r.url==='/api/pets/photos').body;return {petId:r.petId,useAsProfile:r.useAsProfile,stage:r.stage,name:r.name}})()`);assert.deepEqual(photoUpload,{petId:'gizmo',useAsProfile:true,stage:'OTHER',name:'gizmo-fixture.png'});await screenshot('photo-saved');await click('[aria-label="Close Gizmo — Photos"]');
  await click('.gp-pos-pet-chip > button');await wait(`!!document.querySelector('[role="dialog"][aria-label="Choose a Package for Gizmo"]')`);assert.equal(await evaluate(`!!document.querySelector('[role="dialog"][aria-label="Gizmo — Photos"]')`),false,'Left-click retains the package chooser');await click('[aria-label="Close Choose a Package for Gizmo"]');
  await remount({arrivalPriority:5});await wait(`document.querySelector('[aria-label="Edit Photos for Gizmo"] img')?.naturalWidth>0`);await click('[aria-label="Edit Photos for Gizmo"]');await wait(`!!document.querySelector('[aria-label="Pet Photos"] figure img')`);assert.equal(await evaluate(`document.querySelector('[aria-label="Pet Photos"] figure button').textContent`),'Current Pet Picture','Saved profile photo survives reopening the appointment');await screenshot('photo-reopened');
- await click('[aria-label="Close Gizmo — Photos"]');await remount({arrivalPriority:null});await evaluate('window.__prepareDevice()');await evaluate('window.__online=false');await click('[aria-label="Checked in"]');await wait(`document.querySelector('.gp-pos-arrival [role="status"]')?.textContent==='Waiting to Sync'`);
- assert.equal(await evaluate(`document.querySelector('[aria-label="Arrival priority"]').value`),'','Offline devices must not invent a shared arrival number');
+ await click('[aria-label="Close Gizmo — Photos"]');await remount({arrivalPriority:null});await evaluate('window.__prepareDevice()');await evaluate('window.__online=false');await click('[aria-label="Checked in"]');await wait(`document.querySelector('.gp-pos-arrival [role="status"]')?.textContent==='Local'`);
+ assert.equal(await evaluate(`document.querySelector('[aria-label="Arrival priority"]').value`),'1','A pending arrival displays its local number');
  const offlineTotals=await evaluate(`window.__device.deviceFetch('/api/tickets/checkout?ticketId=fixture-ticket').then(r=>r.json())`);assert.equal(offlineTotals.tipCents,0);assert.equal(offlineTotals.salesTaxCents,0);assert.ok(Number.isFinite(offlineTotals.totalCents-offlineTotals.tipCents-offlineTotals.salesTaxCents),'Pending ticket totals include tax/tip fields used by POS');
  await evaluate('window.__online=true;window.__device.syncOffline()');await wait(`document.querySelector('[aria-label="Arrival priority"]')?.value==='5'`);
  assert.equal(await evaluate(`!!document.querySelector('.gp-pos-arrival [role="status"]')`),false,'Cloud confirmation replaces the pending arrival without reopening POS');assert.equal(await evaluate(`window.__ticket.checkedInAt`),'2026-11-27T15:05:00Z','Repair preserves the original check-in time');assert.equal(await evaluate(`window.__ticket.scheduledStart`),'2026-11-27T15:00:00Z','Repair preserves the drop-off time');await screenshot('offline-arrival-synced');
  await evaluate(`window.__peer=window.open(location.href,'groompro-fixture-second-window');true`);await wait(`window.__peer?.document.querySelector('[aria-label="Arrival priority"]')?.value==='7'`);
  await remount({arrivalPriority:null,status:'CONFIRMED',checkedInAt:null});await evaluate(`window.__prepareDevice().then(()=>{window.__peer.__mount({arrivalPriority:null});window.__peer.__online=true})`);await wait(`window.__peer.document.querySelector('[aria-label="Arrival priority"]')?.value===''`);
- await evaluate('window.__online=false');await click('[aria-label="Checked in"]');await wait(`document.querySelector('.gp-pos-arrival [role="status"]')?.textContent==='Waiting to Sync'`);
+ await evaluate('window.__online=false');await click('[aria-label="Checked in"]');await wait(`document.querySelector('.gp-pos-arrival [role="status"]')?.textContent==='Local'`);
  const capturedCheckIn=await evaluate(`window.__device.offlineStatus().then(s=>new Date(s.pending[0].createdAt).toISOString())`);await screenshot('offline-arrival-pending');
  await evaluate(`window.__deviceStore.deviceUpdate(window.__deviceStore.outboxKey(window.__scope),q=>({...q,pending:[...(${earlyConflict}?[]:q.pending),{...window.__scope,id:crypto.randomUUID(),url:'/api/tickets',method:'PATCH',body:JSON.stringify({ticketId:${JSON.stringify(sameTicketConflict?'fixture-ticket':'another-ticket')},notes:'Unrelated edit'}),createdAt:Date.now()},...(${earlyConflict}?q.pending:[])]})).then(()=>{window.__peer.__ticket.arrivalPriority=5;window.__online=true;return window.__device.syncOffline()})`);
  if(sameTicketConflict){
   const queued=await evaluate('window.__device.offlineStatus().then(s=>s.pending)');
   assert.equal(queued.length,2);assert.ok(queued[0].issue);
-  assert.equal(await evaluate(`document.querySelector('[aria-label="Arrival priority"]').value`),'');
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Arrival priority"]').value`),'1');
   await evaluate(`window.addEventListener('groompro:review-offline',()=>window.__reviewOpened=true,{once:true});document.querySelector('[aria-label="Review Pending Check-In"]').click()`);
   assert.equal(await evaluate('window.__reviewOpened'),true);
   await evaluate('window.__peer.close()');

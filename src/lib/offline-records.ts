@@ -12,7 +12,7 @@ import { bookedPetIds } from './appointment-pets';
 import { expandPackage } from './package-lines';
 import { lineSchedule, movePetTimes, responsibleEmployee, scheduleBounds } from './pet-scheduling';
 import { ticketDuration } from './ticket-timing';
-import { localToInstant, defaultHours, parseHours } from './operating-hours';
+import { localToInstant, zonedParts, defaultHours, parseHours } from './operating-hours';
 import { removePackageLine } from './package-removal';
 import { plannedKey } from './planned-package-rules';
 import { initialGroomingInstructions } from './grooming-note-defaults';
@@ -253,12 +253,19 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
     const priorStatus=ticket.status;
     if (details.status) ticket.status = details.status;
     if(priorStatus==='READY'&&details.status&&details.status!=='READY'&&details.status!=='READY_FOR_PICKUP')ticket.pickupAt=null;
-    if (details.action === 'UNDO_CHECK_IN') Object.assign(ticket, { status: 'CONFIRMED', checkedInAt: null, arrivalPriority: null, arrivalPriorityPending: false, pickupAt: null });
+    if (details.action === 'UNDO_CHECK_IN') Object.assign(ticket, { status: 'CONFIRMED', checkedInAt: null, arrivalPriority: null, localArrivalOrder:null, arrivalPriorityPending: false, pickupAt: null });
     if (details.action === 'UNDO_READY') Object.assign(ticket, { status: ticket.checkedInAt ? 'CHECKED_IN' : 'CONFIRMED', pickupAt: null });
-    if (details.status === 'CHECKED_IN') { ticket.checkedInAt ||= now; ticket.arrivalPriorityPending = !ticket.arrivalPriority; }
+    if (details.status === 'CHECKED_IN') { ticket.checkedInAt ||= now; ticket.arrivalPriorityPending = !ticket.arrivalPriority;
+      if(ticket.arrivalPriorityPending&&!ticket.localArrivalOrder){
+        const zone=state.location?.timezone||'America/Chicago';
+        const day=(t:any)=>zonedParts(new Date(t.scheduledStart||t.checkedInAt||now),zone).date;
+        const visitDay=day(ticket);
+        ticket.localArrivalOrder=1+state.tickets.reduce((max,t)=>t.id!==ticket.id&&t.locationId===ticket.locationId&&day(t)===visitDay?Math.max(max,t.arrivalPriority||t.localArrivalOrder||0):max,0);
+      }
+    }
     if (details.status === 'READY'||details.status === 'READY_FOR_PICKUP') ticket.pickupAt = priorStatus==='READY'?ticket.pickupAt||now:now;
     if (!ticket.pickupAt) Object.assign(ticket, {pickupCalledAt:null,pickupTextedAt:null,readyContacted:false});
-    if (details.status === 'OPEN' || details.checkedIn === false) Object.assign(ticket, { checkedInAt: null, arrivalPriority: null, arrivalPriorityPending: false });
+    if (details.status === 'OPEN' || details.checkedIn === false) Object.assign(ticket, { checkedInAt: null, arrivalPriority: null, localArrivalOrder:null, arrivalPriorityPending: false });
   } else if (path === '/api/tickets/visit-history') {
     if(ticket.status!=='READY'||!ticket.pickupAt||ticket.pickupCompletedAt)throw Error('Mark the ticket ready for pickup before recording a call.');
     if(body.action==='CONTACT'){
@@ -339,7 +346,7 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
       ticket.plannedAssignments = [...previous.filter((plan: any) => plan.petId !== body.petId), { petId: body.petId, userId: body.employeeId },
         ...previous.filter((plan: any) => plan.petId === body.petId && plan.packageKey).map((plan: any) => ({ ...plan, userId: body.employeeId }))];
     }
-  } else if (path === '/api/whiteboard') { ticket.arrivalPriority = body.value; ticket.arrivalPriorityPending = false; }
+  } else if (path === '/api/whiteboard') { ticket.arrivalPriority = body.value; ticket.localArrivalOrder = null; ticket.arrivalPriorityPending = false; }
   else if (path === '/api/tickets/presentation') ticket.presentationServiceType = body.serviceType;
   else if (path === '/api/tickets/planned-packages') {
     const next = body.assignment;

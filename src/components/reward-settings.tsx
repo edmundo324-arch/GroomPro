@@ -1,4 +1,6 @@
 "use client";
+import {SettingsSections} from './settings-sections';
+import {ReferralRewardSettings} from './referral-reward-settings';
 import {StoredValuePolicy} from './stored-value-policy';
 import {PromotionSettings} from './promotion-settings';
 import {PortalSettings} from './portal-settings';
@@ -38,7 +40,8 @@ export function RewardSettings() {
 
   return (
     <div className="gp-settings-card">
-      <h2>Customer Account & Secret Rewards</h2>
+      <h2>Rewards</h2><SettingsSections id="settings-rewards" label="Reward settings" sections={[
+      {id:'account',label:'Points and fees',content:<>
       <p>Managers can control the No-Show Fee and how many Reward Points are earned per dollar spent.</p>
       <div className="gp-responsive-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
         <div data-settings-target="no-show-fee" tabIndex={-1}>
@@ -51,8 +54,8 @@ export function RewardSettings() {
         </div>
         <button className="gp-btn primary" onClick={save} disabled={loading}>Save</button>
       </div>
-      <PromotionSettings/><StoredValuePolicy/><PortalSettings feeCents={Number.isFinite(Number(fee))?Math.round(Number(fee)*100):0}/>
-      {msg && <div className="gp-form-success" style={{ marginTop: 10 }}>{msg}</div>}
+
+      {msg && <div className="gp-form-success" style={{ marginTop: 10 }}>{msg}</div>}</>},{id:'referrals',label:'Refer-A-Friend',content:<ReferralRewardSettings/>},{id:'promotions',label:'Discounts and promotions',content:<PromotionSettings/>},{id:'stored-value',label:'Stored value',content:<StoredValuePolicy/>},{id:'portal',label:'Customer portal',content:<PortalSettings feeCents={Number.isFinite(Number(fee))?Math.round(Number(fee)*100):0}/>}]}/>
     </div>
   );
 }

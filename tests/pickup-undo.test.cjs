@@ -22,3 +22,13 @@ test('a verified delayed check-in retains its device time and never overwrites a
  for(const existing of [null,new Date('2026-11-27T08:15:00Z')]){const f=fixture();f.ticket.status='OPEN';f.ticket.checkedInAt=existing;f.ticket.scheduledStart=new Date('2030-01-01T15:00:00Z');const r=await offlineTransaction.run({checkedInAt:recorded},()=>f.call({status:'CHECKED_IN',checkedInAt:'1900-01-01T00:00:00Z'}));assert.equal(r.status,200);const d=await r.json();assert.equal(d.ticket.checkedInAt,(existing||recorded).toISOString());assert.equal(d.ticket.arrivalPriority,4);assert.equal(f.ticket.scheduledStart.toISOString(),'2030-01-01T15:00:00.000Z');}
  const f=fixture();f.ticket.status='OPEN';f.ticket.checkedInAt=null;f.ticket.scheduledStart=new Date('2030-01-01T15:00:00Z');const before=Date.now(),r=await f.call({status:'CHECKED_IN',checkedInAt:recorded.toISOString()});assert.equal(r.status,200);assert.ok(+new Date((await r.json()).ticket.checkedInAt)>=before,'Ordinary status requests cannot supply a device time');
 });
+
+test('repair fills the missing shared order once and preserves the visit',async()=>{
+ const f=fixture(),request={action:'REPAIR_ARRIVAL',status:'CHECKED_IN'};
+ f.ticket.scheduledStart=f.ticket.checkedInAt;f.ticket.displayStatus='Ready for family';
+ const before={...f.ticket};
+ assert.equal((await f.call(request)).status,200);
+ assert.deepEqual(f.ticket,{...before,arrivalPriority:4});
+ assert.equal((await f.call(request)).status,200);
+ assert.equal(f.updates.length,1);
+});

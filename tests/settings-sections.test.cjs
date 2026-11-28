@@ -46,7 +46,7 @@ test('Settings search renders and sends import terms to two distinct controls wi
 test('Settings search finds operational controls and routes each result to a real Settings section',()=>{
  const {findSettings,settingsSearchEntries,settingsBreadcrumb}=require('../src/lib/settings-search.ts');
  const read=name=>fs.readFileSync('src/components/'+name+'.tsx','utf8');
- const tabs=read('settings')+read('workflow-settings');
+ const tabs=read('settings')+read('workflow-settings')+read('appointment-message-settings')+read('reward-settings');
  const anchors=['payroll-settings','appointment-message-settings','sales-tax-settings','promotion-settings','device-settings','portal-settings','customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings','platform-access-settings'].map(read).join('\n');
  for(const entry of settingsSearchEntries){
   const labels=settingsBreadcrumb(entry).split(' → ').slice(1,entry.path.length+1);
@@ -67,7 +67,7 @@ test('Settings search finds operational controls and routes each result to a rea
   'workflow/billing':['VIP billing'],
   'locations/hours':['holidays','special hours'],
   'locations/sharing':['customer sharing'],
-  rewards:['no-show fee','reward points per dollar','first groom credit'],
+  'rewards/account':['no-show fee','reward points per dollar'],'rewards/referrals':['first groom credit'],
   'administration/access':['product name','rename GroomPro','turn business modules off'],
   'administration/subscription':['texting and calling'],
   'data/imports':['choose related files','load prepared data','demo customer addresses'],
@@ -101,4 +101,13 @@ test('Settings search takes platform staff directly to the Create business form'
  const panel=renderToStaticMarkup(React.createElement(PlatformAccessSettings));
  assert.match(panel,/<details[^>]*><summary data-settings-target="platform-business-controls">GroomPro platform access controls<\/summary>.*<details[^>]*><summary data-settings-target="create-pilot-business">Create business<\/summary>/);
  assert.match(panel,/<legend>First location<\/legend>.*<legend>Business owner<\/legend>.*Sign-in PIN/);
+});
+
+test('campaign wording offers named details and only shows Location for a multi-location business',()=>{
+ const {CampaignWording}=require('../src/components/campaign-wording.tsx');
+ const fields=['business','customer','firstName','pets','appointmentDate','appointmentTime','location'];
+ const render=multiLocation=>renderToStaticMarkup(React.createElement(CampaignWording,{label:'Pickup message',value:'Hello {firstName}',onChange:()=>{},multiLocation,fields}));
+ const multiple=render(true);
+ for(const label of ['Business Name','Customer Full Name','Customer First Name','Dog Names','Appointment Date','Appointment Time','Location'])assert.ok(multiple.includes('>'+label+'</button>'));
+ assert.ok(!render(false).includes('>Location</button>'));
 });
