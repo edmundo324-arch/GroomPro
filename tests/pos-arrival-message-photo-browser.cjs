@@ -11,7 +11,7 @@ const stubs={
  'business-library.tsx':'exports.BusinessLibrary=()=>null;',
 };
 for(const [file,names] of Object.entries({
- 'pickup-call.tsx':['PickupCall'],'ticket-confirmation-request.tsx':['TicketConfirmationRequest'],'ticket-follow-ups.tsx':['TicketFollowUps'],'customer-deposit.tsx':['CustomerDeposit','ApplyCustomerCredit'],'ticket-void.tsx':['TicketVoid'],'ticket-refunds.tsx':['TicketRefunds'],'ticket-referral-rewards.tsx':['TicketReferralRewards'],'ticket-promotions.tsx':['TicketPromotions'],'grooming-progress.tsx':['GroomingProgress'],'visit-history.tsx':['VisitHistory'],'appointment-history.tsx':['AppointmentHistory'],'grooming-notes.tsx':['GroomingNotes'],'customer-identification.tsx':['CustomerIdentification'],'report-card.tsx':['ReportCard'],'ticket-prepaid.tsx':['TicketPrepaid'],'ticket-gift-cards.tsx':['TicketGiftCards'],'promoting-services.tsx':['PromotingServices'],'customer-profile.tsx':['CustomerProfile'],'catalog-workspace.tsx':['MembershipEnrollment'],'ticket-tips.tsx':['TicketTips'],'help-popup.tsx':['HelpPopup']
+ 'pickup-call.tsx':['PickupCall'],'ticket-follow-ups.tsx':['TicketFollowUps'],'customer-deposit.tsx':['CustomerDeposit','ApplyCustomerCredit'],'ticket-void.tsx':['TicketVoid'],'ticket-refunds.tsx':['TicketRefunds'],'ticket-referral-rewards.tsx':['TicketReferralRewards'],'ticket-promotions.tsx':['TicketPromotions'],'grooming-progress.tsx':['GroomingProgress'],'visit-history.tsx':['VisitHistory'],'appointment-history.tsx':['AppointmentHistory'],'grooming-notes.tsx':['GroomingNotes'],'customer-identification.tsx':['CustomerIdentification'],'report-card.tsx':['ReportCard'],'ticket-prepaid.tsx':['TicketPrepaid'],'ticket-gift-cards.tsx':['TicketGiftCards'],'promoting-services.tsx':['PromotingServices'],'customer-profile.tsx':['CustomerProfile'],'catalog-workspace.tsx':['MembershipEnrollment'],'ticket-tips.tsx':['TicketTips'],'help-popup.tsx':['HelpPopup']
 }))stubs[file]=names.map(name=>'exports.'+name+'=()=>null;').join('');
 function bundle(file){
  file=path.resolve(root,file);if(modules.has(file))return file;
@@ -37,6 +37,11 @@ const response=data=>new Response(JSON.stringify(data),{status:200,headers:{'Con
 window.fetch=async(url,options={})=>{const parsed=new URL(url,'https://fixture.invalid'),pathname=parsed.pathname,method=options.method||'GET',body=options.body?JSON.parse(options.body):null;window.__requests.push({url:parsed.pathname+parsed.search,method,body});
  if(pathname==='/api/tickets/fixture-ticket'){if(window.__holdTicketReads)await new Promise(resolve=>window.__heldReads.push(resolve));return response({ticket:structuredClone(window.__ticket),account:{balanceCents:0,creditCents:0,loyaltyPoints:0},rewards:[],paymentMethods:[]});}
  if(pathname==='/api/tickets/checkout')return response(checkout);
+ if(pathname==='/api/tickets/confirmation-request'){
+  if(method==='POST')return response({message:'Fixture confirmation recorded.'});
+  if(window.__failNotice){return new Response(JSON.stringify({error:'Reconnect to check this appointment.'}),{status:400});}
+  const canRequest=window.__ticket.status==='OPEN';return response({canRequest,scheduledStart:window.__ticket.scheduledStart,reason:canRequest?'':'The dogs are already here for this visit.'});
+ }
  if(pathname==='/api/pos-drafts')return response({draft:null});
  if(pathname==='/api/catalog')return response({services:[{id:'wash',name:'Full Wash',priceCents:6100,active:true}],products:[],packages:[{id:'fw',name:'Full Wash Package',active:true,priceCents:6100,services:[]}],plans:[],breeds:[]});
  if(pathname==='/api/employees')return response({employees:[{id:'anton',firstName:'Anton',lastName:'Johnson',role:'BACK',active:true}]});
@@ -65,6 +70,8 @@ fs.writeFileSync(fixture,`<!doctype html><html><head><meta charset="utf-8"><styl
 const chrome=spawn(process.env.GROOMPRO_TEST_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless','--disable-gpu','--no-first-run','--disable-popup-blocking','--disable-background-networking','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{stdio:'ignore',windowsHide:true});
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let socket;const fixtureServer=createServer((req,res)=>{res.setHeader('Content-Type','text/html');res.end(fs.readFileSync(fixture));});
 async function main(){
+ const sameTicketConflict=process.argv.includes('--same-ticket-conflict');
+ const earlyConflict=sameTicketConflict||process.argv.includes('--prior-conflict');
  await new Promise(resolve=>fixtureServer.listen(0,'127.0.0.1',resolve));
  let port;for(let i=0;i<100;i++){try{port=fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8').split('\n')[0];break}catch{await pause(100)}}if(!port)throw Error('Browser did not start');
  const target=await(await fetch('http://127.0.0.1:'+port+'/json/new?about:blank',{method:'PUT'})).json();socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise(resolve=>socket.addEventListener('open',resolve,{once:true}));
@@ -76,6 +83,19 @@ async function main(){
  const output=path.join(root,'test-results','pos-arrival-message-photo');fs.mkdirSync(output,{recursive:true});const screenshot=async name=>fs.writeFileSync(path.join(output,name+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
  const remount=async patch=>{const key=await evaluate(`window.__mount(${JSON.stringify(patch)})`);await wait(`document.querySelector('[data-fixture-key]')?.dataset.fixtureKey===${JSON.stringify(String(key))} && document.querySelector('[aria-label="Arrival priority"]')?.value===${JSON.stringify(String(patch.arrivalPriority??''))} && document.querySelector('[data-customer-id]')?.dataset.customerId==='maria'`)};
  await send('Runtime.enable');await send('Page.enable');await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await send('Page.navigate',{url:'http://127.0.0.1:'+fixtureServer.address().port});await wait(`document.querySelector('[aria-label="Arrival priority"]')?.value==='7'`);
+ if(process.argv.includes('--confirmation')){
+  const area='.gp-ticket-confirmation-request';
+  await wait(`document.querySelector('${area}')?.textContent.includes('already here')`);
+  await evaluate('window.__failNotice=true');
+  await remount({status:'OPEN',checkedInAt:null,arrivalPriority:null});
+  await wait(`document.querySelector('${area}')?.textContent.includes('Try Again')`);
+  await evaluate(`window.__failNotice=false;[...document.querySelectorAll('${area} button')].find(b=>b.textContent==='Try Again').click()`);
+  await wait(`document.querySelector('${area} button')?.disabled===false`);
+  await click(area+' button');
+  await wait(`document.querySelector('${area}')?.textContent.includes('Fixture confirmation recorded.')`);
+  assert.equal(await evaluate(`window.__requests.filter(r=>r.url==='/api/tickets/confirmation-request'&&r.method==='POST').length`),1);
+  console.log('PASS: unavailable reason, failed lookup, retry and confirmation submission.');return;
+ }
  if(process.argv.includes('--two-dog-photos')){
   for(const name of ['Guillermo124','Bentley124']){
    await click('[aria-label="Edit Photos for '+name+'"]');
@@ -115,7 +135,16 @@ async function main(){
  await remount({arrivalPriority:null,status:'CONFIRMED',checkedInAt:null});await evaluate(`window.__prepareDevice().then(()=>{window.__peer.__mount({arrivalPriority:null});window.__peer.__online=true})`);await wait(`window.__peer.document.querySelector('[aria-label="Arrival priority"]')?.value===''`);
  await evaluate('window.__online=false');await click('[aria-label="Checked in"]');await wait(`document.querySelector('.gp-pos-arrival [role="status"]')?.textContent==='Waiting to Sync'`);
  const capturedCheckIn=await evaluate(`window.__device.offlineStatus().then(s=>new Date(s.pending[0].createdAt).toISOString())`);await screenshot('offline-arrival-pending');
- await evaluate(`window.__deviceStore.deviceUpdate(window.__deviceStore.outboxKey(window.__scope),q=>({...q,pending:[...q.pending,{...window.__scope,id:crypto.randomUUID(),url:'/api/tickets',method:'PATCH',body:JSON.stringify({ticketId:'another-ticket',notes:'Unrelated edit'}),createdAt:Date.now()}]})).then(()=>{window.__peer.__ticket.arrivalPriority=5;window.__online=true;return window.__device.syncOffline()})`);
+ await evaluate(`window.__deviceStore.deviceUpdate(window.__deviceStore.outboxKey(window.__scope),q=>({...q,pending:[...(${earlyConflict}?[]:q.pending),{...window.__scope,id:crypto.randomUUID(),url:'/api/tickets',method:'PATCH',body:JSON.stringify({ticketId:${JSON.stringify(sameTicketConflict?'fixture-ticket':'another-ticket')},notes:'Unrelated edit'}),createdAt:Date.now()},...(${earlyConflict}?q.pending:[])]})).then(()=>{window.__peer.__ticket.arrivalPriority=5;window.__online=true;return window.__device.syncOffline()})`);
+ if(sameTicketConflict){
+  const queued=await evaluate('window.__device.offlineStatus().then(s=>s.pending)');
+  assert.equal(queued.length,2);assert.ok(queued[0].issue);
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Arrival priority"]').value`),'');
+  await evaluate(`window.addEventListener('groompro:review-offline',()=>window.__reviewOpened=true,{once:true});document.querySelector('[aria-label="Review Pending Check-In"]').click()`);
+  assert.equal(await evaluate('window.__reviewOpened'),true);
+  await evaluate('window.__peer.close()');
+  console.log('PASS: a same-ticket conflict stays available for review from the arrival field.');return;
+ }
  await wait(`document.querySelector('[aria-label="Arrival priority"]')?.value==='5'`);await wait(`window.__peer.document.querySelector('[aria-label="Arrival priority"]')?.value==='5'`);
  assert.equal(await evaluate('window.__ticket.checkedInAt'),capturedCheckIn,'A delayed first check-in carries its original device timestamp');
  assert.equal(await evaluate(`window.__device.offlineStatus().then(s=>s.pending[0].issue)`),'Fixture conflict on a different appointment.','A later conflict stays unresolved while this ticket receives its confirmed order');

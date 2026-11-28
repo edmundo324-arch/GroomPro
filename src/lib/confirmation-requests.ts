@@ -9,9 +9,17 @@ export async function confirmationNotice(client:any,tenantId:string,ticketId:str
  const ticket=await client.ticket.findFirst({where:{tenantId,id:ticketId},include:{customer:true}});
  if(!ticket)throw Error('This appointment is unavailable. Reopen it from the customer’s profile.');
  const row=await client.tenantSetting.findUnique({where:{tenantId_settingKey:{tenantId,settingKey:attendanceKey(ticketId)}}});
- const state=attendanceFor(row?.value,ticket.scheduledStart),eligible=!!ticket.scheduledStart&&+ticket.scheduledStart>Date.now()&&['OPEN','CONFIRMED'].includes(ticket.status)&&!['REQUESTED','PENDING','REJECTED'].includes(ticket.bookingDecision)&&!state.confirmedAt;
+ const state=attendanceFor(row?.value,ticket.scheduledStart);
+ let reason='';
+ if(!ticket.customer?.active)reason='This customer is inactive.';
+ else if(state.confirmedAt)reason='The customer has already confirmed this appointment.';
+ else if(['CHECKED_IN','IN_PROGRESS','READY'].includes(ticket.status))reason='The dogs are already here for this visit.';
+ else if(!['OPEN','CONFIRMED'].includes(ticket.status))reason='This appointment is no longer open for confirmation.';
+ else if(['REQUESTED','PENDING','REJECTED'].includes(ticket.bookingDecision))reason='Accept the booking before asking the customer to confirm.';
+ else if(!ticket.scheduledStart)reason='Schedule this appointment before requesting confirmation.';
+ else if(+ticket.scheduledStart<=Date.now())reason='The scheduled appointment time has passed.';
  const bounced=ticket.customer.email?await client.communication.findFirst({where:{tenantId,customerId:ticket.customerId,channel:'EMAIL',direction:'OUTBOUND',deliveryStatus:'BOUNCED',toAddress:ticket.customer.email},orderBy:{createdAt:'desc'}}):null;
- return {customerId:ticket.customerId,scheduledStart:ticket.scheduledStart?.toISOString()||'',canRequest:eligible,bouncedEmail:bounced?ticket.customer.email:null};
+ return {customerId:ticket.customerId,scheduledStart:ticket.scheduledStart?.toISOString()||'',canRequest:!reason,reason,bouncedEmail:bounced?ticket.customer.email:null};
 }
 
 export async function queueConfirmationRequest(client:any,tenantId:string,userId:string,input:{ticketId:string;scheduledStart:string;operationId:string;emailOnly?:boolean;sourceCommunicationId?:string}){

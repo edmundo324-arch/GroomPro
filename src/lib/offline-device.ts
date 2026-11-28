@@ -373,6 +373,31 @@ export async function deviceFetch(input: string, init?: RequestInit): Promise<Re
   }
 }
 
+// A saved edit on another appointment can need staff review for hours.
+function nextSyncCommand(pending: OfflineCommand[]) {
+  const first = pending[0];
+  if (!first?.issue) return first;
+  const earlierTickets = new Set<string>();
+  for (const command of pending) {
+    const url = new URL(command.url, window.location.origin);
+    const body = JSON.parse(command.body || '{}');
+    const target = offlineAction(url, command.method, body)?.target;
+    if (target?.entity !== 'ticket') return;
+    const checkIn = url.pathname === '/api/pos-operation' && body.kind === 'STATUS'
+      ? body.details?.status === 'CHECKED_IN' && !body.details.action
+      : url.pathname === '/api/tickets/status' && body.status === 'CHECKED_IN' && !body.action;
+    if (checkIn) {
+      // Keep arrival order, same-ticket edits and offline record creation in sequence.
+      if (command.issue || earlierTickets.has(target.id) || target.id.startsWith('offline-') ||
+          pending.some(entry => entry.id === command.follows)) return;
+      return command;
+    }
+    if (url.pathname === '/api/whiteboard' || url.pathname === '/api/tickets/status' ||
+        url.pathname === '/api/pos-operation' || url.pathname === '/api/tickets' && ('arrivalPriority' in body || 'status' in body)) return;
+    earlierTickets.add(target.id);
+  }
+}
+
 export function syncOffline() {
   if (syncing) return syncing;
   const run = async () => {
@@ -383,7 +408,7 @@ export function syncOffline() {
     let completed = false;
     for (;;) {
       const queue = await deviceRead<OfflineOutbox>(key);
-      const command = queue?.pending[0];
+      const command = nextSyncCommand(queue?.pending || []);
       if (!command) break;
       if (command.issue || (command.directUntil || 0) > Date.now()) return;
       const session = await activeDevice();
@@ -408,7 +433,7 @@ export function syncOffline() {
           } : entry),
         }));
         change();
-        return;
+        continue;
       }
       await confirmCommand(key, command, result);
       completed = true;

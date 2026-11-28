@@ -56,12 +56,15 @@ test('offline receipts prevent duplicate writes and keep failed saves and confli
       calls++;
       working.firstName = value;
       working.updatedAt = new Date('2026-11-07T14:05:00Z');
-      return Response.json({ customer: working });
+      // Some handlers take a response snapshot before their final update.
+      return Response.json({ customer: { ...working, updatedAt: version } });
     });
   };
   const id = '12345678-1234-1234-1234-123456789abc';
   const other = '87654321-1234-1234-1234-123456789abc';
-  assert.equal((await request(id, 'Edit')).status, 200);
+  const first = await request(id, 'Edit');
+  assert.equal(first.status, 200);
+  assert.equal((await first.json()).offlineVersions['customer:customer'], record.updatedAt.toISOString());
   assert.equal((await request(id, 'Edit')).status, 200);
   assert.equal(calls, 1);
   assert.equal((await request(id, 'Different')).status, 409);

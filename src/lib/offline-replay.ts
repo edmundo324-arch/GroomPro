@@ -81,7 +81,11 @@ export async function replayOffline(request: NextRequest, tenantId: string, empl
       const versions: Record<string, string> = {};
       if (target && touched) versions[target.entity + ':' + target.id] = offlineRecordVersion(touched)!;
       for (const entity of ['customer', 'pet', 'ticket', 'draft'] as const) {
-        if (result[entity]?.id && result[entity]?.updatedAt) versions[entity + ':' + result[entity].id] = new Date(result[entity].updatedAt).toISOString();
+        if (result[entity]?.id && result[entity]?.updatedAt) {
+          // A handler can write displayStatus after building its response.
+          // Chain the next edit to the final database version already read above.
+          versions[entity + ':' + result[entity].id] ??= new Date(result[entity].updatedAt).toISOString();
+        }
       }
       if(result.item?.id&&['service','package'].includes(action.create||target?.entity||'')){const entity=(action.create||target!.entity) as 'service'|'package';const saved=await currentRecord(tx,tenantId,locationId,{entity,id:result.item.id});if(saved)versions[entity+':'+result.item.id]=offlineRecordVersion(saved)!;}
       if (result.savedTicketId && !versions['ticket:' + result.savedTicketId]) {

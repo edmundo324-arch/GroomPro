@@ -59,6 +59,7 @@ const businessOnly = new Set(['ticket-layout', 'schedule-editor', 'profiles', 'b
 const importPath = ['data', 'imports'];
 const ticketPath = ['workflow', 'ticket-layout'];
 export const settingsSearchEntries: SettingsSearchEntry[] = [
+  {path:['communications'], title:'Ready for Pickup Reminder Interval', description:'Choose how many minutes the staff reminder stays hidden after you close it. A newly completed appointment brings it back sooner.', keywords:'ready for pick-up pickup notices popup pop up frequency snooze repeat notification minutes', access:'manager', anchor:'pickup-reminder-interval', steps:['Automatic appointment messages','Ready for Pickup Reminder Interval']},
  {path:['payroll'],title:'Payroll Setup',description:'Choose individual employee pay methods or one shared method. Payroll payments and tax filings are not connected.',keywords:'payroll hourly commission salary whichever higher employee pay method business common shared',access:'manager',anchor:'payroll-setup',steps:['Payroll Setup']},
  {path:['rewards'],title:'Discounts & promotions',description:'Create percent or dollar offers and choose eligible customers and items.',keywords:'discount coupon promotion military VIP percent dollar best largest offer',access:'manager',anchor:'promotion-settings',steps:['Discounts & promotions']},
 

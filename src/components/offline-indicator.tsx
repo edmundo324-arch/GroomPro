@@ -24,6 +24,8 @@ export function OfflineIndicator({ scope, employeeId }: { scope: string; employe
       void prepareOffline({ tenantId, locationId, employeeId });
     };
     connect();
+    const openReview = () => {update(); setReview(true);};
+    window.addEventListener('groompro:review-offline', openReview);
     window.addEventListener('online', connect);
     window.addEventListener('offline', update);
     window.addEventListener('groompro:offline-changed', update);
@@ -48,6 +50,7 @@ export function OfflineIndicator({ scope, employeeId }: { scope: string; employe
       clearInterval(refresh);
       document.removeEventListener('visibilitychange', resume);
       navigator.serviceWorker?.removeEventListener('message', shellPrepared);
+      window.removeEventListener('groompro:review-offline', openReview);
       window.removeEventListener('online', connect);
       window.removeEventListener('offline', update);
       window.removeEventListener('groompro:offline-changed', update);

@@ -1,4 +1,11 @@
 require('./load-ts.cjs');
+require('node:test')('pickup reminder searches lead directly to the interval',()=>{
+ const {findSettings}=require('../src/lib/settings-search.ts');
+ for(const query of ['ready for pickup','ready for pick-up','pickup snooze']){
+  const first=findSettings(query,'ADMIN')[0];
+  require('node:assert/strict').equal(first?.anchor,'pickup-reminder-interval',query);
+ }
+});
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
 require.extensions['.tsx']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
 const {settingsPlace,settingsPlaceKey}=require('../src/lib/settings-place.ts');const {SettingsSections}=require('../src/components/settings-sections.tsx');const {RetainedSection,useModuleVisible}=require('../src/components/module-view.tsx');
@@ -40,7 +47,7 @@ test('Settings search finds operational controls and routes each result to a rea
  const {findSettings,settingsSearchEntries,settingsBreadcrumb}=require('../src/lib/settings-search.ts');
  const read=name=>fs.readFileSync('src/components/'+name+'.tsx','utf8');
  const tabs=read('settings')+read('workflow-settings');
- const anchors=['sales-tax-settings','promotion-settings','device-settings','portal-settings','customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings','platform-access-settings'].map(read).join('\n');
+ const anchors=['payroll-settings','appointment-message-settings','sales-tax-settings','promotion-settings','device-settings','portal-settings','customer-import','pos-layout-settings','reward-settings','referral-reward-settings','platform-brand-settings','platform-access-settings'].map(read).join('\n');
  for(const entry of settingsSearchEntries){
   const labels=settingsBreadcrumb(entry).split(' → ').slice(1,entry.path.length+1);
   entry.path.forEach((id,index)=>assert.ok(tabs.includes("id:'"+id+"',label:'"+labels[index]+"'"),entry.title+' → '+id));

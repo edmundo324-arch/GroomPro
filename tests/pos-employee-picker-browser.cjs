@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'..'),modules=new Map();
 const aliases={react:'node_modules/react/cjs/react.production.js','react/jsx-runtime':'node_modules/react/cjs/react-jsx-runtime.production.js','react-dom':'node_modules/react-dom/cjs/react-dom.production.js','react-dom/client':'node_modules/react-dom/cjs/react-dom-client.production.js',scheduler:'node_modules/scheduler/cjs/scheduler.production.js'};
 function bundle(file){
  file=path.resolve(root,file);if(modules.has(file))return file;
- if(file.endsWith('pos-item-search.tsx')||file.endsWith('type-filters.tsx')){modules.set(file,`exports.${file.endsWith('pos-item-search.tsx')?'PosItemSearch':'TypeFilters'}=()=>null;`);return file;}
+ if(file.endsWith('floating-editor-window.tsx')){modules.set(file,"const React=require("+JSON.stringify(path.resolve(root,aliases.react))+");exports.FloatingEditorWindow=({children,title,onClose})=>React.createElement('section',{role:'dialog','aria-label':title},children,React.createElement('button',{onClick:onClose},'Close'));");return file;}
  let code=fs.readFileSync(file,'utf8');if(/\.tsx?$/.test(file))code=ts.transpileModule(code,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
  modules.set(file,'');code=code.replace(/require\(['"]([^'"]+)['"]\)/g,(_,id)=>{let dependency=aliases[id];if(!dependency){dependency=path.resolve(path.dirname(file),id);if(!fs.existsSync(dependency))dependency=['.ts','.tsx','.js'].map(ext=>dependency+ext).find(p=>fs.existsSync(p));}if(!dependency)throw Error('Unresolved dependency '+id);return `require(${JSON.stringify(bundle(dependency))})`;});modules.set(file,code);return file;
 }
@@ -48,6 +48,12 @@ async function main(){
  await send('Emulation.setTouchEmulationEnabled',{enabled:true});const touch=await rect('[role="option"]');await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:touch.left+20,y:touch.top+12}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await wait('window.__events.length===4');assert.equal((await evaluate('window.__events[3]')).patch.assignedUserId,null,'Touch can choose Unassigned');
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:950,deviceScaleFactor:1,mobile:false});await evaluate(`document.querySelector('[aria-label="Employee for Full Wash 20-39 lb, Short Hair Only"]').click()`);await wait(`!!document.querySelector('[role="listbox"]')`);await key('Tab');await wait(`!document.querySelector('[role="listbox"]')`);
  await click('[aria-label^="Edit Employee for Full Wash"]');await wait(`!!document.querySelector('[role="listbox"]')`);await click('#ticket-footer');await wait(`!document.querySelector('[role="listbox"]')`);
+ assert.equal(await evaluate("document.querySelectorAll('.gp-pos-item-tools input[type=checkbox]').length"),0);
+ await click('.gp-pos-item-tools input');await send('Input.insertText',{text:'wash'});
+ await wait(`document.querySelectorAll('[role="dialog"] input[type=checkbox]').length===4`);
+ assert.equal(await evaluate(`document.querySelector('[aria-label="Find Items by Name or Description"]').value`),'wash');
+ await evaluate(`document.querySelectorAll('[role="dialog"] input[type=checkbox]')[1].click()`);
+ assert.equal(await evaluate(`document.querySelector('[role="dialog"] input[type=checkbox]').checked`),false);
  assert.equal(errors.length,0,JSON.stringify(errors));console.log('PASS: POS planned/actual employee lists float without stretching rows, escape scrolling clips, follow scrolling, flip at the viewport edge, filter as typed, select via mouse/keyboard/touch, and close without unintended changes.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1}).finally(()=>{socket?.close();chrome.kill()});
