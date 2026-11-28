@@ -46,10 +46,42 @@ export async function setPlannedGroomer(tenantId:string,ticketId:string,userId:s
 // Preserve attribution; flag unavailable actual work instead of erasing history.
 export async function reconcileEmployeeAssignments(tenantId:string,scope:{locationId?:string;start?:Date;end?:Date;ticketId?:string}={}){
  const tickets=await db.ticket.findMany({where:{tenantId,...(scope.locationId?{locationId:scope.locationId}:{}),...(scope.ticketId?{id:scope.ticketId}:{}),scheduledStart:{gte:scope.start&&+scope.start>Date.now()-86400000?scope.start:new Date(Date.now()-86400000),...(scope.end?{lt:scope.end}:{})},status:{in:['OPEN','CONFIRMED','CHECKED_IN','IN_PROGRESS']}},include:{assignments:true,lines:true}});
- for(const ticket of tickets){
-  const candidates=new Set([...ticket.assignments.filter(a=>a.role==='GROOMER').map(a=>a.userId),...ticket.lines.map(l=>l.assignedUserId).filter((id):id is string=>!!id)]);
-  const unavailable:string[]=[];
-  for(const userId of candidates)if(!await employeeAvailable(tenantId,userId,ticket.locationId,ticket.scheduledStart!,ticket.durationMin,true))unavailable.push(userId);
+ const candidatesFor=(ticket:typeof tickets[number])=>new Set([
+  ...ticket.assignments.filter(a=>a.role==='GROOMER').map(a=>a.userId),
+  ...ticket.lines.filter(line=>!line.assignmentUnavailable).map(line=>line.assignedUserId).filter((id):id is string=>!!id)
+ ]);
+ const ids=[...new Set(tickets.flatMap(ticket=>[...candidatesFor(ticket)]))];
+ if(!ids.length)return;
+ const [shiftLocations,users,shifts]=await Promise.all([
+  employeeLocationContext(db,tenantId),
+  db.user.findMany({where:{tenantId,active:true,id:{in:ids}},select:{id:true,locationId:true}}),
+  db.$queryRaw<{id:string;userId:string;dayOfWeek:number;startTime:string;endTime:string}[]>`SELECT id,userId,dayOfWeek,startTime,endTime FROM EmployeeSchedule WHERE tenantId=${tenantId} AND active=1`
+ ]);
+ const zones=new Map(shiftLocations.locations.map((location:{id:string;timezone:string})=>[location.id,location.timezone] as const));
+ const intervals=tickets.map(ticket=>{
+  const zone=String(zones.get(ticket.locationId)||'America/Chicago'),start=ticket.scheduledStart!;
+  return {ticket,from:zonedParts(start,zone),to:zonedParts(new Date(+start+Math.max(1,ticket.durationMin)*60000),zone)};
+ });
+ const dates=[...new Set(intervals.map(i=>i.from.date))];
+ const overrides=await db.scheduleOverride.findMany({where:{tenantId,resourceKind:'employee',resourceId:{in:ids},date:{in:dates}}});
+ const byDate=new Map(overrides.map(row=>[row.resourceId+':'+row.date,row]));
+ const staff=new Map(users.map(user=>[user.id,user]));
+ for(const {ticket,from,to} of intervals){
+  const day=new Date(from.date+'T12:00:00Z').getUTCDay();
+  const unavailable=[...candidatesFor(ticket)].filter(id=>{
+   const user=staff.get(id);
+   if(!user||from.date!==to.date)return true;
+   const override=byDate.get(id+':'+from.date);
+   if(override){
+    const shop=shiftLocations.date(id,from.date,user.locationId);
+    return !!(shop&&shop!==ticket.locationId)||override.dayOff||!override.startTime||!override.endTime||from.time<override.startTime||to.time>override.endTime;
+   }
+   return !shifts.some(shift=>{
+    if(shift.userId!==id||shift.dayOfWeek!==day||from.time<shift.startTime||to.time>shift.endTime)return false;
+    const shop=shiftLocations.shift(shift.id,user.locationId);
+    return !shop||shop===ticket.locationId;
+   });
+  });
   if(!unavailable.length)continue;
   await db.$transaction(async tx=>{
    const legacy=ticket.assignments.find(a=>a.role==='GROOMER');

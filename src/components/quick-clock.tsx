@@ -23,10 +23,10 @@ export function QuickClock({locationId,onClose}:{locationId?:string;onClose:()=>
   }catch(error){setMessage(error instanceof Error && !(error instanceof SyntaxError)?error.message:'Check the connection and your time record before trying again.');}
   finally{setPin('');setBusy(false);pending.current=false;}
  }
- return createPortal(<FloatingEditorWindow windowKey="quick-clock" title="Quick Clock In/Out" initialSize={{width:390,height:235}} onClose={onClose} closeDisabled={busy}>
+ return createPortal(<FloatingEditorWindow windowKey="quick-clock" title="Clock In/Out" initialSize={{width:390,height:235}} onClose={onClose} closeDisabled={busy}>
   <div style={{padding:16,color:'var(--text, #172d40)'}}>
    {shops.length>0&&<label>Shop Location <select value={shop} onChange={e=>setShop(e.target.value)}><option value="">Choose Location</option>{shops.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}</select></label>}
-   <label>Employee PIN <input type="password" inputMode="numeric" autoComplete="off" maxLength={10} value={pin} disabled={busy} onChange={e=>{setPin(e.target.value);setMessage('')}}/></label>
+   <label>Employee PIN <input autoFocus type="password" inputMode="numeric" autoComplete="off" maxLength={10} value={pin} disabled={busy} onChange={e=>{setPin(e.target.value);setMessage('')}}/></label>
    <p><button type="button" disabled={busy} onClick={()=>punch('IN')}>Clock In</button> <button type="button" disabled={busy} onClick={()=>punch('OUT')}>Clock Out</button></p>
    <div role="status">{helpfulError(message)}</div>
   </div>

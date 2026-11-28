@@ -13,7 +13,7 @@ export function CalendarHover({hover,fields,labels,details,onOpen,onClose,arriva
  const ordered=(items:HoverDetail[])=>items.slice().sort((a,b)=>(rank.get(a.key)??chosen.length)-(rank.get(b.key)??chosen.length));
  const show=(items:HoverDetail[],omit:string[]=[])=>{const seen=new Set<string>();return ordered(items).filter(d=>!omit.includes(d.key)&&!seen.has(d.key+':'+d.value)&&!!seen.add(d.key+':'+d.value)).map((d,i)=><span key={d.key+':'+i}>{labels?<><b>{d.label}:</b> </>:null}{d.value}</span>)};
  const t=hover.ticket;
- const arrival=selected.has('ticket.arrivalPriority')?(details.find(d=>d.key==='ticket.arrivalPriority')?.value||t.arrivalPriority):null;
+ const arrival=selected.has('ticket.arrivalPriority')?(t.arrivalPriority||(t.arrivalPriorityPending?t.localArrivalOrder:null)||details.find(d=>d.key==='ticket.arrivalPriority')?.value):null;
  const showArrivalAtTime=arrivalPosition!=='DETAILS'&&Number(arrival)>0;
  const primary=new Set(['pet.name','pet.weightLbs','pet.breed','pet.vipEligible','pet.notes','pet.groomingNotes']);
  return <aside ref={ref} role={hover.touch?"dialog":"tooltip"} aria-label={hover.touch?"Appointment preview":undefined} className="gp-appointment-hover gp-human-hover" style={{left:hover.x,top,width:hover.width,maxWidth:hover.width}}>

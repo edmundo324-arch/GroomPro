@@ -3,11 +3,12 @@ import {helpfulError} from '../lib/human-communication';
 import {useEffect,useRef,useState} from 'react';
 import {employeeFetch} from '../lib/employee-fetch';
 import {HelpPopup} from './help-popup';
-export function TicketConfirmationRequest({timezone,ticketId,visitStatus,scheduledStart,onEditCustomer}:{timezone:string;ticketId:string;visitStatus:string;scheduledStart:string|null;onEditCustomer:(customerId:string)=>void}){
+export function TicketConfirmationRequest({active=true,timezone,ticketId,visitStatus,scheduledStart,onEditCustomer}:{active?:boolean;timezone:string;ticketId:string;visitStatus:string;scheduledStart:string|null;onEditCustomer:(customerId:string)=>void}){
  const [notice,setNotice]=useState<any>(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);const operation=useRef(crypto.randomUUID()),currentTicket=useRef(ticketId);currentTicket.current=ticketId;
  const [retry,setRetry]=useState(0),[readError,setReadError]=useState('');
  useEffect(()=>{
-  let active=true,latest=0;
+  if(!active||!ticketId)return;
+  let mounted=true,latest=0;
   setNotice(null);setMessage('');setReadError('');setBusy(false);operation.current=crypto.randomUUID();
   const refresh=async()=>{
    if(!ticketId)return;
@@ -16,16 +17,16 @@ export function TicketConfirmationRequest({timezone,ticketId,visitStatus,schedul
     const r=await employeeFetch('/api/tickets/confirmation-request?ticketId='+encodeURIComponent(ticketId),{cache:'no-store'});
     const data=await r.json();
     if(!r.ok||typeof data.canRequest!=='boolean')throw Error(data.error||'Reconnect to check whether this appointment can receive a confirmation request.');
-    if(active&&sequence===latest){setNotice(data);setReadError('');}
-   }catch(error){if(active&&sequence===latest){setNotice(null);setReadError(helpfulError((error as Error).message));}}
+    if(mounted&&sequence===latest){setNotice(data);setReadError('');}
+   }catch(error){if(mounted&&sequence===latest){setNotice(null);setReadError(helpfulError((error as Error).message));}}
   };
   void refresh();
   const changed=(e:Event)=>{const url=String((e as CustomEvent).detail?.url||'');if(url.startsWith('/api/customers/')||url.startsWith('/api/tickets/'))void refresh()};
   const visibleRefresh=()=>{if(document.visibilityState==='visible')void refresh()};
   const timer=window.setInterval(visibleRefresh,60000);
   window.addEventListener('focus',visibleRefresh);window.addEventListener('online',refresh);window.addEventListener('groompro:data-changed',changed);
-  return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',visibleRefresh);window.removeEventListener('online',refresh);window.removeEventListener('groompro:data-changed',changed)};
- },[ticketId,visitStatus,scheduledStart,retry]);
+  return()=>{mounted=false;window.clearInterval(timer);window.removeEventListener('focus',visibleRefresh);window.removeEventListener('online',refresh);window.removeEventListener('groompro:data-changed',changed)};
+ },[active,ticketId,visitStatus,scheduledStart,retry]);
  async function send(){if(busy)return;if(!notice){setRetry(v=>v+1);return;}if(!notice.canRequest){setMessage(notice.reason);return;}setBusy(true);try{const r=await employeeFetch('/api/tickets/confirmation-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticketId,scheduledStart:notice.scheduledStart,operationId:operation.current})}),data=await r.json();if(!r.ok)throw Error(data.error);if(currentTicket.current===ticketId){operation.current=crypto.randomUUID();setMessage(data.message);}}catch(e){if(currentTicket.current===ticketId)setMessage((e as Error).message)}finally{if(currentTicket.current===ticketId)setBusy(false)}}
  const history:{id:string;channel:string;sentAt:string;source?:string}[]=notice?.sentHistory||[];
  const stamp=(entry:typeof history[number])=>(entry.channel==='SMS'?'Text':'Email')+' sent '+(entry.source==='Manual'?'by staff ':entry.source==='Automatic'?'automatically ':'')+new Intl.DateTimeFormat('en-US',{timeZone:timezone,dateStyle:'medium',timeStyle:'short'}).format(new Date(entry.sentAt));

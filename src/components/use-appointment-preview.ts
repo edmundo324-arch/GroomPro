@@ -1,5 +1,6 @@
 "use client";
 import {useCallback,useEffect,useState} from 'react';
+import {repairArrivalOrder} from '../lib/repair-arrival-order';
 import {employeeFetch} from '../lib/employee-fetch';
 import {popupPosition} from '../lib/calendar-interaction';
 import {buildHoverDetails,type HoverDetail} from '../lib/calendar-hover-details';
@@ -29,8 +30,17 @@ export function useAppointmentPreview(settings:any,enabled=true){
   const controller=new AbortController();
   employeeFetch('/api/calendar/details?id='+encodeURIComponent(ticket.id),{signal:controller.signal,cache:'no-store'}).then(async response=>{
    if(!response.ok)return;const data=await response.json();if(controller.signal.aborted)return;
+   const full=data.ticket;
+   if(full&&navigator.onLine&&!ticket.arrivalPriorityPending&&!full.arrivalPriority&&full.checkedInAt&&['CHECKED_IN','READY','IN_PROGRESS'].includes(full.status)&&selected.includes('ticket.arrivalPriority')){
+    const number=await repairArrivalOrder(ticket.id).catch(()=>null);
+    if(controller.signal.aborted)return;
+    if(number){
+     full.arrivalPriority=number;
+     data.details=[...(data.details||[]).filter((d:HoverDetail)=>d.key!=='ticket.arrivalPriority'),{key:'ticket.arrivalPriority',label:'Arrival Order',value:String(number)}];
+    }
+   }
    setDetails(data.details||[]);
-   if(data.ticket)setHover(current=>current&&current.ticket.id===ticket.id?{...current,ticket:{...current.ticket,...data.ticket}}:current);
+   if(data.ticket)setHover(current=>current&&current.ticket.id===ticket.id?{...current,ticket:{...current.ticket,...data.ticket,arrivalPriority:data.ticket.arrivalPriority??current.ticket.arrivalPriority}}:current);
   }).catch(()=>{});
   return()=>controller.abort();
  },[hover?.ticket.id,enabled,fields]);

@@ -21,7 +21,8 @@ async function main(){let port;for(let i=0;i<100;i++){try{port=fs.readFileSync(p
  const capture=await send('Page.captureScreenshot',{format:'png',clip:{x:box.left,y:box.top,width:box.width,height:box.height,scale:1}});
  fs.writeFileSync(path.join(root,'public/testing-guide/quick-clock.png'),Buffer.from(capture.data,'base64'));
  for(const [caption,action] of [['Clock In','IN'],['Clock Out','OUT']]){
-  await evaluate("document.querySelector('input').focus()");
+  if(action==='IN')assert.equal(await evaluate("document.activeElement===document.querySelector('input[type=password]')"),true);
+  else await evaluate("document.querySelector('input').focus()");
   await send('Input.insertText',{text:'1234'});
   await evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent==="+JSON.stringify(caption)+").click()");
   await wait("window.lastPunch==="+JSON.stringify(action)+" && document.querySelector('input').value===''");

@@ -55,6 +55,26 @@ export async function deviceUpdate<T>(key: string, update: (current: T | undefin
 }
 
 export const snapshotKey = (scope: OfflineScope) => 'snapshot:' + offlineScopeKey(scope);
+// The blue menu only needs the save time. Keep it alongside the snapshot in the same transaction.
+export async function saveDeviceSnapshot(scope: OfflineScope, snapshot: OfflineSnapshot) {
+  const db = await openDevice();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('device', 'readwrite');
+    const store = tx.objectStore('device');
+    const key = snapshotKey(scope);
+    store.put(snapshot, key);
+    store.put(snapshot.fetchedAt, key + ':saved-at');
+    tx.oncomplete = () => resolve();
+    tx.onabort = tx.onerror = () => reject(tx.error || Error('Device storage could not save the offline copy.'));
+  });
+}
+export async function deviceSnapshotTime(scope: OfflineScope) {
+  const key = snapshotKey(scope);
+  const savedAt = await deviceRead<number>(key + ':saved-at');
+  if (savedAt !== undefined) return savedAt;
+  // Existing devices get the smaller record on their next successful refresh.
+  return (await deviceRead<OfflineSnapshot>(key))?.fetchedAt;
+}
 export const outboxKey = (scope: OfflineScope) => 'outbox:' + offlineScopeKey(scope);
 export const emptyOutbox = (): OfflineOutbox => ({ pending: [], confirmed: [] });
 

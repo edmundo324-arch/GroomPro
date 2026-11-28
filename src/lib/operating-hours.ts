@@ -1,7 +1,17 @@
 export type DayHours={day:number;closed:boolean;open:string;close:string};
 export const defaultHours=():DayHours[]=>Array.from({length:7},(_,day)=>({day,closed:false,open:"08:30",close:"17:00"}));
 export function validTimezone(zone:string){try{new Intl.DateTimeFormat("en-US",{timeZone:zone}).format();return true}catch{return false}}
-export function zonedParts(date:Date,timeZone:string){const p=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(date).map(p=>[p.type,p.value]));return{date:`${p.year}-${p.month}-${p.day}`,time:`${p.hour}:${p.minute}`,second:Number(p.second)}}
+const shopFormatters=new Map<string,Intl.DateTimeFormat>();
+function shopFormatter(timeZone:string){
+ let formatter=shopFormatters.get(timeZone);
+ if(!formatter){
+  formatter=new Intl.DateTimeFormat("en-CA",{timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"});
+  if(shopFormatters.size>=64)shopFormatters.clear();
+  shopFormatters.set(timeZone,formatter);
+ }
+ return formatter;
+}
+export function zonedParts(date:Date,timeZone:string){const p=Object.fromEntries(shopFormatter(timeZone).formatToParts(date).map(p=>[p.type,p.value]));return{date:`${p.year}-${p.month}-${p.day}`,time:`${p.hour}:${p.minute}`,second:Number(p.second)}}
 export function wallTime(date:Date,zone:string){const p=zonedParts(date,zone);return `${p.date}T${p.time}`}
 export function localToInstant(value:string,zone:string){
  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))throw new Error("Choose a valid appointment date and time.");

@@ -23,7 +23,7 @@ export function buildHoverDetails(ticket:any,fields:string[]):HoverDetail[]{
  const result:HoverDetail[]=[];
  const add=(key:string,v:any,petId?:string,lineId?:string)=>{const value=hoverValue(key,v);if(value)result.push({key,label:friendlyHoverLabel(key),value,petId,lineId});};
  for(const key of popupFields(fields)){if(!Object.hasOwn(calendarHoverFields,key))continue;const [group,field]=key.split('.');
- if(group==='ticket')add(key,field==='status'?ticketStatusLabel(ticket):field==='daycareStatus'?ticketDaycareLabel(ticket):ticket[field]);
+ if(group==='ticket')add(key,field==='status'?ticketStatusLabel(ticket):field==='daycareStatus'?ticketDaycareLabel(ticket):field==='arrivalPriority'?(ticket.arrivalPriority||(ticket.arrivalPriorityPending?ticket.localArrivalOrder:null)):ticket[field]);
  if(group==='customer')add(key,field==='phones'?ticket.customer.phones.map((p:any)=>p.number).join(' · '):ticket.customer[field]);
  if(group==='pet')for(const {pet} of ticket.pets)add(key,field==='vipEligible'?petVipStatus(pet).label:field==='vaccinations'?pet.vaccinations.map((v:any)=>v.vaccineName+(v.expiresAt?' ('+hoverValue('date',v.expiresAt)+')':'')).join(', '):pet[field],pet.id);
  if(group==='line')for(const line of ticket.lines)add(key,line[field],line.petId||undefined,line.id);

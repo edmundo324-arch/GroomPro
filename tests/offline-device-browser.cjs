@@ -196,7 +196,7 @@ async function main() {
               return structuredClone(value);
             },
           };
-          vm.runInNewContext(loader + "\nObject.assign(require('offline-device-store'), device);\n" + browser, {
+          vm.runInNewContext(loader + "\nconst store = require('offline-device-store'); Object.assign(store, device, {saveDeviceSnapshot: (scope, data) => device.deviceUpdate(store.snapshotKey(scope), () => data), deviceSnapshotTime: async scope => (await device.deviceRead(store.snapshotKey(scope)))?.fetchedAt});\n" + browser, {
             device, location, window: Object.assign(new EventTarget(), { location }), navigator: { storage: {} },
             sessionStorage: { getItem: key => session.get(key), setItem: (key, value) => session.set(key, value) },
             Response, Headers, Event, CustomEvent, URL, URLSearchParams, crypto, structuredClone,

@@ -6,6 +6,7 @@ import {PetPhotoEditor} from './pet-photo-editor';
 import {PetPicture} from './pet-picture';
 import {SearchableSelect} from "./searchable-select";
 import {matchesCatalogSearch} from '../lib/catalog-search';
+import {repairArrivalOrder} from '../lib/repair-arrival-order';
 import {TicketConfirmationRequest} from './ticket-confirmation-request';
 import {TicketFollowUps} from './ticket-follow-ups';
 import {ticketStatusLabel} from '../lib/ticket-status-label';
@@ -447,20 +448,19 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
   }catch(e){setError((e as Error).message)}finally{endAction(key)}
  }
  useEffect(()=>{
-  if(!ticket.id||!ticket.checkedInAt||ticket.arrivalPriority||ticket.arrivalPriorityPending||!['CHECKED_IN','READY','IN_PROGRESS'].includes(ticket.status))return;
-  let active=true;
+  if(!active||!ticket.id||!ticket.checkedInAt||ticket.arrivalPriority||ticket.arrivalPriorityPending||!['CHECKED_IN','READY','IN_PROGRESS'].includes(ticket.status))return;
+  let mounted=true;
   const repair=async()=>{
    if(!navigator.onLine)return;
    try{
-    const response=await fetch('/api/tickets/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticketId:ticket.id,status:'CHECKED_IN',action:'REPAIR_ARRIVAL'})});
-    if(!response.ok)return;
-    const {ticket:saved}=await response.json();
-    if(active&&saved?.arrivalPriority&&!arrivalEdit.current)setTicket((current:any)=>current.id===saved.id&&current.checkedInAt&&!current.arrivalPriority?{...current,arrivalPriority:saved.arrivalPriority}:current);
+    const arrivalPriority=await repairArrivalOrder(ticket.id);
+    if(mounted&&arrivalPriority&&!arrivalEdit.current)setTicket((current:any)=>current.id===ticket.id&&current.checkedInAt&&!current.arrivalPriority?{...current,arrivalPriority}:current);
    }catch{/* Retry when connectivity returns. */}
   };
   void repair();window.addEventListener('online',repair);
-  return()=>{active=false;window.removeEventListener('online',repair)};
- },[ticket.id,ticket.checkedInAt,ticket.arrivalPriority,ticket.arrivalPriorityPending,ticket.status]);
+  return()=>{mounted=false;window.removeEventListener('online',repair)};
+ },[active,ticket.id,ticket.checkedInAt,ticket.arrivalPriority,ticket.arrivalPriorityPending,ticket.status]);
+ const confirmationControl=<TicketConfirmationRequest active={active&&!!ticket.id} ticketId={ticketId||''} timezone={timezone} visitStatus={ticket.status} scheduledStart={ticket.scheduledStart} onEditCustomer={id=>setOwnerView({id})}/>;
  const arrivalControl=<label data-related-path="Settings → Calendar & Workflow → Appointment Appearance → Appointment Details → Arrival Order" data-help="Shows this appointment’s arrival order for the day. Change the number here when staff need to correct the order; it does not change the booked time." className="gp-pos-arrival" style={{fontSize:layout.fontSize,position:"relative"}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M9 5h12M9 12h12M9 19h12M3 3v5M2 12h3l-3 4h3M2 19h3"/></svg>Order <input type="number" min={1} style={{fontSize:"2em",width:"3ch",minWidth:48,fontWeight:700}} aria-label="Arrival priority" disabled={terminal} value={ticket.arrivalPriority||(ticket.arrivalPriorityPending?ticket.localArrivalOrder:"")||""} onChange={e=>{
  const arrivalPriority=Number(e.target.value)||null;
  arrivalEdit.current={ticketId,value:arrivalPriority};
@@ -485,7 +485,7 @@ export function PosTicketRecord({ticketId:initialTicketId,onClose,date,initialCu
  <div className="gp-phone-ticket-summary gp-phone-only"><span>{loading?'— · — · —':<>{newStart?new Date(newStart).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}):'Choose date'} · {newStart?new Date(newStart).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'Choose time'} · {ticketStatusLabel(ticket)}</>}</span></div>
  <header className="gp-pos-header gp-pos-compact-header" data-details-open={phoneDetails}>
  <div className="gp-phone-only"><PosFullSizeButton/></div>
- <div style={{display:"flex",gap:8,alignItems:"center",minWidth:0}}><div style={{flex:1,minWidth:0}}><TicketTopLayout layout={{...layout,rows:headerRows}} textFirst controls={{date:<label data-help={"Choose the appointment’s calendar date. Moving it to another date can affect cancellation fees and rebooking discounts."}>Date<input className="gp-search-input" aria-label="Appointment date" type="date" value={loading&&!editedStart.current.date?"":newStart.split('T')[0]} onFocus={()=>{calendarWorkflow.current="Items"}} onChange={e=>{calendarWorkflow.current="Items";editedStart.current.date=true;const value=appointmentPart(newStart,'date',e.target.value);setNewStart(value);navigateDate(value)}}/></label>,
+ <div style={{display:"flex",gap:8,alignItems:"center",minWidth:0}}><div style={{flex:1,minWidth:0}}><TicketTopLayout layout={{...layout,rows:headerRows}} afterRow={index=>(!phone||phoneDetails)&&index===Math.max(0,headerRows.findIndex(row=>row.includes("date")))?confirmationControl:null} textFirst controls={{date:<label data-help={"Choose the appointment’s calendar date. Moving it to another date can affect cancellation fees and rebooking discounts."}>Date<input className="gp-search-input" aria-label="Appointment date" type="date" value={loading&&!editedStart.current.date?"":newStart.split('T')[0]} onFocus={()=>{calendarWorkflow.current="Items"}} onChange={e=>{calendarWorkflow.current="Items";editedStart.current.date=true;const value=appointmentPart(newStart,'date',e.target.value);setNewStart(value);navigateDate(value)}}/></label>,
 time:<label data-help={"Choose when the appointment starts. A time change on the same date keeps the approved rebooking discount."}>Time<input className="gp-search-input" aria-label="Appointment time" type="time" step={60} value={loading&&!editedStart.current.time?"":newStart.split('T')[1]||''} onFocus={()=>{calendarWorkflow.current="Items"}} onChange={e=>{calendarWorkflow.current="Items";editedStart.current.time=true;const value=appointmentPart(newStart,'time',e.target.value);setNewStart(value);navigateDate(value)}}/></label>,
 timing:<label data-related-path="Settings → Calendar & Workflow → Booking Rules → Default Appointment Timing" data-help="Choose Same Time when services overlap. Choose Add Up Time when they run one after another. This choice applies to this ticket.">Timing <select disabled={terminal} value={loading?"":ticket.timingMode||"SEQUENTIAL"} onChange={e=>setTiming(e.target.value)}>{loading&&<option value=""/>}<option value="SEQUENTIAL">Add Up Time</option><option value="CONCURRENT">Same Time</option></select></label>,
 move:<><button className="gp-btn primary" disabled={moving} onClick={()=>void move()}>{moving?"Moving…":"Move"}</button><HelpPopup label="Move">Every move is recorded in POS Ticket → History with the employee responsible.</HelpPopup></>,
@@ -497,7 +497,8 @@ account:phone?null:<div className="gp-pos-account-strip"><span><span className="
 }}/></div><div aria-label="Pet Pictures" style={{marginLeft:'auto',display:'flex',gap:6,maxWidth:'30%',overflowX:'auto'}}>{customerPets.filter(p=>p.active!==false).map(p=><button type="button" key={p.id} aria-label={'Edit Photos for '+p.name} title={'Click or Right-Click to Edit '+p.name+'’s Photos'} onClick={()=>setPhotoPet(p)} onContextMenu={e=>{e.preventDefault();e.stopPropagation();setPhotoPet(p)}} style={{width:54,minWidth:54,height:54,border:'1px dashed #94a9b9',borderRadius:6,textAlign:'center',fontSize:10,overflow:'hidden',background:'#f0f7fa',padding:0,cursor:'pointer'}}><PetPicture currentProfile petId={p.id} pictureUrl={p.pictureUrl} name={p.name} style={{width:52,height:35,objectFit:'cover'}}/><div>{p.name}</div></button>)}</div></div></header>
  {!loading&&choosingCustomer&&<section className="gp-pos-customer-search" role="dialog" aria-label={ticket.customer.id?"Replace customer":"Choose customer"}><div className="gp-pos-picker-title"><strong>{ticket.customer.id?"Replace customer":"Choose customer"}</strong><DismissButton label="Dismiss customer picker" onClick={()=>{setChoosingCustomer(false);setPendingOwner(null)}}/></div><input aria-label="Search customer" placeholder="Search customer or pet" value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)}/>{customerResults.map(c=><button className="gp-customer-result" key={c.id} onClick={()=>chooseCustomer(c)}><CustomerIdentification customer={c} fields={["name","email","phones","pets"]}/></button>)}{pendingOwner&&<div><p>Move this ticket and its service lines to {pendingOwner.firstName} {pendingOwner.lastName}, for:</p><select aria-label="New owner dog" value={replacementPet} onChange={e=>setReplacementPet(e.target.value)}>{pendingOwner.pets.map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button disabled={!replacementPet} onClick={changeCustomer}>Apply customer</button></div>}</section>}
  {phone&&<div className="gp-pos-account-strip">{balanceLinks}<span><span className="gp-field-caption">Daycare:</span> {loading?'':ticketDaycareLabel(ticket,catalog.services)}</span><span><span className="gp-field-caption">Rewards:</span> {loading?"":account.loyaltyPoints+" pts"}</span><strong>{loading?'Card on File:':cardOnFile?'Card on File':'No Card on File'}</strong></div>}
- <TicketConfirmationRequest ticketId={ticketId||''} timezone={timezone} visitStatus={ticket.status} scheduledStart={ticket.scheduledStart} onEditCustomer={id=>setOwnerView({id})}/>
+ {phone&&!phoneDetails&&confirmationControl}
+ {phone&&!phoneDetails&&confirmationControl}
  <span data-customer-id={ticket.customer.id} /><PosPetStrip onPhoto={setPhotoPet} customerNotes={standingNotes.customerId===ticket.customer.id?standingNotes.customer:''} permanentNotes={standingNotes.customerId===ticket.customer.id?standingNotes.pets:{}} notesPopup={active} tapNotesPopup={phone} indicators={workspace.petIndicators} pets={customerPets.filter(p=>p.active!==false)} includedIds={ticket.pets.map((v:any)=>v.pet.id)} packageIds={customerPets.filter(p=>{const target=petPackageToggle(p,ticket.lines,catalog.packages||[],catalog.breeds);if(!target)return false;return packageIntents.current.get(`package:${p.id}:${target.pkg.id}`)??!target.present}).map(p=>p.id)} disabled={terminal} warnVet={warnVet} summaries={Object.fromEntries(customerPets.map((p:any)=>[p.id,groomingSummary(ticket.groomingNotesDraft?.[p.id]?.instructions||noteSummaries[p.id])]))} onInclude={(p,included)=>void includePet(p,included)} onPackage={clickPet} onNotes={()=>setPanel("Notes")}/>
  <div className="gp-ticket-workbar gp-pet-actions">
  <PosItemFinder catalog={catalog} disabled={loading||terminal} pets={customerPets} selectedPet={ticketItemPet(customerPets.filter(p=>p.active!==false),itemPetId)} onAdd={item=>void itemAction('add',item)}/>

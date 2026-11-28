@@ -2,7 +2,7 @@
 import {downloadReportHistory,type ReportHistory} from './offline-report-history';
 import {offlineReport,offlineShopComparison} from './offline-report';
 import { offlineAttendanceChoice, offlineRecordId, offlineAction, offlineRecordVersion, offlineScopeKey, offlineTargetKey, type OfflineCommand, type OfflineScope } from './offline-actions';
-import { reportHistoryInfoKey, reportHistoryKey, deviceRead, deviceUpdate, emptyOutbox, outboxKey, snapshotKey, type OfflineOutbox } from './offline-device-store';
+import { reportHistoryInfoKey, reportHistoryKey, saveDeviceSnapshot, deviceSnapshotTime, deviceRead, deviceUpdate, emptyOutbox, outboxKey, snapshotKey, type OfflineOutbox } from './offline-device-store';
 import { findRecord, offlineReadRecords, projectOffline, type OfflineRecords } from './offline-records';
 
 const activeKey = 'active-employee';
@@ -45,12 +45,12 @@ async function activeDevice(): Promise<ActiveDevice | undefined> {
 export async function offlineStatus() {
   const active = await activeDevice();
   if (!active) return { ready: false, pending: [], archived: [], lastSaved: 0, signInRequired: false,reportSavedAt:0 };
-  const [state, queue, history] = await Promise.all([
-    deviceRead<OfflineRecords>(snapshotKey(active.scope)),
+  const [savedAt, queue, history] = await Promise.all([
+    deviceSnapshotTime(active.scope),
     deviceRead<OfflineOutbox>(outboxKey(active.scope)),
     deviceRead<Pick<ReportHistory,'asOf'>>(reportHistoryInfoKey(active.scope)),
   ]);
-  return { reportSavedAt:history?Date.parse(history.asOf):0, ready: Boolean(state), pending: queue?.pending || [], archived: queue?.archived || [], lastSaved: state?.fetchedAt || 0, signInRequired: Boolean(queue?.signInRequired) };
+  return { reportSavedAt:history?Date.parse(history.asOf):0, ready: savedAt !== undefined, pending: queue?.pending || [], archived: queue?.archived || [], lastSaved: savedAt || 0, signInRequired: Boolean(queue?.signInRequired) };
 }
 
 export async function stopOfflineAccess() {
@@ -85,7 +85,7 @@ async function refreshDevice(scope: OfflineScope) {
   if (!['/api/catalog', '/api/operating-hours', '/api/calendar', '/api/employees'].every(url => snapshot.lookups[url])) return;
   const latest = await deviceRead<OfflineOutbox>(outboxKey(scope));
   if (latest?.pending.length || latest?.confirmed.at(-1)?.command.id !== previous?.confirmed.at(-1)?.command.id || revision !== identityRevision) return;
-  await deviceUpdate<OfflineRecords>(snapshotKey(scope), () => snapshot);
+  await saveDeviceSnapshot(scope, snapshot);
   const confirmed = new Set(previous?.confirmed.map(entry => entry.command.id));
   await deviceUpdate<OfflineOutbox>(outboxKey(scope), queue => queue && ({
     ...queue, confirmed: queue.confirmed.filter(entry => !confirmed.has(entry.command.id)),
@@ -133,8 +133,8 @@ export function prepareOffline(scope: OfflineScope) {
     if (current && !same(current.scope, scope)) await stopOfflineAccess();
     // A fresh online sign-in for this same employee also unlocks an outbox
     // whose prior offline session expired.
-    const saved = await deviceRead<OfflineRecords>(snapshotKey(scope));
-    if (saved) {
+    const savedAt = await deviceSnapshotTime(scope);
+    if (savedAt !== undefined) {
       const revision = identityRevision;
       await deviceUpdate<ActiveDevice>(activeKey, current => revision === identityRevision ? ({ scope, validUntil: Date.now() + 12 * 60 * 60 * 1000 }) : current);
       if (revision === identityRevision) localAccessBlocked = false;
@@ -314,7 +314,9 @@ export async function deviceFetch(input: string, init?: RequestInit): Promise<Re
     } else if (offline) return json({ error: 'Sign in online to prepare this device for offline saves.' }, 409);
   }
   if (!read) return fetch(input, init);
+  const onlineHistory=url.pathname==='/api/tickets/confirmation-request';
   async function localRead() {
+    if(onlineHistory)return json({error:'Reconnect to check this appointment’s confirmation history.'},503);
     const device = active || await activeDevice();
     const data = device && await projected(device);
     if (data) {
@@ -350,7 +352,7 @@ export async function deviceFetch(input: string, init?: RequestInit): Promise<Re
   }
   if (offline) return localRead();
   try {
-    if (!url.pathname.startsWith('/api/employee/')) {
+    if (!onlineHistory && !url.pathname.startsWith('/api/employee/')) {
       const device = await activeDevice();
       const queue = device && await deviceRead<OfflineOutbox>(outboxKey(device.scope));
       if (queue?.pending.length && device) {

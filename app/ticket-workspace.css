@@ -489,3 +489,10 @@
 .gp-pet-actions .gp-pos-item-tools input{width:100%;min-width:0}
 .gp-pos-desktop .gp-ticket-workbar.gp-pet-actions>.gp-pos-promotions,
 .gp-pos-phone .gp-ticket-workbar.gp-pet-actions>.gp-pos-promotions{flex:0 0 auto}
+
+.gp-pos-compact-header .gp-ticket-confirmation-request{padding:0!important;background:white}
+.gp-pos-body .gp-flat-items tr[data-line-band="0"]:not([data-selected=true])>td{background:#eef5fb}
+.gp-pos-body .gp-flat-items tr[data-line-band="1"]:not([data-selected=true])>td{background:#f2f7ed}
+.gp-pos-desktop .gp-flat-items tbody[data-dog-items] td{padding:1px 5px}
+.gp-pos-desktop .gp-flat-items tbody[data-dog-items] .gp-inline-value-text,
+.gp-pos-desktop .gp-flat-items tbody[data-dog-items] .gp-btn{min-height:22px;padding-block:1px}

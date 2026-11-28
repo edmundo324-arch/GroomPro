@@ -21,7 +21,7 @@ export function appointmentPreviewTicket(ticket:any,fields:string[],timezone?:st
  const selected=new Set(popupFields(fields));
  return {
   id:ticket.id,orderNumber:ticket.orderNumber,status:ticket.status,displayStatus:ticket.displayStatus,
-  scheduledStart:ticket.scheduledStart,arrivalPriority:ticket.arrivalPriority,
+  scheduledStart:ticket.scheduledStart,checkedInAt:ticket.checkedInAt,arrivalPriority:ticket.arrivalPriority,
   ...(timezone?{appointmentTimezone:timezone}:{}),
   customer:{firstName:ticket.customer?.firstName||'',lastName:ticket.customer?.lastName||''},
   pets:(ticket.pets||[]).map(({pet}:any)=>({pet:{

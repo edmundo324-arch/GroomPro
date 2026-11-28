@@ -13,6 +13,8 @@ const stubs={
 for(const [file,names] of Object.entries({
  'pickup-call.tsx':['PickupCall'],'ticket-follow-ups.tsx':['TicketFollowUps'],'customer-deposit.tsx':['CustomerDeposit','ApplyCustomerCredit'],'ticket-void.tsx':['TicketVoid'],'ticket-refunds.tsx':['TicketRefunds'],'ticket-referral-rewards.tsx':['TicketReferralRewards'],'ticket-promotions.tsx':['TicketPromotions'],'grooming-progress.tsx':['GroomingProgress'],'visit-history.tsx':['VisitHistory'],'appointment-history.tsx':['AppointmentHistory'],'grooming-notes.tsx':['GroomingNotes'],'customer-identification.tsx':['CustomerIdentification'],'report-card.tsx':['ReportCard'],'ticket-prepaid.tsx':['TicketPrepaid'],'ticket-gift-cards.tsx':['TicketGiftCards'],'customer-profile.tsx':['CustomerProfile'],'catalog-workspace.tsx':['MembershipEnrollment'],'ticket-tips.tsx':['TicketTips'],'help-popup.tsx':['HelpPopup']
 }))stubs[file]=names.map(name=>'exports.'+name+'=()=>null;').join('');
+if(process.argv.includes('--confirmation'))delete stubs['pos-layout-controls.tsx'];
+if(process.argv.includes('--line-colors'))delete stubs['pos-items.tsx'];
 function bundle(file){
  file=path.resolve(root,file);if(modules.has(file))return file;
  if(file.endsWith('.css')){styles.add(file);modules.set(file,'');return file;}
@@ -27,7 +29,7 @@ const script=`const modules={${[...modules].map(([key,code])=>`${JSON.stringify(
 const React=require(${JSON.stringify(react)}),{createRoot}=require(${JSON.stringify(client)}),{PosTicketRecord}=require(${JSON.stringify(pos)}),h=React.createElement;
 window.__device=require(${JSON.stringify(device)});window.__deviceStore=require(${JSON.stringify(deviceStore)});window.__online=true;Object.defineProperty(navigator,'onLine',{get:()=>window.__online});
 const pet={id:'gizmo',customerId:'maria',name:'Gizmo',breed:'Beagle',weightLbs:24,active:true,notes:'Be gentle',careFlags:{},pictureUrl:null};
-const twoDogs=${process.argv.includes('--two-dog-photos')};const family=twoDogs?[{...pet,name:'Guillermo124'},{...pet,id:'bentley',name:'Bentley124'}]:[pet];window.__profiles={};
+const twoDogs=${process.argv.includes('--two-dog-photos')||process.argv.includes('--line-colors')};const family=twoDogs?[{...pet,name:'Guillermo124'},{...pet,id:'bentley',name:'Bentley124'}]:[pet];window.__profiles={};
 const baseTicket={id:'fixture-ticket',orderNumber:575,status:'CHECKED_IN',locationId:'fixture-shop',location:{id:'fixture-shop',timezone:'America/Chicago'},customerId:'maria',customer:{id:'maria',firstName:'Maria',lastName:'Test',email:'maria@example.invalid',phones:[{id:'phone',number:'+15555550123',isPrimary:true}],pets:family},pets:family.map(pet=>({pet,petId:pet.id})),scheduledStart:'2026-11-27T15:00:00Z',checkedInAt:'2026-11-27T15:05:00Z',arrivalPriority:7,timingMode:'CONCURRENT',durationMin:30,notes:'',assignments:[],plannedAssignments:[],scheduleHistory:[],lines:[{id:'wash',packageId:null,petId:'gizmo',pet,serviceId:'wash',description:'Full Wash',role:'BATH',lineType:'SERVICE',quantity:1,durationMin:30,unitPriceCents:6100,totalCents:6100}]};
 window.__requests=[];window.__unknown=[];window.__saved=[];window.__ticket=structuredClone(baseTicket);window.__holdTicketReads=false;window.__heldReads=[];window.__photos=[];window.__photoData={};window.__petPicture=null;
 const checkout={subtotalCents:6100,tipCents:0,salesTaxCents:0,totalCents:6100,paidCents:0,dueCents:6100};
@@ -64,6 +66,7 @@ window.fetch=async(url,options={})=>{const parsed=new URL(url,'https://fixture.i
  }
  window.__unknown.push({url,method,body});return new Response(JSON.stringify({error:'Unexpected fixture request'}),{status:500});};
 const app=createRoot(document.getElementById('app'));let fixtureKey=0;
+if(${process.argv.includes('--line-colors')})baseTicket.lines=family.flatMap(pet=>[0,1,2].map(n=>({...baseTicket.lines[0],id:pet.id+'-'+n,petId:pet.id,pet,description:'Service '+n})));
 window.__mount=(patch={})=>{window.__ticket={...structuredClone(baseTicket),...patch};window.__ticket.customer.pets[0].pictureUrl=window.__petPicture;window.__ticket.pets[0].pet.pictureUrl=window.__petPicture;app.render(h('div',{'data-fixture-key':++fixtureKey},h(PosTicketRecord,{key:fixtureKey,ticketId:'fixture-ticket',onClose:()=>{},onSaved:id=>window.__saved.push(id)})));return fixtureKey;};window.__mount();
 window.__prepareDevice=async()=>{const scope={tenantId:'fixture-business',locationId:'fixture-shop',employeeId:'anton'},s=window.__deviceStore;window.__scope=scope;await s.deviceUpdate('active-employee',()=>({scope,validUntil:Date.now()+3600000}));await s.deviceUpdate(s.outboxKey(scope),()=>s.emptyOutbox());await s.deviceUpdate(s.snapshotKey(scope),()=>({scope,employee:{id:'anton',role:'ADMIN'},location:window.__ticket.location,customers:[window.__ticket.customer],tickets:[structuredClone(window.__ticket)],drafts:[],notes:[],lookups:{}}));};`;
 const css=['app/globals.css','app/ui-refinements.css','app/ticket-workspace.css',...styles].map(file=>fs.readFileSync(path.resolve(root,file),'utf8')).join('\n');
@@ -84,6 +87,13 @@ async function main(){
  const output=path.join(root,'test-results','pos-arrival-message-photo');fs.mkdirSync(output,{recursive:true});const screenshot=async name=>fs.writeFileSync(path.join(output,name+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
  const remount=async patch=>{const key=await evaluate(`window.__mount(${JSON.stringify(patch)})`);await wait(`document.querySelector('[data-fixture-key]')?.dataset.fixtureKey===${JSON.stringify(String(key))} && document.querySelector('[aria-label="Arrival priority"]')?.value===${JSON.stringify(String(patch.arrivalPriority??''))} && document.querySelector('[data-customer-id]')?.dataset.customerId==='maria'`)};
  await send('Runtime.enable');await send('Page.enable');await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await send('Page.navigate',{url:'http://127.0.0.1:'+fixtureServer.address().port});await wait(`document.querySelector('[aria-label="Arrival priority"]')?.value==='7'`);
+ if(process.argv.includes('--line-colors')){
+  await wait(`document.querySelectorAll('tbody[data-dog-items] tr[data-line-band]').length===6`);
+  const bands=await evaluate(`Array.from(document.querySelectorAll('tbody[data-dog-items]'),group=>Array.from(group.querySelectorAll('[data-line-band]'),row=>[row.dataset.lineBand,getComputedStyle(row.cells[0]).backgroundColor]))`);
+  assert.deepEqual(bands.map(group=>group.map(([band])=>band)),[['0','1','0'],['0','1','0']]);
+  assert.deepEqual(bands[0],bands[1]);assert.notEqual(bands[0][0][1],bands[0][1][1]);
+  console.log('PASS: pastel service lines alternate and restart for each dog.');return;
+ }
  if(process.argv.includes('--pet-actions')){
   await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Offer Today').click()`);
   await wait(`document.activeElement?.getAttribute('aria-label')==='Search Offer Today'`);
@@ -93,6 +103,7 @@ async function main(){
  }
  if(process.argv.includes('--confirmation')){
   const area='.gp-ticket-confirmation-request';
+  await wait(`document.querySelector('.gp-pos-compact-header .gp-ticket-confirmation-request')?.previousElementSibling?.querySelector('[data-pos-control=date]')!=null`);
   await wait(`document.querySelector('${area}')?.textContent.includes('already here')`);
   await evaluate('window.__failNotice=true');
   await remount({status:'OPEN',checkedInAt:null,arrivalPriority:null});
@@ -108,9 +119,10 @@ async function main(){
   console.log('PASS: confirmation submission and shop-local sent history after reopening.');return;
  }
  if(process.argv.includes('--backfill')){
-  await evaluate("window.__backfill=true;window.__mount({status:'READY',arrivalPriority:null})");
+  await evaluate("window.addEventListener('groompro:arrival-repaired',e=>window.__calendarRepair=e.detail,{once:true});window.__backfill=true;window.__mount({status:'READY',arrivalPriority:null})");
   await wait(`document.querySelector('[aria-label="Arrival priority"]')?.value==='5'`);
   assert.equal(await evaluate('window.__ticket.status'),'READY');
+  assert.equal(await evaluate('window.__calendarRepair.arrivalPriority'),5);
   console.log('PASS: reopening a ready ticket fills its missing order automatically.');return;
  }
  if(process.argv.includes('--two-dog-photos')){

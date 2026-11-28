@@ -45,7 +45,7 @@ export function AppNavigation<T extends string>({modules,active,onSelect,onCalen
  const calendarShortcuts=Boolean(onCalendarView&&modules.some(value=>value==='Calendar'));
  const navigationModules=calendarShortcuts?modules.filter(module=>module!=='Calendar'):modules;
  const defaultItems=[
-  {key:'Quick Clock In/Out',label:'Quick Clock In/Out',current:clockOpen,select:()=>setClockOpen(true)},
+  {key:'Quick Clock In/Out',label:'Clock In/Out',current:clockOpen,select:()=>setClockOpen(true)},
   ...(calendarShortcuts?(['Map','Day','Week'] as const).map(view=>({key:view,label:view,current:false,select:()=>onCalendarView?.(view)})):[]),
   ...[...navigationModules.filter(module=>module==='Tickets'),...navigationModules.filter(module=>module!=='Tickets')]
    .map(module=>({key:module,label:module,current:active===module,select:()=>onSelect(module)})),

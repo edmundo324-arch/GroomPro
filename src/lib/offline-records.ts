@@ -260,7 +260,7 @@ export function projectOffline(state: OfflineRecords, command: OfflineCommand) {
         const zone=state.location?.timezone||'America/Chicago';
         const day=(t:any)=>zonedParts(new Date(t.scheduledStart||t.checkedInAt||now),zone).date;
         const visitDay=day(ticket);
-        ticket.localArrivalOrder=1+state.tickets.reduce((max,t)=>t.id!==ticket.id&&t.locationId===ticket.locationId&&day(t)===visitDay?Math.max(max,t.arrivalPriority||t.localArrivalOrder||0):max,0);
+        ticket.localArrivalOrder=1+state.tickets.reduce((max,t)=>(t.arrivalPriority||t.localArrivalOrder)&&t.id!==ticket.id&&t.locationId===ticket.locationId&&day(t)===visitDay?Math.max(max,t.arrivalPriority||t.localArrivalOrder||0):max,0);
       }
     }
     if (details.status === 'READY'||details.status === 'READY_FOR_PICKUP') ticket.pickupAt = priorStatus==='READY'?ticket.pickupAt||now:now;
